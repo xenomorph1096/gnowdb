@@ -1,7 +1,6 @@
 (ns gnowdb.core
   (:gen-class)
-  (:require [gnowdb.coreapi :as coreapi]
-            [gnowdb.app :as app]))
+  (:require [gnowdb.neo4j :as neo4j]))
 
 
 (defn reload-all

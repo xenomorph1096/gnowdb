@@ -2,7 +2,7 @@
 (import com.tinkerpop.blueprints.impls.orient.OrientGraph)
 
 (defn getOrientDBDetails
-  "Get OrientDB Connectoin info"
+  "Get OrientDB Connection info"
   []
   ["remote:localhost/mydb" "admin" "admin"])
 

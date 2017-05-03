@@ -1,4 +1,5 @@
-(ns gnowdb.neo4j)
+(ns gnowdb.neo4j
+  (:require [clojure.set :as clojure.set]))
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values])
 
 

@@ -4,7 +4,7 @@
         [com.orientechnologies.orient.core.command.script OCommandScript])
 
 (defn getOrientDBDetails
-  "Get OrientDB Connectoin info"
+  "Get OrientDB Connection info"
   []
   ["remote:localhost/mydb" "admin" "admin"])
 

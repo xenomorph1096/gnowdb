@@ -3,6 +3,7 @@
   (:require [gnowdb.neo4j :as neo4j]
             [gnowdb.orientdb :as orientdb]))
 
+(use 'clojure.reflect)
 
 (defn reload-all
   "Reload All"

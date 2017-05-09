@@ -12,7 +12,8 @@
                  [com.orientechnologies/orientdb-client "2.2.19"]
                  [com.orientechnologies/orientdb-core "2.2.19"]
                  [com.tinkerpop.blueprints/blueprints-core "2.6.0"]
-                 [com.orientechnologies/orientdb-graphdb "2.2.19"]]
+                 [com.orientechnologies/orientdb-graphdb "2.2.19"]
+                 [org.clojure/data.json "0.2.6"]]
   :main ^:skip-aot gnowdb.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}

@@ -1,15 +1,19 @@
 (ns gnowdb.orientdb
   (:require [clojure.string :as clojure.string]
-            [clojure.data.json :as clojure.data.json]))
-(import [com.tinkerpop.blueprints.impls.orient OrientGraphFactory OrientGraph OrientVertex OrientEdge OrientVertexType OrientEdgeType]
+            [clojure.data.json :as clojure.data.json]
+            [clojure.set :as clojure.set]))
+(import [com.tinkerpop.blueprints.impls.orient OrientGraphFactory OrientGraph OrientBaseGraph OrientVertex OrientEdge OrientVertexType OrientEdgeType]
         [com.orientechnologies.orient.core.sql OCommandSQL]
         [com.orientechnologies.orient.core.command.script OCommandScript]
         [com.tinkerpop.blueprints Direction])
 
+(defn contains-value? [coll element]
+  (boolean (some #(= element %) coll)))
+
 (defn getOrientDBDetails
   "Get OrientDB Connection info"
   []
-  ["remote:localhost/mydb" "admin" "admin"])
+  ["remote:localhost/GnowDB" "root" "root"])
 
 (defn connect
   "Connect to orientdb and get OrientGraphFactory Object"
@@ -41,12 +45,13 @@
     (finally (.shutdown orientGraph)))
   vertices)
 
+
 ;; (defn createDCProperties
 ;;   "Create Dublin Core Metadata Properties for Class"
 ;;   [^OrientGraph orientGraph
 ;;    ^String className]
 ;;   (def DCProperties [{:name "Title" :type "STRING"} {:name "Creator" :type "STRING"} {:name "Subject" :type "STRING"} {:name "Description" :type "STRING"} {:name "Publisher" :type "STRING"} {:name "Contributor" :type "STRING"} {:name "Date" :type "DATE"} {:name "Type" :type "STRING"} {:name "Format" :type "STRING"} {:name "Identifier" :type "STRING"} {:name "Source" :type "STRING"} {:name "Language" :type "STRING"} {:name "Relation" :type "STRING"} {:name "Coverage" :type "STRING"} {:name "Rights" :type "STRING"}])
-;;   (dorun (map (fn [DCP]
+;;   (doall (map (fn [DCP]
 ;;                 (execCommand orientGraph (str "CREATE PROPERTY " className "." (DCP :name) " IF NOT EXISTS " (DCP :type)))) DCProperties)))
 
 ;; (defn createDCGenClass
@@ -124,11 +129,16 @@
   "Create Constraint String."
   [pconstraints]
   (def constraintStringVec [])
-  (dorun (map (fn
+  (doall (map (fn
          [pconstraint]
          (def constraintStringVec (conj constraintStringVec (str (pconstraint :cname) " " (if (= (pconstraint :ctype) "BOOLEAN") (pconstraint :cval) (str "\"" (pconstraint :cval) "\"")))))) pconstraints))
   (def constraintString (if (empty? constraintStringVec) (str "") (str "(" (clojure.string/join ", " constraintStringVec) ")")))
   constraintString)
+
+(defn makeUniqIndexName
+  "Create an index name that hopes to be unique."
+  [className properties]
+  (str className "_" (clojure.string/join "_" properties) ".UNIQUE"))
 
 (defn makePropertyListUnique
   "Creates a composite Index on a list of properties(as a vector) of a class to make them compositely unique.
@@ -164,18 +174,17 @@
                    :cname can be one of : 'MIN', 'MAX', 'MANDATORY', 'READONLY', 'NOTNULL', 'REGEXP'
                    :ctype can be one of : 'STRING', 'BOOLEAN'.
                    :cval takes a value according to choice of :cname and :ctype
-  
-  'pUniques' : A vector (can be empty) of Maps with the following keys :':indexName', ':propertyListVec'"
-  [className,propertyVec,pUniques]
+  'pUniques' : A vector (can be empty) of Maps with the following keys : ':propertyListVec'"
+  [className,propertyVec & [pUniques]]
   (def orientGF (connect))
   (def orientGraph (.getNoTx orientGF))
   (try
-    (dorun (map (fn
+    (doall (map (fn
                   [propertyMap]
                   (createProperty className propertyMap orientGraph)) propertyVec))
-    (dorun (map (fn
+    (doall (map (fn
                   [pUnique]
-                  (makePropertyListUnique (pUnique :indexName) className (pUnique :propertyListVec))) pUniques))
+                  (makePropertyListUnique (makeUniqIndexName className (pUnique :propertyListVec)) className (pUnique :propertyListVec))) pUniques))
     (catch Exception E (do
                          (.printStackTrace E)
                          (.getMessage E)))
@@ -185,13 +194,13 @@
   "Create AttributeType Vertex Class"
   []
   (createClass "AttributeType" "V" false)
-  (createProperties "AttributeType" [{:pname "_name" :pdatatype "STRING" :pconstraints [{:cname "MANDATORY" :ctype "BOOLEAN" :cval "TRUE"} {:cname "MIN" :ctype "STRING" :cval "1"} {:cname "NOTNULL" :ctype "BOOLEAN" :cval "TRUE"}]} {:pname "_datatype" :pdatatype "STRING" :pconstraints [{:cname "MANDATORY" :ctype "BOOLEAN" :cval "TRUE"} {:cname "MIN" :ctype "STRING" :cval "1"} {:cname "NOTNULL" :ctype "BOOLEAN" :cval "TRUE"}]} {:pname "_subjectTypes" :pdatatype "EMBEDDEDLIST" :pconstraints []}] [{:indexName "_name_UNIQ_AT" :propertyListVec ["_name"]}]))
+  (createProperties "AttributeType" [{:pname "_name" :pdatatype "STRING" :pconstraints [{:cname "MANDATORY" :ctype "BOOLEAN" :cval "TRUE"} {:cname "MIN" :ctype "STRING" :cval "1"} {:cname "NOTNULL" :ctype "BOOLEAN" :cval "TRUE"}]} {:pname "_datatype" :pdatatype "STRING" :pconstraints [{:cname "MANDATORY" :ctype "BOOLEAN" :cval "TRUE"} {:cname "MIN" :ctype "STRING" :cval "1"} {:cname "NOTNULL" :ctype "BOOLEAN" :cval "TRUE"}]} {:pname "_subjectTypes" :pdatatype "EMBEDDEDLIST" :pconstraints []}] [{:propertyListVec ["_name"]}]))
 
 (defn createVCClass
   "Create ValueConstraint Vertex Class"
   []
   (createClass "ValueConstraint" "V" false)
-  (createProperties "ValueConstraint" [{:pname "_cname" :pdatatype "STRING" :pconstraints [{:cname "MANDATORY" :ctype "BOOLEAN" :cval "TRUE"} {:cname "MIN" :ctype "STRING" :cval "1"} {:cname "NOTNULL" :ctype "BOOLEAN" :cval "TRUE"}]} {:pname "_ctype" :pdatatype "STRING" :pconstraints [{:cname "MANDATORY" :ctype "BOOLEAN" :cval "TRUE"} {:cname "MIN" :ctype "STRING" :cval "1"} {:cname "NOTNULL" :ctype "BOOLEAN" :cval "TRUE"}]}] [{:indexName "_cname_UNIQ_VC" :propertyListVec ["_cname"]}]))
+  (createProperties "ValueConstraint" [{:pname "_cname" :pdatatype "STRING" :pconstraints [{:cname "MANDATORY" :ctype "BOOLEAN" :cval "TRUE"} {:cname "MIN" :ctype "STRING" :cval "1"} {:cname "NOTNULL" :ctype "BOOLEAN" :cval "TRUE"}]} {:pname "_ctype" :pdatatype "STRING" :pconstraints [{:cname "MANDATORY" :ctype "BOOLEAN" :cval "TRUE"} {:cname "MIN" :ctype "STRING" :cval "1"} {:cname "NOTNULL" :ctype "BOOLEAN" :cval "TRUE"}]}] [{:propertyListVec ["_cname"]}]))
 
 (defn createVC
   "Create ValueConstraint"
@@ -212,9 +221,9 @@
   "Create all the ValueConstraints"
   []
   (def VCS [{:cname "MIN" :ctype "STRING"} {:cname "MAX" :ctype "STRING"} {:cname "REGEX" :ctype "STRING"} {:cname "MANDATORY" :ctype "BOOLEAN"} {:cname "NOTNULL" :ctype "BOOLEAN"} {:cname "READONLY" :ctype "BOOLEAN"}])
-  (map (fn
+  (doall (map (fn
          [VC]
-         (createVC (VC :cname) (VC :ctype))) VCS))
+         (createVC (VC :cname) (VC :ctype))) VCS)))
 
 (defn createCATClass
   "Create ConstraintAppliesTo Edge Class"
@@ -234,7 +243,7 @@
   (try
     (def sqlBatch (str "BEGIN\n"
                        "LET ATVertex = CREATE VERTEX AttributeType SET _name = '" _name "', _datatype = '" _datatype "', _subjectTypes = '" _subjectTypes "' \n"))
-    (dorun
+    (doall
      (map (fn
             [VC]
             (def sqlBatch (str sqlBatch
@@ -257,6 +266,14 @@
         (.rollback orientGraph)))
     (finally (.shutdown orientGraph))))
 
+(defn createATs
+  "Create Multiple AttributeTypes.
+  ATInput should be a vector of maps with keys: ':name', ':datatype', ':subjectTypes', ':constraintsVec'"
+  [ATInput]
+  (doall (map (fn
+         [ATI]
+         (createAT (ATI :name) (ATI :datatype) (ATI :subjectTypes) (ATI :constraintsVec))) ATInput)))
+
 (defn parseATs
   "Parses a vector of Vertices of Vertex Class AttributeType.
   Returns a vector of all properties of ATs including constraints by parsing ConstraintAppliesTo Edges 'IN' to the AT.
@@ -264,13 +281,14 @@
   [ATVertices orientGraph]
   (def ATVs [])
   (try
-    (dorun (map
+    (doall (map
             (fn
               [ATVertex]
               (def ATV (into {} (.getProperties ATVertex)))
+              (def ATV (assoc ATV "_subjectTypes" (into [] (ATV "_subjectTypes"))))
               (def CATEdges (vec (iterator-seq (.iterator (.getEdges ATVertex Direction/IN (into-array ["ConstraintAppliesTo"]))))))
               (def ATConstraints [])
-              (dorun (map
+              (doall (map
                       (fn
                         [CATEdge]
                         (def CAT (into {} (.getProperties CATEdge)))
@@ -301,3 +319,83 @@
         (.getMessage E)))
     (finally (.shutdown orientGraph)))
   ATVs)
+
+;; (defn editElementAttribute
+;;   "Edit a property of an element."
+;;   [className propertyName propertyVal]
+;;   ())
+
+;; (defn addATSubjectType
+;;   "Add a subjectType to an AttributeType"
+;;   [_name subjectType]
+;;   (def ))
+
+(defn addXTAttribute
+  "Add a Property using existing AttributeType to a NodeType/RelationType"
+  [className _name]
+  (def orientGF (connect))
+  (def orientGraph (.getTx orientGF))
+  (try
+    (def tempGraph (.getNoTx orientGF))
+    (def exes (.getVertices tempGraph "AttributeType" (into-array ["_name"]) (into-array [_name])))
+    (def Xs (parseATs exes tempGraph))
+    (if
+        (not= 1 (count Xs))
+      (throw (Exception. (str "Unique AttributeType not Found : " _name))))
+    (def X (Xs 0))
+    (def constraintsVec
+      (vec (pmap (fn
+             [VC]
+              (clojure.set/rename-keys VC {"_cval" :cval "_ctype" :ctype "_cname" :cname})) (X :constraints))))
+    (def X (assoc X :constraints constraintsVec))
+    (def X (clojure.set/rename-keys X {"_subjectTypes" :subjectTypes "_name" :pname "_datatype" :pdatatype :constraints :pconstraints}))
+    (def EX ((vec (iterator-seq (.iterator exes))) 0))
+    (if (not (contains-value? (X :subjectTypes) className))
+      (.setProperty EX "_subjectTypes" (java.util.ArrayList. (conj (X :subjectTypes) className))))
+    (createProperty className X orientGraph)
+    (.commit orientGraph)
+    (catch Exception E
+      (do
+        (.printStackTrace E)
+        (.getMessage E)
+        (.rollback orientGraph)))
+    (finally (.shutdown orientGraph))))
+
+(defn addXTAttributes
+  "Add Properties using AttributeTypes to a NodeType/RelationType.
+  attributeTypesVec should be a vector of strings. Each string should match '_name' property of an existing AttributeType.
+  newAttributeTypes should be a vector."
+  [className attributeTypesVecI & [newAttributeTypes pUniques]]
+  (createATs newAttributeTypes)
+  (def attributeTypesVec (vec (concat attributeTypesVecI (vec (map (fn
+                                                                    [newAt]
+                                                                    (newAt :name)) newAttributeTypes)))))
+  (doall (map (fn
+         [_name]
+                (addXTAttribute className _name)) attributeTypesVec))
+  (doall (map (fn
+                [pUnique]
+                (makePropertyListUnique (makeUniqIndexName className pUnique) className pUnique)) pUniques)))
+
+(defn createXTClasses
+  "Create Abstract NodeType and RelationType classes"
+  []
+  (createClass "NodeTypeAbs" "V" true)
+  (addXTAttributes "NodeTypeAbs" [] [{:name "name" :datatype "STRING" :subjectTypes nil :constraintsVec [{:cname "MANDATORY" :cval "TRUE"} {:cname "NOTNULL" :cval "TRUE"} {:cname "MIN" :cval "1"}]} {:name "altname" :datatype "STRING" :subjectTypes nil :constraintsVec [{:cname "MANDATORY" :cval "TRUE"} {:cname "NOTNULL" :cval "TRUE"} {:cname "MIN" :cval "1"}]}] [["name"]])
+  (createClass "RelationTypeAbs" "E" true)
+  (addXTAttributes "RelationTypeAbs" ["name" "altname"] [] [["name"]]))
+
+(defn gnowsysInit
+  "Creates all essential Classes, All ValueConstraints"
+  []
+  (createATClass)
+  (createVCClass)
+  (createCATClass)
+  (createAllVC)
+  (createXTClasses))
+
+
+;; TODO FOUND Cause of abnormal errors. variables defined using 'def' exist outside 'scope' .... noob mistake. Henceforth... using let instead of def
+
+
+

@@ -28,19 +28,6 @@
                   (swap! fieldMap assoc (str (.key field)) (.value field))) fieldList))
     @fieldMap))
 
-(defn getCombinedFullSummary
-  "Combine FullSummaries obtained from 'getFullSummary'"
-  [fullSummaryVec]
-  (let [cSummaryMap (atom {:constraintsAdded 0 :constraintsRemoved 0 :containsUpdates false :indexesAdded 0 :indexesRemoved 0 :labelsAdded 0 :labelsRemoved 0 :nodesCreated 0 :nodesDeleted 0 :propertiesSet 0 :relationshipsCreated 0 :relationshipsDeleted 0})]
-    (doall (map (fn
-                  [fSum]
-                  (let [fSumKeys (keys (fSum :summaryMap))]
-                    (doall (map (fn
-                                  [fSumKey]
-                                  (if (= java.lang.Boolean (type ((fSum :summaryMap) fSumKey)))
-                                    (swap! cSummaryMap assoc fSumKey (or (@cSummaryMap fSumKey) ((fSum :summaryMap) fSumKey)))
-                                    (swap! cSummaryMap assoc fSumKey (+ (@cSummaryMap fSumKey) ((fSum :summaryMap) fSumKey))))) fSumKeys)))) fullSummaryVec))
-    {:summaryMap @cSummaryMap :summaryString (createSummaryString @cSummaryMap)}))
 
 (defn parseStatementRecordList
   "Convert Record List to String clojure list"
@@ -83,6 +70,20 @@
   [statementResult]
   (let [sumMap (createSummaryMap statementResult)]
     {:summaryMap sumMap :summaryString (createSummaryString sumMap)}))
+
+(defn getCombinedFullSummary
+  "Combine FullSummaries obtained from 'getFullSummary'"
+  [fullSummaryVec]
+  (let [cSummaryMap (atom {:constraintsAdded 0 :constraintsRemoved 0 :containsUpdates false :indexesAdded 0 :indexesRemoved 0 :labelsAdded 0 :labelsRemoved 0 :nodesCreated 0 :nodesDeleted 0 :propertiesSet 0 :relationshipsCreated 0 :relationshipsDeleted 0})]
+    (doall (map (fn
+                  [fSum]
+                  (let [fSumKeys (keys (fSum :summaryMap))]
+                    (doall (map (fn
+                                  [fSumKey]
+                                  (if (= java.lang.Boolean (type ((fSum :summaryMap) fSumKey)))
+                                    (swap! cSummaryMap assoc fSumKey (or (@cSummaryMap fSumKey) ((fSum :summaryMap) fSumKey)))
+                                    (swap! cSummaryMap assoc fSumKey (+ (@cSummaryMap fSumKey) ((fSum :summaryMap) fSumKey))))) fSumKeys)))) fullSummaryVec))
+    {:summaryMap @cSummaryMap :summaryString (createSummaryString @cSummaryMap)}))
 
 (defn getAllLabels
   "Get all the Labels from the graph, parsed."

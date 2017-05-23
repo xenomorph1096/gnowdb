@@ -8,12 +8,7 @@
             :url "https://www.gnu.org/licenses/agpl.txt"}
   :dependencies [
                  [org.clojure/clojure "1.8.0"]
-                 [org.neo4j.driver/neo4j-java-driver "1.2.1"]
-                 [com.orientechnologies/orientdb-client "2.2.19"]
-                 [com.orientechnologies/orientdb-core "2.2.19"]
-                 [com.tinkerpop.blueprints/blueprints-core "2.6.0"]
-                 [com.orientechnologies/orientdb-graphdb "2.2.19"]
-                 [org.clojure/data.json "0.2.6"]]
+                 [org.neo4j.driver/neo4j-java-driver "1.3.0"]]
   :main ^:skip-aot gnowdb.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}

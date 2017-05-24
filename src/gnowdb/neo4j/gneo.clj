@@ -430,8 +430,11 @@
   propertyMap : optional propertyMap.
   _constraintsVec : vector of maps with keys 'constraintType', 'constraintTarget', 'constraintValue'."
   [isAbstract? className classType superClasses _attributeTypes &[propertyMap newAttributeTypes _constraintsVec]]
-  ;;TODO SUPERCLASS STUFF , ie check if new constraints have the same constraintTarget as classType
   (let [attributeTypes (atom []) constraintsVec (atom [])]
+    (doall (map (fn
+                  [_constraint]
+                  (if (not= classType (_constraint "constraintTarget"))
+                    (throw (Exception. (str "ConstraintTarget should be same as classType" _constraint))))) _constraintsVec))
     (doall (map (fn
                   [superClass]
                   (let [fetchedClass (getNodesParsed "Class" {"className" superClass}) c_attributeTypes (atom []) c_constraintsVec (atom [])]
@@ -449,10 +452,10 @@
     (let [driver (getDriver) session (.session driver) fullSummary (atom nil) constraintValues (vec (map (fn [constraint] {"constraintValue" (constraint "constraintValue")}) @constraintsVec)) subConstraintsVec (vec (map (fn [constraint] (dissoc constraint "constraintValue")) @constraintsVec)) combinedPropertyMap (combinePropertyMap (merge {"C" (merge {"isAbstract" isAbstract? "className" className "classType" classType} propertyMap)} (addStringToMapKeys (into {} (map-indexed vector @attributeTypes)) "AT") (addStringToMapKeys (into {} (map-indexed vector newAttributeTypes)) "NAT") (addStringToMapKeys (into {} (map-indexed vector subConstraintsVec)) "NEOC") (addStringToMapKeys (into {} (map-indexed vector constraintValues)) "NEOCV") (addStringToMapKeys (into {} (map-indexed vector ((fn [] (let [newMaps (atom [])] (doall (map (fn [superClass] (swap! newMaps conj {"className" superClass})) superClasses)) @newMaps))))) "SUP"))) cypherQuery (atom nil)]
       (if (or (not (contains? #{"NODE" "RELATION"} classType)) (not (= "java.lang.Boolean" (.getName (type isAbstract?)))))
         (throw (Exception. "classType or isAbstract? arguments dont conform to their standards. Read DOC")))
-      (reset! cypherQuery (str " MATCH " (clojure.string/join ", " (map (fn
-                                                                          [attribute]
-                                                                          (let [atindex (.indexOf @attributeTypes attribute)]
-                                                                            (str "(AT" atindex ":AttributeType " ((combinedPropertyMap :propertyStringMap) (str atindex "AT")) ") "))) @attributeTypes)) (if (or (= 0 (count @attributeTypes)) (= 0 (count superClasses))) "" ", ")
+      (reset! cypherQuery (str (if (= 0 (count (vec (concat @attributeTypes superClasses @constraintsVec)))) "" " MATCH ") (clojure.string/join ", " (map (fn
+                                                                                                                                                            [attribute]
+                                                                                                                                                            (let [atindex (.indexOf @attributeTypes attribute)]
+                                                                                                                                                              (str "(AT" atindex ":AttributeType " ((combinedPropertyMap :propertyStringMap) (str atindex "AT")) ") "))) @attributeTypes)) (if (or (= 0 (count @attributeTypes)) (= 0 (count superClasses))) "" ", ")
                                (clojure.string/join ", " (map (fn
                                                                 [superClass]
                                                                 (let

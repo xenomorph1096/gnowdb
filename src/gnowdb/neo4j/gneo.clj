@@ -640,3 +640,51 @@
                            (createCATConstraints)
                            (createClassConstraints)
                            (createAllNeoConstraints)]))
+
+(defn validatePropertyMap
+  "Validates a propertyMap for a class with className.
+  Assumes class with given className exists"
+  [className propertyMap]
+  (let [classAttributeTypes (getClassAttributeTypes className) errors (atom [])]
+    (if (> (count (keys propertyMap)) (count classAttributeTypes))
+      (swap! errors conj  (str "No of properties (" (count (keys propertyMap)) ") > No of AttributeTypes (" (count classAttributeTypes) ")")))
+    (doall (pmap (fn
+                   [property]
+                   (if (not= 1 (count (filter (fn [classAttributeType] (= classAttributeType {"_name" property "_datatype" (.getName (type (propertyMap property)))})) classAttributeTypes)))
+                     (swap! errors conj (str "Unique AttributeType _name : " property ", _datatype : " (.getName (type (propertyMap property))) " not found for Class : " className)))) (keys propertyMap)))
+    @errors))
+
+(defn createNodeInstance
+  "Creates a node , as an instance of a class with classType:NODE."
+  [className propertyMap]
+  (let [nodeClass (getNodesParsed "Class" {"className" className "classType" "NODE"})]
+    (if (not= 1 (count nodeClass))
+      (throw (Exception. (str "Unique Node Class with className:" className " ,classType:NODE doesn't exist")))
+      (if (((nodeClass 0) :properties) "isAbstract")
+        (throw (Exception. (str className " is Abstract"))))))
+  (let [propertyErrors (validatePropertyMap className propertyMap)]
+    (if (not= 0 (count propertyErrors))
+      (throw (Exception. (str "PropertyMap is not valid : " propertyErrors)))))
+  (createNewNode className propertyMap))
+
+(defn createRelationInstance
+  "Creates a relation between two nodes, as an instance of a class with classType:RELATION.
+  fromClassName: className of 'out' label.
+  fromPropertyMap: a property map that matches one or more 'out' nodes.
+  propertyMap: relation propertyMap.
+  toClassName: className of 'in' label.
+  toPropertyMap: a property map that matches one or more 'in' nodes."
+  [className fromClassName fromPropertyMap propertyMap toClassName toPropertyMap]
+  (let [relClass (getNodesParsed "Class" {"className" className "classType" "RELATION"})]
+    (if (not= 1 (count relClass))
+      (throw (Exception. (str "Unique Relation Class with className:" className " ,classType:RELATION doesn't exist")))
+      (if (((relClass 0) :properties) "isAbstract")
+        (throw (Exception. (str className " is Abstract"))))))
+  (if (not= 1 (count (getNodesParsed "Class" {"className" fromClassName "classType" "NODE"})))
+    (throw (Exception. (str "Unique Node Class with className:" fromClassName " ,classType:NODE doesn't exist"))))
+  (if (not= 1 (count (getNodesParsed "Class" {"className" toClassName "classType" "NODE"})))
+    (throw (Exception. (str "Unique Node Class with className:" toClassName " ,classType:NODE doesn't exist"))))
+  (let [propertyErrors (validatePropertyMap className propertyMap)]
+    (if (not= 0 (count propertyErrors))
+      (throw (Exception. (str "PropertyMap is not valid : " propertyErrors)))))
+  (createRelation fromClassName fromPropertyMap className propertyMap toClassName toPropertyMap))

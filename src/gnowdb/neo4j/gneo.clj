@@ -424,7 +424,25 @@
                                                                                      (into {} (.asMap (.value field)))) fieldsVec)))))
                          @retMap)) retVec)))))
 
+(defn applyClassNeoConstraint
+  "Apply a NeoConstraint that apply to a class.
+  className: "
+  [className _constraintType _constraintTarget _constraintValue]
+  (let [CD "CREATE" constraintType (atom "") propertyVec [_constraintValue]]
+    (reset! constraintType
+            (case _constraintType
+              ("UNIQUE" "NODEKEY") _constraintType
+              "EXISTANCE" (str _constraintTarget _constraintType)))
+    (manageConstraints className CD propertyVec @constraintType)))
+
+(defn applyClassNeoConstraints
+  "Apply all NeoConstraints for a class."
+  [className]
+  (getCombinedFullSummary (vec (doall (map (fn [classNeoConstraint] (applyClassNeoConstraint className (classNeoConstraint "constraintType") (classNeoConstraint "constraintTarget") (classNeoConstraint "constraintValue"))) (getClassNeoConstraints className))))))
+
 (defn createClassSQ
+  ;; WARNING!!!!!!!!!!!!!!! NOT BUG FREE ... YET ... BUT SINGLE QUERY.... SO TRANSACTIONAL, ie SOMEWHAT SAFE. 
+  
   "Creates a node with label Class (Sequentially in a cypher query).
   isAbstract : true or false.
   className : unique string.
@@ -492,7 +510,7 @@
                                                                 [constraint]
                                                                 (let [neocindex (.indexOf @constraintsVec constraint)]
                                                                   (str "(NEOC" neocindex ")-[NEOCAT" neocindex ":NeoConstraintAppliesTo " ((combinedPropertyMap :propertyStringMap) (str neocindex "NEOCV")) "]->(newClass)"))) @constraintsVec))))
-      (reset! fullSummary (getFullSummary (.run session @cypherQuery (combinedPropertyMap :combinedPropertyMap))))
+      (reset! fullSummary (getCombinedFullSummary [(getFullSummary (.run session @cypherQuery (combinedPropertyMap :combinedPropertyMap))) (applyClassNeoConstraints className)]))
       (.close driver)
       @fullSummary)))
 
@@ -591,7 +609,7 @@
                     (reset! constraintsVec (vec (distinct (concat @constraintsVec (getClassNeoConstraints superClass))))))) superClasses))
     (reset! attributeTypes (vec (distinct (concat @attributeTypes _attributeTypes))))
     (reset! constraintsVec (vec (distinct (concat @constraintsVec _constraintsVec))))
-    (if transactional?
+    (getCombinedFullSummary [(if transactional?
       (let [driver (getDriver) session (.session driver) trx (.beginTransaction session) summaries (atom [])]
         (try
           ;; (swap! summaries conj (createNewNode_tx "Class" (merge {"className" className "classType" classType "isAbstract" isAbstract?} propertyMap) trx))
@@ -612,7 +630,7 @@
                      (.close session)
                      (.close driver))))
         (getCombinedFullSummary @summaries))
-      (getCombinedFullSummary (vec (concat [(createNewNode "Class" (merge {"className" className "classType" classType "isAbstract" isAbstract?}))] (vec (doall (map getCombinedFullSummary (vec (doall (pcalls (fn [] (vec (doall (pmap (fn [attributeType] (addClassAT className (attributeType "_name") (attributeType "_datatype"))) @attributeTypes)))) (fn [] (vec (doall (pmap (fn [constraint] (addClassNC className (constraint "constraintType") (constraint "constraintTarget") (constraint "constraintValue"))) @constraintsVec)))) (fn [] (vec (doall (pmap (fn [superClass] (addClassSup className superClass)) superClasses))))))))))))))))
+      (getCombinedFullSummary (vec (concat [(createNewNode "Class" (merge {"className" className "classType" classType "isAbstract" isAbstract?}))] (vec (doall (map getCombinedFullSummary (vec (doall (pcalls (fn [] (vec (doall (pmap (fn [attributeType] (addClassAT className (attributeType "_name") (attributeType "_datatype"))) @attributeTypes)))) (fn [] (vec (doall (pmap (fn [constraint] (addClassNC className (constraint "constraintType") (constraint "constraintTarget") (constraint "constraintValue"))) @constraintsVec)))) (fn [] (vec (doall (pmap (fn [superClass] (addClassSup className superClass)) superClasses)))))))))))))) (applyClassNeoConstraints className)])))
 
 (defn gnowdbInit
   "Create Initial constraints"

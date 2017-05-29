@@ -199,6 +199,11 @@
     (.close driver)
     @fullSummary))
 
+(defn createNewNode_tx
+  "Create a new Node under a transaction."
+  [label propertyMap tx]
+  (getFullSummary (.run tx (str "CREATE (node:" label " " (createParameterPropertyString propertyMap) " )") (java.util.HashMap. propertyMap))))
+
 (defn createRelation
   "Relate two nodes matched with their properties (input as clojure map) with it's own properties"
   [label1 propertyMap1 relationshipType relationshipPropertyMap label2 propertyMap2]
@@ -424,9 +429,27 @@
                                                                                      (into {} (.asMap (.value field)))) fieldsVec)))))
                          @retMap)) retVec)))))
 
-(defn createClass
-  "Creates a node with label Class.
-  isAbstract : true.
+(defn applyClassNeoConstraint
+  "Apply a NeoConstraint that apply to a class.
+  className: "
+  [className _constraintType _constraintTarget _constraintValue]
+  (let [CD "CREATE" constraintType (atom "") propertyVec [_constraintValue]]
+    (reset! constraintType
+            (case _constraintType
+              ("UNIQUE" "NODEKEY") _constraintType
+              "EXISTANCE" (str _constraintTarget _constraintType)))
+    (manageConstraints className CD propertyVec @constraintType)))
+
+(defn applyClassNeoConstraints
+  "Apply all NeoConstraints for a class."
+  [className]
+  (getCombinedFullSummary (vec (doall (map (fn [classNeoConstraint] (applyClassNeoConstraint className (classNeoConstraint "constraintType") (classNeoConstraint "constraintTarget") (classNeoConstraint "constraintValue"))) (getClassNeoConstraints className))))))
+
+(defn createClassSQ
+  ;; WARNING!!!!!!!!!!!!!!! NOT BUG FREE ... YET ... BUT SINGLE QUERY.... SO TRANSACTIONAL, ie SOMEWHAT SAFE. 
+  
+  "Creates a node with label Class (Sequentially in a cypher query).
+  isAbstract : true or false.
   className : unique string.
   classType : either 'NODE' or 'RELATION'.
   superClasses : vector of classNames.
@@ -492,6 +515,181 @@
                                                                 [constraint]
                                                                 (let [neocindex (.indexOf @constraintsVec constraint)]
                                                                   (str "(NEOC" neocindex ")-[NEOCAT" neocindex ":NeoConstraintAppliesTo " ((combinedPropertyMap :propertyStringMap) (str neocindex "NEOCV")) "]->(newClass)"))) @constraintsVec))))
-      (reset! fullSummary (getFullSummary (.run session @cypherQuery (combinedPropertyMap :combinedPropertyMap))))
+      (reset! fullSummary (getCombinedFullSummary [(getFullSummary (.run session @cypherQuery (combinedPropertyMap :combinedPropertyMap))) (applyClassNeoConstraints className)]))
       (.close driver)
       @fullSummary)))
+
+(defn addClassAT_tx
+  "Adds a relation HasAttributeType from Class to AttributeType under transaction.
+  tx: neo4j bolt transaction object or session object
+  _atname: _name of AttributeType.
+  _atdatatype: _datatype of AttributeType.
+  className: className of Class"
+  [tx className _atname _atdatatype]
+  (if (not= 1 (count (getNodesParsed "AttributeType" {"_name" _atname "_datatype" _atdatatype})))
+    (throw (Exception. (str "Unique AttributeType with _name: " _atname ", _datatype:" _atdatatype " not found"))))
+  (let [fullSummary (atom nil) combinedPropertyMap (combinePropertyMap {"C" {"className" className} "AT" {"_name" _atname "_datatype" _atdatatype}})]
+    (reset! fullSummary (getFullSummary (.run tx (str "MATCH (class:Class " ((combinedPropertyMap :propertyStringMap) "C") ") , (att:AttributeType " ((combinedPropertyMap :propertyStringMap) "AT") ") CREATE (class)-[:HasAttributeType]->(att)") (combinedPropertyMap :combinedPropertyMap))))
+    @fullSummary))
+
+(defn addClassAT
+  "Adds a relation HasAttributeType from Class to AttributeType.
+  _atname: _name of AttributeType.
+  _atdatatype: _datatype of AttributeType.
+  className: className of Class"
+  [className _atname _atdatatype]
+  (let [driver (getDriver) fullSummary (atom nil)]
+    (reset! fullSummary (addClassAT_tx (.session driver) className _atname _atdatatype))
+    (.close driver)
+    @fullSummary))
+
+(defn addClassNC_tx
+  "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint under transaction.
+  tx: neo4j bolt transaction object or session object.
+  constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
+  constraintTarget should be either of NODE,RELATION.
+  constraintValue should be the AttributeType"
+  [tx className _constraintType _constraintTarget _constraintValue]
+  (let [fetchedClass (getNodesParsed "Class" {"className" className "classType" _constraintTarget}) fullSummary (atom nil) combinedPropertyMap (combinePropertyMap {"C" {"className" className} "NEOC" {"constraintType" _constraintType  "constraintTarget" _constraintTarget} "CV" {"constraintValue" _constraintValue}})]
+    (if (not= 1 (count fetchedClass))
+      (throw (Exception. (str "Unique Class with className:" className ", and classType:" _constraintTarget " not found"))))
+    (reset! fullSummary (getFullSummary (.run tx (str "MATCH (class:Class " ((combinedPropertyMap :propertyStringMap) "C") ") , (neoc:NeoConstraint " ((combinedPropertyMap :propertyStringMap) "NEOC") ") CREATE (neoc)-[ncat:NeoConstraintAppliesTo " ((combinedPropertyMap :propertyStringMap) "CV") "]->(class)") (combinedPropertyMap :combinedPropertyMap))))
+    @fullSummary))
+
+(defn addClassNC
+  "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint.
+  constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
+  constraintTarget should be either of NODE,RELATION.
+  constraintValue should be the AttributeType"
+  [className _constraintType _constraintTarget _constraintValue]
+  (let [driver (getDriver) fullSummary (atom nil)]
+    (reset! fullSummary (addClassNC_tx (.session driver) className _constraintType _constraintTarget _constraintValue))
+    (.close driver)
+    @fullSummary))
+
+(defn addClassSup_tx
+  "Adds a relation IsSubClassOf from one Class to another under transaction.
+  tx: neo4j bolt transaction object or session object.
+  className: className of subClass.
+  supClassName: className of supClass"
+  [tx className supClassName]
+  (let [fullSummary (atom nil) combinedPropertyMap (combinePropertyMap {"C" {"className" className} "SUP" {"className" supClassName}})]
+    (reset! fullSummary (getFullSummary (.run tx (str "MATCH (class:Class " ((combinedPropertyMap :propertyStringMap) "C") ") , (supClass:Class " ((combinedPropertyMap :propertyStringMap) "SUP") ") CREATE (class)-[:IsSubClassOf]->(supClass)") (combinedPropertyMap :combinedPropertyMap))))
+    @fullSummary))
+
+(defn addClassSup
+  "Adds a relation IsSubClassOf from one Class to another.
+  className: className of subClass.
+  supClassName: className of supClass"
+  [className supClassName]
+  (let [driver (getDriver) fullSummary (atom nil)]
+    (reset! fullSummary (addClassSup_tx (.session driver)  className supClassName))
+    (.close driver)
+    @fullSummary))
+
+;; For Some reason, when using transactions, the following function hangs. Set transactional? to true and uncomment to reproduce the error. Fair warning: DB becomes unusable.
+
+(defn createClassFN
+  "Creates a node with label Class (Functionally).
+  transactional? : true or false, depending on whether creation should take place under a transaction or not
+  isAbstract : true or false.
+  className : unique string.
+  classType : either 'NODE' or 'RELATION'.
+  superClasses : vector of classNames.
+  _attributeTypes : vector of maps with keys '_name', '_datatype'.
+  propertyMap : optional propertyMap.
+  _constraintsVec : vector of maps with keys 'constraintType', 'constraintTarget', 'constraintValue'."
+  [transactional? isAbstract? className classType superClasses _attributeTypes propertyMap _constraintsVec]
+  (let [attributeTypes (atom []) constraintsVec (atom [])]
+    (if (or (not (contains? #{"NODE" "RELATION"} classType)) (not (= "java.lang.Boolean" (.getName (type isAbstract?)))))
+        (throw (Exception. "classType or isAbstract? arguments dont conform to their standards. Read DOC")))
+    (doall (map (fn
+                  [superClass]
+                  (let [fetchedClass (getNodesParsed "Class" {"className" superClass})]
+                    (if (empty? fetchedClass)
+                      (throw (Exception. (str "Class Does not Exist: " superClass))))
+                    (if (not= classType (((fetchedClass 0) :properties) "classType"))
+                      (throw (Exception. (str "Superclass should have same classType as new Class: " superClass))))
+                    (reset! attributeTypes (vec (distinct (concat @attributeTypes (getClassAttributeTypes superClass)))))
+                    (reset! constraintsVec (vec (distinct (concat @constraintsVec (getClassNeoConstraints superClass))))))) superClasses))
+    (reset! attributeTypes (vec (distinct (concat @attributeTypes _attributeTypes))))
+    (reset! constraintsVec (vec (distinct (concat @constraintsVec _constraintsVec))))
+    (getCombinedFullSummary [(if transactional?
+      (let [driver (getDriver) session (.session driver) trx (.beginTransaction session) summaries (atom [])]
+        (try
+          ;; (swap! summaries conj (createNewNode_tx "Class" (merge {"className" className "classType" classType "isAbstract" isAbstract?} propertyMap) trx))
+          ;; (println "Class Created")
+          ;; (doall (map (fn [attributeType] (swap! summaries conj (addClassAT_tx trx className (attributeType "_name") (attributeType "_datatype")))) @attributeTypes))
+          ;; (println "AttributeTypes Created")
+          ;; (doall (map (fn [constraint] (swap! summaries conj (addClassNC_tx trx className (constraint "constraintType") (constraint "constraintTarget") (constraint "constraintValue")))) @constraintsVec))
+          ;; (println "NeoConstraints Created")
+          ;; (doall (map (fn [superClass] (swap! summaries conj (addClassSup_tx trx className superClass))) superClasses))
+          ;; (println "SuperClasses Added")
+          (.success trx)
+          (catch Exception E (do
+                               (.failure trx)
+                               (.printStackTrace E)
+                               (.getMessage E)))
+          (finally (do
+                     (.close trx)
+                     (.close session)
+                     (.close driver))))
+        (getCombinedFullSummary @summaries))
+      (getCombinedFullSummary (vec (concat [(createNewNode "Class" (merge {"className" className "classType" classType "isAbstract" isAbstract?}))] (vec (doall (map getCombinedFullSummary (vec (doall (pcalls (fn [] (vec (doall (pmap (fn [attributeType] (addClassAT className (attributeType "_name") (attributeType "_datatype"))) @attributeTypes)))) (fn [] (vec (doall (pmap (fn [constraint] (addClassNC className (constraint "constraintType") (constraint "constraintTarget") (constraint "constraintValue"))) @constraintsVec)))) (fn [] (vec (doall (pmap (fn [superClass] (addClassSup className superClass)) superClasses)))))))))))))) (applyClassNeoConstraints className)])))
+
+(defn gnowdbInit
+  "Create Initial constraints"
+  []
+  (getCombinedFullSummary [(createNCConstraints)
+                           (createATConstraints)
+                           (createCATConstraints)
+                           (createClassConstraints)
+                           (createAllNeoConstraints)]))
+
+(defn validatePropertyMap
+  "Validates a propertyMap for a class with className.
+  Assumes class with given className exists"
+  [className propertyMap]
+  (let [classAttributeTypes (getClassAttributeTypes className) errors (atom [])]
+    (if (> (count (keys propertyMap)) (count classAttributeTypes))
+      (swap! errors conj  (str "No of properties (" (count (keys propertyMap)) ") > No of AttributeTypes (" (count classAttributeTypes) ")")))
+    (doall (pmap (fn
+                   [property]
+                   (if (not= 1 (count (filter (fn [classAttributeType] (= classAttributeType {"_name" property "_datatype" (.getName (type (propertyMap property)))})) classAttributeTypes)))
+                     (swap! errors conj (str "Unique AttributeType _name : " property ", _datatype : " (.getName (type (propertyMap property))) " not found for Class : " className)))) (keys propertyMap)))
+    @errors))
+
+(defn createNodeInstance
+  "Creates a node , as an instance of a class with classType:NODE."
+  [className propertyMap]
+  (let [nodeClass (getNodesParsed "Class" {"className" className "classType" "NODE"})]
+    (if (not= 1 (count nodeClass))
+      (throw (Exception. (str "Unique Node Class with className:" className " ,classType:NODE doesn't exist")))
+      (if (((nodeClass 0) :properties) "isAbstract")
+        (throw (Exception. (str className " is Abstract"))))))
+  (let [propertyErrors (validatePropertyMap className propertyMap)]
+    (if (not= 0 (count propertyErrors))
+      (throw (Exception. (str "PropertyMap is not valid : " propertyErrors)))))
+  (createNewNode className propertyMap))
+
+(defn createRelationInstance
+  "Creates a relation between two nodes, as an instance of a class with classType:RELATION.
+  fromClassName: className of 'out' label.
+  fromPropertyMap: a property map that matches one or more 'out' nodes.
+  propertyMap: relation propertyMap.
+  toClassName: className of 'in' label.
+  toPropertyMap: a property map that matches one or more 'in' nodes."
+  [className fromClassName fromPropertyMap propertyMap toClassName toPropertyMap]
+  (let [relClass (getNodesParsed "Class" {"className" className "classType" "RELATION"})]
+    (if (not= 1 (count relClass))
+      (throw (Exception. (str "Unique Relation Class with className:" className " ,classType:RELATION doesn't exist")))
+      (if (((relClass 0) :properties) "isAbstract")
+        (throw (Exception. (str className " is Abstract"))))))
+  (if (not= 1 (count (getNodesParsed "Class" {"className" fromClassName "classType" "NODE"})))
+    (throw (Exception. (str "Unique Node Class with className:" fromClassName " ,classType:NODE doesn't exist"))))
+  (if (not= 1 (count (getNodesParsed "Class" {"className" toClassName "classType" "NODE"})))
+    (throw (Exception. (str "Unique Node Class with className:" toClassName " ,classType:NODE doesn't exist"))))
+  (let [propertyErrors (validatePropertyMap className propertyMap)]
+    (if (not= 0 (count propertyErrors))
+      (throw (Exception. (str "PropertyMap is not valid : " propertyErrors)))))
+  (createRelation fromClassName fromPropertyMap className propertyMap toClassName toPropertyMap))

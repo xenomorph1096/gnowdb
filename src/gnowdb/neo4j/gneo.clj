@@ -72,27 +72,20 @@
 (defn getCombinedFullSummary
   "Combine FullSummaries obtained from 'getFullSummary'"
 	[fullSummaryVec]
-	(let [
-		consolidtedMap (into {:constraintsAdded 0 :constraintsRemoved 0 :containsUpdates false :indexesAdded 0 :indexesRemoved 0 :labelsAdded 0 :labelsRemoved 0 :nodesCreated 0 :nodesDeleted 0 :propertiesSet 0 :relationshipsCreated 0 :relationshipsDeleted 0} 
-			(apply map 
-				(fn
-					[& lists]
-					[(first (first lists)) (if (= java.lang.Boolean (type (second (first lists))))	;Takes the first tag and first value type, all others are assumed to be the same.
-					(if (some identity (map #(% 1) lists))
-						true
-						false
+	(let [ consolidatedMap 
+			(apply merge-with
+				(fn [& args]
+					(if (some #(= (type %) java.lang.Boolean) args)
+						(if (some identity args) true false)
+						(apply + args)
 					)
-					(apply + (map #(% 1) lists)))]
 				)
-				(if (empty? fullSummaryVec)
-					'({})									;If there are no summaries, pass an empty to map
-			 		(map #(% :summaryMap) fullSummaryVec)	;If there are summaries, pass a list of their summaryMap to map
-			 	)
+				{:constraintsAdded 0 :constraintsRemoved 0 :containsUpdates false :indexesAdded 0 :indexesRemoved 0 :labelsAdded 0 :labelsRemoved 0 :nodesCreated 0 :nodesDeleted 0 :propertiesSet 0 :relationshipsCreated 0 :relationshipsDeleted 0}	
+				(map #(% :summaryMap) fullSummaryVec)
 			)
-		)
-	]
-		{:summaryMap consolidtedMap
-		 :summaryString (createSummaryString consolidtedMap)
+		]
+		{:summaryMap consolidatedMap
+		 :summaryString (createSummaryString consolidatedMap)
 		}
 	)
 )

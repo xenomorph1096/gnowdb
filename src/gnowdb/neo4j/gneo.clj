@@ -47,23 +47,21 @@
   (let [summaryCounters (.counters (.consume statementResult))]
     {:constraintsAdded (.constraintsAdded summaryCounters) :constraintsRemoved (.constraintsRemoved summaryCounters) :containsUpdates (.containsUpdates summaryCounters) :indexesAdded (.indexesAdded summaryCounters) :indexesRemoved (.indexesRemoved summaryCounters) :labelsAdded (.labelsAdded summaryCounters) :labelsRemoved (.labelsRemoved summaryCounters) :nodesCreated (.nodesCreated summaryCounters) :nodesDeleted (.nodesDeleted summaryCounters) :propertiesSet (.propertiesSet summaryCounters) :relationshipsCreated (.relationshipsCreated summaryCounters) :relationshipsDeleted (.relationshipsDeleted summaryCounters)}))
 
-(defn getSummaryIfNonZero
-  "Returns Summary if Value is non zero."
-  [mapValue summarySubString]
-  (if (= mapValue 0) "" (str summarySubString mapValue " ;")))
-
-(defn createSummaryString
-  "Creates Summary String only with only necessary information.
-  Takes summaryMap created by createSummaryMap function."
-  [summaryMap]
-  (let [summaryString (atom (str "")) summaryKeys (keys summaryMap)]
-    (doall (map (fn
-           [summaryKey]
-           (let [splitVec (atom (clojure.string/split (str summaryKey) #"(?=[A-Z])"))]
-             (reset! splitVec [(clojure.string/capitalize (subs (@splitVec 0) 1)) (@splitVec 1) ":"])
-             (swap! summaryString (fn
-                                    [sumStr]
-                                    (str sumStr (getSummaryIfNonZero (summaryMap summaryKey) (clojure.string/join " " @splitVec))))))) summaryKeys)) @summaryString))
+(defn createSummaryString 
+	"Creates Summary String only with only necessary information.
+  	Takes summaryMap created by createSummaryMap function."
+	[summaryMap]
+	(reduce
+		(fn [string k]
+			(if(not= (k 1) 0)
+				(str string (str (clojure.string/capitalize (subs (str (k 0)) 1 2)) (subs (str (k 0)) 2)) " :" (k 1) " ;")
+				string
+			)
+		)
+		""
+		summaryMap
+	)
+)
 
 (defn getFullSummary
   "Returns summaryMap and summaryString"
@@ -72,18 +70,25 @@
     {:summaryMap sumMap :summaryString (createSummaryString sumMap)}))
 
 (defn getCombinedFullSummary
-  "Combine FullSummaries obtained from 'getFullSummary'"
-  [fullSummaryVec]
-  (let [cSummaryMap (atom {:constraintsAdded 0 :constraintsRemoved 0 :containsUpdates false :indexesAdded 0 :indexesRemoved 0 :labelsAdded 0 :labelsRemoved 0 :nodesCreated 0 :nodesDeleted 0 :propertiesSet 0 :relationshipsCreated 0 :relationshipsDeleted 0})]
-    (doall (map (fn
-                  [fSum]
-                  (let [fSumKeys (keys (fSum :summaryMap))]
-                    (doall (map (fn
-                                  [fSumKey]
-                                  (if (= java.lang.Boolean (type ((fSum :summaryMap) fSumKey)))
-                                    (swap! cSummaryMap assoc fSumKey (or (@cSummaryMap fSumKey) ((fSum :summaryMap) fSumKey)))
-                                    (swap! cSummaryMap assoc fSumKey (+ (@cSummaryMap fSumKey) ((fSum :summaryMap) fSumKey))))) fSumKeys)))) fullSummaryVec))
-    {:summaryMap @cSummaryMap :summaryString (createSummaryString @cSummaryMap)}))
+	[fullSummaryVec]
+	(let [
+		consolidtedMap (into {} (apply map 
+				(fn
+					[& lists]
+					[(first (first lists)) (if (= java.lang.Boolean (type (second (first lists))))
+					(if (some identity (map #(% 1) lists))
+						true
+						false
+					)
+					(apply + (map #(% 1) lists)))]
+				)
+			 (map #(% :summaryMap) fullSummaryVec)))
+	]
+	{:summaryMap consolidtedMap
+	 :summaryString (createSummaryString consolidtedMap)
+	}
+	)
+)
 
 (defn getAllLabels
   "Get all the Labels from the graph, parsed."

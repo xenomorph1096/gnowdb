@@ -70,23 +70,30 @@
     {:summaryMap sumMap :summaryString (createSummaryString sumMap)}))
 
 (defn getCombinedFullSummary
+  "Combine FullSummaries obtained from 'getFullSummary'"
 	[fullSummaryVec]
 	(let [
-		consolidtedMap (into {} (apply map 
+		consolidtedMap (into {:constraintsAdded 0 :constraintsRemoved 0 :containsUpdates false :indexesAdded 0 :indexesRemoved 0 :labelsAdded 0 :labelsRemoved 0 :nodesCreated 0 :nodesDeleted 0 :propertiesSet 0 :relationshipsCreated 0 :relationshipsDeleted 0} 
+			(apply map 
 				(fn
 					[& lists]
-					[(first (first lists)) (if (= java.lang.Boolean (type (second (first lists))))
+					[(first (first lists)) (if (= java.lang.Boolean (type (second (first lists))))	;Takes the first tag and first value type, all others are assumed to be the same.
 					(if (some identity (map #(% 1) lists))
 						true
 						false
 					)
 					(apply + (map #(% 1) lists)))]
 				)
-			 (map #(% :summaryMap) fullSummaryVec)))
+				(if (empty? fullSummaryVec)
+					'({})									;If there are no summaries, pass an empty to map
+			 		(map #(% :summaryMap) fullSummaryVec)	;If there are summaries, pass a list of their summaryMap to map
+			 	)
+			)
+		)
 	]
-	{:summaryMap consolidtedMap
-	 :summaryString (createSummaryString consolidtedMap)
-	}
+		{:summaryMap consolidtedMap
+		 :summaryString (createSummaryString consolidtedMap)
+		}
 	)
 )
 
@@ -634,7 +641,7 @@
                      (.close trx)
                      (.close session)
                      (.close driver))))
-        (getCombinedFullSummary @summaries))
+      	(getCombinedFullSummary @summaries))
       (getCombinedFullSummary (vec (concat [(createNewNode "Class" (merge {"className" className "classType" classType "isAbstract" isAbstract?}))] (vec (doall (map getCombinedFullSummary (vec (doall (pcalls (fn [] (vec (doall (pmap (fn [attributeType] (addClassAT className (attributeType "_name") (attributeType "_datatype"))) @attributeTypes)))) (fn [] (vec (doall (pmap (fn [constraint] (addClassNC className (constraint "constraintType") (constraint "constraintTarget") (constraint "constraintValue"))) @constraintsVec)))) (fn [] (vec (doall (pmap (fn [superClass] (addClassSup className superClass)) superClasses)))))))))))))) (applyClassNeoConstraints className)])))
 
 (defn gnowdbInit

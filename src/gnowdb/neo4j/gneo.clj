@@ -20,23 +20,27 @@
     (GraphDatabase/driver (neo4jDBDetails :bolt-url) (AuthTokens/basic (neo4jDBDetails :username) (neo4jDBDetails :password)))))
 
 (defn parseRecordFields
-  "Parse Record Fields(list of key value pairs)"
-  [fieldList]
-  (let [fieldMap (atom {})]
-    (doall (map (fn
-           [field]
-                  (swap! fieldMap assoc (str (.key field)) (.value field))) fieldList))
-    @fieldMap))
+	"Parse Record Fields(list of key value pairs)"
+	[fieldList]
+	(into
+		{}
+		(map
+			(fn
+				[field]
+				[(str (.key field)) (.value field)]
+			)
+			fieldList
+		)
+	)
+)
 
 
 (defn parseStatementRecordList
-  "Convert Record List to String clojure list"
-  [recordList]
-  (let [retVec (atom [])]
-    (doall (map (fn
-                  [record]
-                  (swap! retVec conj (parseRecordFields (.fields record)))) recordList))
-    @retVec))
+	"Convert Record List to String clojure list"
+	[recordList]
+	(vec (map #(parseRecordFields (.fields %)) recordList))
+
+)
 
 (defn createSummaryMap
   "Creates a summary map from StatementResult object.

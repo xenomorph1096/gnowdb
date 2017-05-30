@@ -82,20 +82,23 @@
 )
 
 (defn runQuery
-	"Takes a list of queries and executes them. Returns a map with all records and summary of operations"
-	[queriesList]
+	"Takes a list of queries and executes them. Returns a map with all records and summary of operations iff all operations are successful otherwise fails.
+	Input Format: {:query <query> :parameters <Map of parameters as string key-value pairs>} ...
+	Output Format: {:results [(result 1) (result 2) .....] :summary <Summary String>}
+	In case of failure, {:results [] :summary <default full summary>}"
+	[& queriesList]
 	(let [transaction (newTransaction)]
 		(try
 			(reduce
 				(fn [resultMap queryMap]
 					(let [statementResult (.run transaction (queryMap :query) (java.util.HashMap. (queryMap :parameters)))]
-						{:results (conj (resultMap :results) (.list statementResult)) :summary (getCombinedFullSummary [(resultMap :summary) (getFullSummary statementResult)])}
+						{:results (conj (resultMap :results) (map #(.asMap %) (.list statementResult))) :summary (getCombinedFullSummary [(resultMap :summary) (getFullSummary statementResult)])}
 					)
 				)
 				{:results [] :summary {}}
 				queriesList
 			)
-			(catch Exception e (.failure transaction) (.printStackTrace e))
+			(catch Exception e (.failure transaction) (.close transaction) {:results [] :summary (getCombinedFullSummary [])})
 			(finally (.success transaction) (.close transaction))
 		)
 	)

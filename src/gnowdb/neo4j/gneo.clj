@@ -2,7 +2,8 @@
   (:gen-class)
   (:require [clojure.set :as clojure.set]
             [clojure.java.io :as io]
-            [clojure.string :as clojure.string]))
+            [clojure.string :as clojure.string]
+            [gnowdb.neo4j.gdriver :as gdriver]))
 
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
         '[java.io PushbackReader])
@@ -211,10 +212,14 @@
 (defn createRelation
   "Relate two nodes matched with their properties (input as clojure map) with it's own properties"
   [label1 propertyMap1 relationshipType relationshipPropertyMap label2 propertyMap2]
-  (let [driver (getDriver) session (.session driver) combinedProperties (combinePropertyMap {"1" propertyMap1 "2" propertyMap2 "R" relationshipPropertyMap}) fullSummary (atom nil)]
-    (reset! fullSummary (getFullSummary (.run session (str "MATCH (node1:" label1 " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" label2 " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") (java.util.HashMap. (combinedProperties :combinedPropertyMap)))))
-    (.close driver)
-    fullSummary))
+  ; (let [driver (getDriver) session (.session driver) combinedProperties (combinePropertyMap {"1" propertyMap1 "2" propertyMap2 "R" relationshipPropertyMap}) fullSummary (atom nil)]
+  ;   (reset! fullSummary (getFullSummary (.run session (str "MATCH (node1:" label1 " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" label2 " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") (java.util.HashMap. (combinedProperties :combinedPropertyMap)))))
+  ;   (.close driver)
+  ;   fullSummary)
+  (let [combinedProperties (combinePropertyMap {"1" propertyMap1 "2" propertyMap2 "R" relationshipPropertyMap})]
+    ((gdriver/runQuery {:query (str "MATCH (node1:" label1 " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" label2 " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}) :summary)
+  )
+)
 
 (defn deleteDetachNodes
   "Delete node(s) matched using property map and detach (remove relationships)"

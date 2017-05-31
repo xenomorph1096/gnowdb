@@ -98,44 +98,25 @@
 (defn getAllLabels
   "Get all the Labels from the graph, parsed."
   []
-  (let [driver (getDriver) session (.session driver)]
-    (let [stList (.list (.run session "MATCH (n) RETURN DISTINCT LABELS(n)"))]
-      (.close driver)
-      (parseStatementRecordList stList))))
+  (((gdriver/runQuery {:query "MATCH (n) RETURN DISTINCT LABELS(n)" :parameters {}}) :results) 0)
+ )
 
 (defn getAllNodes
-  "Get All Nodes in Graph"
+  "Returns a lazy sequence of labels and properties of all nodes in the graph"
   []
-  (let [driver (getDriver) session (.session driver) stList (atom nil)]
-    (reset! stList (.list (.run session "MATCH (n) RETURN n")))
-    (.close driver)
-    @stList))
+  (map 
+  	(fn 
+  		[node]
+  		{:labels (.labels (node "n")) :properties (.asMap (node "n"))}
+  	)
+  	(((gdriver/runQuery {:query "MATCH (n) RETURN n" :parameters {}}) :results) 0)
+  )
+ )
 
 (defn getNodeKeys
   "Gets Node Keys as seq using NodeValue"
   [nodeValue]
   (iterator-seq (.iterator (.keys nodeValue))))
-
-(defn parsePlainNode
-  "Parse plain Node and it's key values"
-  [plainNode]
-  (let [nodeFields (.fields plainNode) fieldVector (atom {})]
-    (doall (map (fn
-                  [nodeField]
-                  (let [nodeValue (.value nodeField)]
-                    (swap! fieldVector assoc :labels (vec (.labels (.asNode nodeValue))) :properties (into {} (.asMap nodeValue))))) nodeFields))
-    @fieldVector))
-
-(defn parsePlainNodes
-  "Parse plain nodes in parallel
-  plainNodes should be a vector of plainNodes"
-  [plainNodes]
-  (vec (doall (map parsePlainNode plainNodes))))
-
-(defn getAllNodesParsed
-  "Get All Nodes Parsed"
-  []
-  (parsePlainNodes (getAllNodes)))
 
 (defn addStringToMapKeys
   "Adds a string to every key of a map
@@ -198,11 +179,8 @@
   Map keys should be Strings only.
   Map values must be neo4j compatible Objects"
   [label propertyMap]
-  (let [driver (getDriver) session (.session driver) stRes (atom nil) fullSummary (atom  nil)]
-    (reset! stRes (.run session (str "CREATE (node:" label " " (createParameterPropertyString propertyMap) " )") (java.util.HashMap. propertyMap)))
-    (reset! fullSummary (getFullSummary @stRes))
-    (.close driver)
-    @fullSummary))
+  ((gdriver/runQuery {:query (str "CREATE (node:" label " " (createParameterPropertyString propertyMap) " )") :parameters propertyMap}) :summary)
+)
 
 (defn createNewNode_tx
   "Create a new Node under a transaction."
@@ -224,18 +202,14 @@
 (defn deleteDetachNodes
   "Delete node(s) matched using property map and detach (remove relationships)"
   [label propertyMap]
-  (let [driver (getDriver) session (.session driver) fullSummary (atom nil)]
-    (reset! fullSummary (getFullSummary (.run session (str "MATCH (node:" label " " (createParameterPropertyString propertyMap) " ) DETACH DELETE node") (java.util.HashMap. propertyMap))))
-    (.close driver)
-    fullSummary))
+  ((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString propertyMap) " ) DETACH DELETE node") :parameters propertyMap}) :summary)
+)
 
 (defn deleteNodes
   "Delete node(s) matched using property map"
   [label propertyMap]
-  (let [driver (getDriver) session (.session driver) fullSummary (atom nil)]
-    (reset! fullSummary (getFullSummary (.run session (str "MATCH (node:" label " " (createParameterPropertyString propertyMap) " ) DELETE node") (java.util.HashMap. propertyMap))))
-    (.close driver)
-    fullSummary))
+  ((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString propertyMap) " ) DELETE node") :parameters propertyMap}) :summary)
+)
 
 (defn createNodeEditString
   "Creates a node edit string.

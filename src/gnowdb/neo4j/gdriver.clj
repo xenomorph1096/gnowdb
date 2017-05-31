@@ -81,6 +81,23 @@
 	)
 )
 
+(defn- parse
+	[recordMap]
+	(into {} 
+		(map 
+		  	(fn 
+		  		[attribute]
+		  		(cond ;More parsers can be added here. (= (type (attribute 1)) /*ClassName*/) <Return Map>
+		  			(= (type (attribute 1)) org.neo4j.driver.internal.InternalNode) {(attribute 0) {:labels (.labels (attribute 1)) :properties (.asMap (attribute 1))}}
+		  			(= (type (attribute 1)) org.neo4j.driver.internal.InternalRelationship) {(attribute 0) {:labels (.type (attribute 1)) :properties (.asMap (attribute 1)) :fromNode (.startNodeId (attribute 1)) :toNode (.endNodeId (attribute 1))}}
+		  			:else (assoc {} (attribute 0) (attribute 1))
+		  		)
+		  	)
+	  		recordMap
+  		)
+  	)
+)
+
 (defn runQuery
 	"Takes a list of queries and executes them. Returns a map with all records and summary of operations iff all operations are successful otherwise fails.
 	Input Format: {:query <query> :parameters <Map of parameters as string key-value pairs>} ...
@@ -93,7 +110,16 @@
 				[finalResult (reduce
 					(fn [resultMap queryMap]
 						(let [statementResult (.run transaction (queryMap :query) (java.util.HashMap. (queryMap :parameters)))]
-							{:results (conj (resultMap :results) (map #(into {} (.asMap %)) (.list statementResult))) :summary (getCombinedFullSummary [(resultMap :summary) (getFullSummary statementResult)])}
+							{:results (conj 
+								(resultMap :results) 
+								(map 
+									(fn [record]
+										(parse (into {} (.asMap record)))
+									) 
+									(.list statementResult)
+								)) 
+							 :summary (getCombinedFullSummary [(resultMap :summary) (getFullSummary statementResult)])
+							}
 						)
 					)
 					{:results [] :summary (getCombinedFullSummary [])}
@@ -102,7 +128,7 @@
 				(.success transaction)
 				finalResult
 			)
-			(catch Exception e (.failure transaction) {:results [] :summary (getCombinedFullSummary [])})
+			(catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
 			(finally (.close transaction) (.close (getDriver)))
 		)
 	)

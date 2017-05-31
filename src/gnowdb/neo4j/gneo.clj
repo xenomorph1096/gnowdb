@@ -43,6 +43,22 @@
 
 )
 
+(defn parsePlainNode
+  "Parse plain Node and it's key values"
+  [plainNode]
+  (let [nodeFields (.fields plainNode) fieldVector (atom {})]
+    (doall (map (fn
+                  [nodeField]
+                  (let [nodeValue (.value nodeField)]
+                    (swap! fieldVector assoc :labels (vec (.labels (.asNode nodeValue))) :properties (into {} (.asMap nodeValue))))) nodeFields))
+    @fieldVector))
+
+(defn parsePlainNodes
+  "Parse plain nodes in parallel
+  plainNodes should be a vector of plainNodes"
+  [plainNodes]
+  (vec (doall (map parsePlainNode plainNodes))))
+
 (defn createSummaryMap
   "Creates a summary map from StatementResult object.
   This Object is returned by the run() method of session object
@@ -104,13 +120,7 @@
 (defn getAllNodes
   "Returns a lazy sequence of labels and properties of all nodes in the graph"
   []
-  (map 
-  	(fn 
-  		[node]
-  		{:labels (.labels (node "n")) :properties (.asMap (node "n"))}
-  	)
-  	(((gdriver/runQuery {:query "MATCH (n) RETURN n" :parameters {}}) :results) 0)
-  )
+  	(map #(% "n") (((gdriver/runQuery {:query "MATCH (n) RETURN n" :parameters {}}) :results) 0))
  )
 
 (defn getNodeKeys
@@ -190,10 +200,6 @@
 (defn createRelation
   "Relate two nodes matched with their properties (input as clojure map) with it's own properties"
   [label1 propertyMap1 relationshipType relationshipPropertyMap label2 propertyMap2]
-  ; (let [driver (getDriver) session (.session driver) combinedProperties (combinePropertyMap {"1" propertyMap1 "2" propertyMap2 "R" relationshipPropertyMap}) fullSummary (atom nil)]
-  ;   (reset! fullSummary (getFullSummary (.run session (str "MATCH (node1:" label1 " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" label2 " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") (java.util.HashMap. (combinedProperties :combinedPropertyMap)))))
-  ;   (.close driver)
-  ;   fullSummary)
   (let [combinedProperties (combinePropertyMap {"1" propertyMap1 "2" propertyMap2 "R" relationshipPropertyMap})]
     ((gdriver/runQuery {:query (str "MATCH (node1:" label1 " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" label2 " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}) :summary)
   )
@@ -258,10 +264,10 @@
 (defn getNodes
   "Get Node(s) matched by label and propertyMap"
   [label propertyMap]
-  (let [driver (getDriver) session (.session driver) stList (atom nil)]
-    (reset! stList (.list (.run session (str "MATCH (node:" label " " (createParameterPropertyString propertyMap) ") RETURN node") (java.util.HashMap. propertyMap))))
-    (.close driver)
-    @stList))
+  (map #(% "node")(((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString propertyMap) ") RETURN node") :parameters propertyMap}) :results) 0))
+)
+
+
 
 (defn getNodesParsed
   "Get parsed Node(s) matched by label and propertyMap"
@@ -600,14 +606,14 @@
     (getCombinedFullSummary [(if transactional?
       (let [driver (getDriver) session (.session driver) trx (.beginTransaction session) summaries (atom [])]
         (try
-          ;; (swap! summaries conj (createNewNode_tx "Class" (merge {"className" className "classType" classType "isAbstract" isAbstract?} propertyMap) trx))
-          ;; (println "Class Created")
-          ;; (doall (map (fn [attributeType] (swap! summaries conj (addClassAT_tx trx className (attributeType "_name") (attributeType "_datatype")))) @attributeTypes))
-          ;; (println "AttributeTypes Created")
-          ;; (doall (map (fn [constraint] (swap! summaries conj (addClassNC_tx trx className (constraint "constraintType") (constraint "constraintTarget") (constraint "constraintValue")))) @constraintsVec))
-          ;; (println "NeoConstraints Created")
-          ;; (doall (map (fn [superClass] (swap! summaries conj (addClassSup_tx trx className superClass))) superClasses))
-          ;; (println "SuperClasses Added")
+          (swap! summaries conj (createNewNode_tx "Class" (merge {"className" className "classType" classType "isAbstract" isAbstract?} propertyMap) trx))
+          (println "Class Created")
+          (doall (map (fn [attributeType] (swap! summaries conj (addClassAT_tx trx className (attributeType "_name") (attributeType "_datatype")))) @attributeTypes))
+          (println "AttributeTypes Created")
+          (doall (map (fn [constraint] (swap! summaries conj (addClassNC_tx trx className (constraint "constraintType") (constraint "constraintTarget") (constraint "constraintValue")))) @constraintsVec))
+          (println "NeoConstraints Created")
+          (doall (map (fn [superClass] (swap! summaries conj (addClassSup_tx trx className superClass))) superClasses))
+          (println "SuperClasses Added")
           (.success trx)
           (catch Exception E (do
                                (.failure trx)

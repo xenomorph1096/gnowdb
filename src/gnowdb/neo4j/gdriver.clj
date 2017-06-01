@@ -83,21 +83,16 @@
 	)
 )
 
+
+
 (defn- parse
-	[recordMap]
-	(into {} 
-		(map 
-		  	(fn 
-		  		[attribute]
-		  		(cond ;More parsers can be added here. (= (type (attribute 1)) /*ClassName*/) <Return Map>
-		  			(= (type (attribute 1)) org.neo4j.driver.internal.InternalNode) {(attribute 0) {:labels (.labels (attribute 1)) :properties (.asMap (attribute 1))}}
-		  			(= (type (attribute 1)) org.neo4j.driver.internal.InternalRelationship) {(attribute 0) {:labels (.type (attribute 1)) :properties (.asMap (attribute 1)) :fromNode (.startNodeId (attribute 1)) :toNode (.endNodeId (attribute 1))}}
-		  			:else (assoc {} (attribute 0) (attribute 1))
-		  		)
-		  	)
-	  		recordMap
-  		)
-  	)
+	[data]
+	(cond ;More parsers can be added here. (= (type data) /*ClassName*/) <Return Map>
+			(instance? org.neo4j.driver.v1.types.Node data) {:labels (.labels data) :properties (.asMap data)}
+			(instance? org.neo4j.driver.v1.types.Relationship data) {:labels (.type data) :properties (.asMap data) :fromNode (.startNodeId data) :toNode (.endNodeId data)}
+			(instance? org.neo4j.driver.v1.types.Path data) {:start (parse (.start data)):end (parse (.end data)) :segments (map (fn [segment] {:start (parse (.start segment)) :end (parse (.end segment)) :relationship (parse (.relationship segment))}) data) :length (reduce (fn [counter, data] (+ counter 1)) 0 data)}
+			:else data
+	)
 )
 
 (defn runQuery
@@ -116,7 +111,15 @@
 								(resultMap :results) 
 								(map 
 									(fn [record]
-										(parse (into {} (.asMap record)))
+										(into {} 
+											(map 
+												(fn 
+											  		[attribute]
+											  		{(attribute 0) (parse (attribute 1))}
+											  	)
+												(into {} (.asMap record))
+											)
+										)
 									) 
 									(.list statementResult)
 								)) 

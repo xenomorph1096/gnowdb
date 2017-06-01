@@ -8,7 +8,8 @@
             :url "https://www.gnu.org/licenses/agpl.txt"}
   :dependencies [
                  [org.clojure/clojure "1.8.0"]
-                 [org.neo4j.driver/neo4j-java-driver "1.3.0"]]
+                 [org.neo4j.driver/neo4j-java-driver "1.3.0"]
+		 [async-watch "0.1.1"]]
   :main ^:skip-aot gnowdb.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}

@@ -25,7 +25,7 @@
 
 (defn- newTransaction
 	"Get a new Transaction to query the Database"
-	[]
+	[driver]
 	(.beginTransaction (.session (getDriver)))
 )
 
@@ -87,7 +87,7 @@
 
 (defn- parse
 	[data]
-	(cond ;More parsers can be added here. (= (type data) /*ClassName*/) <Return Map>
+	(cond ;More parsers can be added here. (instance? /*InterfaceName*/ data) <Return Value>
 			(instance? org.neo4j.driver.v1.types.Node data) {:labels (.labels data) :properties (.asMap data)}
 			(instance? org.neo4j.driver.v1.types.Relationship data) {:labels (.type data) :properties (.asMap data) :fromNode (.startNodeId data) :toNode (.endNodeId data)}
 			(instance? org.neo4j.driver.v1.types.Path data) {:start (parse (.start data)):end (parse (.end data)) :segments (map (fn [segment] {:start (parse (.start segment)) :end (parse (.end segment)) :relationship (parse (.relationship segment))}) data) :length (reduce (fn [counter, data] (+ counter 1)) 0 data)}
@@ -101,7 +101,10 @@
 	Output Format: {:results [(result 1) (result 2) .....] :summary <Summary Map>}
 	In case of failure, {:results [] :summary <default full summary>}"
 	[& queriesList]
-	(let [transaction (newTransaction)]
+	(let [
+			driver (getDriver)
+			transaction (newTransaction driver)
+		 ]
 		(try
 			(let
 				[finalResult (reduce
@@ -134,7 +137,7 @@
 				finalResult
 			)
 			(catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
-			(finally (.close transaction) (.close (getDriver)))
+			(finally (.close transaction) (.close driver))
 		)
 	)
 )

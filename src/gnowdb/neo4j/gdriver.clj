@@ -9,6 +9,22 @@
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
         '[java.io PushbackReader])
 
+(defn generateConf
+  "Generates a default configuration file"
+  []
+  (if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))
+    (spit "src/gnowdb/neo4j/gconf.clj"
+          {
+           :bolt-url "bolt://localhost:7687"
+           :username "neo4j"
+           :password "neo"
+           }
+          )
+    )
+  )
+
+(generateConf)
+
 
 (def ^{:private true} getNeo4jDBDetails 
 	(with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
@@ -137,6 +153,7 @@
 		)
 	)
 )
+
 
 (let [changes (changes-in ["src/gnowdb/neo4j"])]
 	(clojure.core.async/go 

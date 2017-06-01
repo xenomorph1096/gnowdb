@@ -17,6 +17,7 @@
 	)
 )
 
+
 (defn- getDriver
 	"Get neo4j Database Driver"
 	[]
@@ -27,18 +28,18 @@
 
 (defn- newTransaction
 	"Get a new Transaction to query the Database"
-	[]
+	[driver]
 	(.beginTransaction (.session (getDriver)))
 )
 
 (defn- createSummaryMap
-  "Creates a summary map from StatementResult object.
-  This Object is returned by the run() method of session object
-  To be used for cypher queries that dont return nodes
-  Driver should not be closed before invoking this function"
-  [statementResult]
-  (let [summaryCounters (.counters (.consume statementResult))]
-    {:constraintsAdded (.constraintsAdded summaryCounters) :constraintsRemoved (.constraintsRemoved summaryCounters) :containsUpdates (.containsUpdates summaryCounters) :indexesAdded (.indexesAdded summaryCounters) :indexesRemoved (.indexesRemoved summaryCounters) :labelsAdded (.labelsAdded summaryCounters) :labelsRemoved (.labelsRemoved summaryCounters) :nodesCreated (.nodesCreated summaryCounters) :nodesDeleted (.nodesDeleted summaryCounters) :propertiesSet (.propertiesSet summaryCounters) :relationshipsCreated (.relationshipsCreated summaryCounters) :relationshipsDeleted (.relationshipsDeleted summaryCounters)}))
+	"Creates a summary map from StatementResult object.
+	This Object is returned by the run() method of session object
+	To be used for cypher queries that dont return nodes
+	Driver should not be closed before invoking this function"
+	[statementResult]
+	(let [summaryCounters (.counters (.consume statementResult))]
+	{:constraintsAdded (.constraintsAdded summaryCounters) :constraintsRemoved (.constraintsRemoved summaryCounters) :containsUpdates (.containsUpdates summaryCounters) :indexesAdded (.indexesAdded summaryCounters) :indexesRemoved (.indexesRemoved summaryCounters) :labelsAdded (.labelsAdded summaryCounters) :labelsRemoved (.labelsRemoved summaryCounters) :nodesCreated (.nodesCreated summaryCounters) :nodesDeleted (.nodesDeleted summaryCounters) :propertiesSet (.propertiesSet summaryCounters) :relationshipsCreated (.relationshipsCreated summaryCounters) :relationshipsDeleted (.relationshipsDeleted summaryCounters)}))
 
 (defn- createSummaryString 
 	"Creates Summary String only with only necessary information.
@@ -57,10 +58,12 @@
 )
 
 (defn- getFullSummary
-  "Returns summaryMap and summaryString"
-  [statementResult]
-  (let [sumMap (createSummaryMap statementResult)]
-    {:summaryMap sumMap :summaryString (createSummaryString sumMap)}))
+	"Returns summaryMap and summaryString"
+	[statementResult]
+	(let [sumMap (createSummaryMap statementResult)]
+		{:summaryMap sumMap :summaryString (createSummaryString sumMap)}
+	)
+)
 
 (defn- getCombinedFullSummary
   "Combine FullSummaries obtained from 'getFullSummary'"
@@ -83,21 +86,16 @@
 	)
 )
 
+
+
 (defn- parse
-	[recordMap]
-	(into {} 
-		(map 
-		  	(fn 
-		  		[attribute]
-		  		(cond ;More parsers can be added here. (= (type (attribute 1)) /*ClassName*/) <Return Map>
-		  			(= (type (attribute 1)) org.neo4j.driver.internal.InternalNode) {(attribute 0) {:labels (.labels (attribute 1)) :properties (.asMap (attribute 1))}}
-		  			(= (type (attribute 1)) org.neo4j.driver.internal.InternalRelationship) {(attribute 0) {:labels (.type (attribute 1)) :properties (.asMap (attribute 1)) :fromNode (.startNodeId (attribute 1)) :toNode (.endNodeId (attribute 1))}}
-		  			:else (assoc {} (attribute 0) (attribute 1))
-		  		)
-		  	)
-	  		recordMap
-  		)
-  	)
+	[data]
+	(cond ;More parsers can be added here. (instance? /*InterfaceName*/ data) <Return Value>
+			(instance? org.neo4j.driver.v1.types.Node data) {:labels (.labels data) :properties (.asMap data)}
+			(instance? org.neo4j.driver.v1.types.Relationship data) {:labels (.type data) :properties (.asMap data) :fromNode (.startNodeId data) :toNode (.endNodeId data)}
+			(instance? org.neo4j.driver.v1.types.Path data) {:start (parse (.start data)):end (parse (.end data)) :segments (map (fn [segment] {:start (parse (.start segment)) :end (parse (.end segment)) :relationship (parse (.relationship segment))}) data) :length (reduce (fn [counter, data] (+ counter 1)) 0 data)}
+			:else data
+	)
 )
 
 (defn runQuery
@@ -106,7 +104,10 @@
 	Output Format: {:results [(result 1) (result 2) .....] :summary <Summary Map>}
 	In case of failure, {:results [] :summary <default full summary>}"
 	[& queriesList]
-	(let [transaction (newTransaction)]
+	(let [
+			driver (getDriver)
+			transaction (newTransaction driver)
+		 ]
 		(try
 			(let
 				[finalResult (reduce
@@ -116,7 +117,15 @@
 								(resultMap :results) 
 								(map 
 									(fn [record]
-										(parse (into {} (.asMap record)))
+										(into {} 
+											(map 
+												(fn 
+											  		[attribute]
+											  		{(attribute 0) (parse (attribute 1))}
+											  	)
+												(into {} (.asMap record))
+											)
+										)
 									) 
 									(.list statementResult)
 								)) 
@@ -131,7 +140,7 @@
 				finalResult
 			)
 			(catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
-			(finally (.close transaction) (.close (getDriver)))
+			(finally (.close transaction) (.close driver))
 		)
 	)
 )

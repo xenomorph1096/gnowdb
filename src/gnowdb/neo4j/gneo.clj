@@ -283,7 +283,57 @@
 (defn getNodeKeys
 	"Gets Node Keys as seq using NodeValue"
 	[nodeValue]
-	(iterator-seq (.iterator (.keys nodeValue))))
+	(iterator-seq (.iterator (.keys nodeValue)))
+
+(defn addStringToMapKeys
+	[stringMap string]
+	(apply conj
+		(map
+			(fn
+				[[stringKey value]]
+					{(str stringKey string) value}
+			)
+			stringMap
+		)
+	)
+)
+
+(defn removeVectorStringSuffixes
+	"Removes the string suffix from the Vector members"
+	[mapKeyVector stringSuffix]
+		(
+			into []
+				(
+					map (fn
+							[keyValue]
+								(if (clojure.string/ends-with? (str keyValue) stringSuffix) 
+									(subs (str keyValue) 0 (clojure.string/last-index-of (str keyValue) stringSuffix))
+									(str keyValue)
+								)
+						)
+					mapKeyVector
+				)
+		)
+)
+
+(defn createParameterPropertyString
+	"Create Property String with parameter fields using map keys"
+	[propertyMap & [characteristicString]]
+	;;The characteristicString is sometimes appended to map keys to distinguish
+	;;the keys when multiple maps and their keys are used in the same cypher
+	;;query with parameters
+	(str "{ "
+		(clojure.string/join ", " 
+			(vec 
+				(map #(str %1 ":{" %2 "}")
+					(removeVectorStringSuffixes (vec (keys propertyMap)) characteristicString)
+					(vec (keys propertyMap))
+				)
+			)
+		)
+		" }"
+	)
+)
 
 (defn createNewNode_tx
 	"Create a new Node under a transaction."

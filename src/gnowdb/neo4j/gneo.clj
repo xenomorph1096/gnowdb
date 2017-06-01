@@ -8,144 +8,36 @@
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
         '[java.io PushbackReader])
 
-(defn getNeo4jDBDetails
-  "Get Neo4jDB Details :bolt-url,:username,:password"
-  []
-  (with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
-              (read (PushbackReader. r))))
-
-(defn getDriver
-  "Get neo4j Database Driver"
-  []
-  (let [neo4jDBDetails (getNeo4jDBDetails)]
-    (GraphDatabase/driver (neo4jDBDetails :bolt-url) (AuthTokens/basic (neo4jDBDetails :username) (neo4jDBDetails :password)))))
-
-(defn parseRecordFields
-	"Parse Record Fields(list of key value pairs)"
-	[fieldList]
-	(into
-		{}
-		(map
-			(fn
-				[field]
-				[(str (.key field)) (.value field)]
-			)
-			fieldList
-		)
-	)
-)
-
-
-(defn parseStatementRecordList
-	"Convert Record List to String clojure list"
-	[recordList]
-	(vec (map #(parseRecordFields (.fields %)) recordList))
-
-)
-
-(defn parsePlainNode
-  "Parse plain Node and it's key values"
-  [plainNode]
-  (let [nodeFields (.fields plainNode) fieldVector (atom {})]
-    (doall (map (fn
-                  [nodeField]
-                  (let [nodeValue (.value nodeField)]
-                    (swap! fieldVector assoc :labels (vec (.labels (.asNode nodeValue))) :properties (into {} (.asMap nodeValue))))) nodeFields))
-    @fieldVector))
-
-(defn parsePlainNodes
-  "Parse plain nodes in parallel
-  plainNodes should be a vector of plainNodes"
-  [plainNodes]
-  (vec (doall (map parsePlainNode plainNodes))))
-
-(defn createSummaryMap
-  "Creates a summary map from StatementResult object.
-  This Object is returned by the run() method of session object
-  To be used for cypher queries that dont return nodes
-  Driver should not be closed before invoking this function"
-  [statementResult]
-  (let [summaryCounters (.counters (.consume statementResult))]
-    {:constraintsAdded (.constraintsAdded summaryCounters) :constraintsRemoved (.constraintsRemoved summaryCounters) :containsUpdates (.containsUpdates summaryCounters) :indexesAdded (.indexesAdded summaryCounters) :indexesRemoved (.indexesRemoved summaryCounters) :labelsAdded (.labelsAdded summaryCounters) :labelsRemoved (.labelsRemoved summaryCounters) :nodesCreated (.nodesCreated summaryCounters) :nodesDeleted (.nodesDeleted summaryCounters) :propertiesSet (.propertiesSet summaryCounters) :relationshipsCreated (.relationshipsCreated summaryCounters) :relationshipsDeleted (.relationshipsDeleted summaryCounters)}))
-
-(defn createSummaryString 
-	"Creates Summary String only with only necessary information.
-  	Takes summaryMap created by createSummaryMap function."
-	[summaryMap]
-	(reduce
-		(fn [string k]
-			(if(not= (k 1) 0)
-				(str string (str (clojure.string/capitalize (subs (str (k 0)) 1 2)) (subs (str (k 0)) 2)) " :" (k 1) " ;")
-				string
-			)
-		)
-		""
-		summaryMap
-	)
-)
-
-(defn getFullSummary
-  "Returns summaryMap and summaryString"
-  [statementResult]
-  (let [sumMap (createSummaryMap statementResult)]
-    {:summaryMap sumMap :summaryString (createSummaryString sumMap)}))
-
-(defn getCombinedFullSummary
-  "Combine FullSummaries obtained from 'getFullSummary'"
-	[fullSummaryVec]
-	(let [ consolidatedMap 
-			(apply merge-with
-				(fn [& args]
-					(if (some #(= (type %) java.lang.Boolean) args)
-						(if (some identity args) true false)
-						(apply + args)
-					)
-				)
-				{:constraintsAdded 0 :constraintsRemoved 0 :containsUpdates false :indexesAdded 0 :indexesRemoved 0 :labelsAdded 0 :labelsRemoved 0 :nodesCreated 0 :nodesDeleted 0 :propertiesSet 0 :relationshipsCreated 0 :relationshipsDeleted 0}	
-				(map #(% :summaryMap) fullSummaryVec)
-			)
-		]
-		{:summaryMap consolidatedMap
-		 :summaryString (createSummaryString consolidatedMap)
-		}
-	)
-)
-
-(defn getAllLabels
-  "Get all the Labels from the graph, parsed."
-  []
-  (((gdriver/runQuery {:query "MATCH (n) RETURN DISTINCT LABELS(n)" :parameters {}}) :results) 0)
- )
-
-(defn getAllNodes
-  "Returns a lazy sequence of labels and properties of all nodes in the graph"
-  []
-  	(map #(% "n") (((gdriver/runQuery {:query "MATCH (n) RETURN n" :parameters {}}) :results) 0))
- )
-
-(defn getNodeKeys
-  "Gets Node Keys as seq using NodeValue"
-  [nodeValue]
-  (iterator-seq (.iterator (.keys nodeValue))))
-
 (defn addStringToMapKeys
-  "Adds a string to every key of a map
-  Map keys should be strings."
   [stringMap string]
-  (let [stringMap2 (atom {}) mapKeyVec (vec (keys stringMap))]
-    (doall (map (fn
-                  [mapKey]
-                  (swap! stringMap2 assoc (str mapKey string) (stringMap mapKey))) mapKeyVec))
-    @stringMap2))
+  (apply conj
+         (map
+          (fn
+            [[stringKey value]]
+            {(str stringKey string) value}
+            )
+          stringMap
+          )
+         )
+  )
 
 (defn removeVectorStringSuffixes
   "Removes the string suffix from the Vector members"
   [mapKeyVector stringSuffix]
-  (let [suffixPattern (java.util.regex.Pattern/compile (str stringSuffix "$")) retMapKeyVector (atom [])]
-    (doall (map (fn
-                  [mapKey]
-                  (swap! retMapKeyVector conj (clojure.string/replace mapKey suffixPattern ""))) mapKeyVector))
-    @retMapKeyVector))
+  (
+   into []
+   (
+    map (fn
+          [keyValue]
+          (if (clojure.string/ends-with? (str keyValue) stringSuffix) 
+            (subs (str keyValue) 0 (clojure.string/last-index-of (str keyValue) stringSuffix))
+            (str keyValue)
+            )
+          )
+    mapKeyVector
+    )
+   )
+  )
 
 (defn createParameterPropertyString
   "Create Property String with parameter fields using map keys"
@@ -153,26 +45,37 @@
   ;;The characteristicString is sometimes appended to map keys to distinguish
   ;;the keys when multiple maps and their keys are used in the same cypher
   ;;query with parameters
-  (if (> (count (keys propertyMap)) 0)
-    (let [propertyMapKeysVec (vec (keys propertyMap)) propertyString (atom "{") psuedoMapKeysVec (atom [])]
-      (if characteristicString
-        (reset! psuedoMapKeysVec (removeVectorStringSuffixes propertyMapKeysVec characteristicString))
-        (reset! psuedoMapKeysVec propertyMapKeysVec))
-      ;;Concatenate propertyString with map keys as parameter keys and Node keys
-      (loop [x 0]
-        (when (< x (count propertyMapKeysVec))
-          (swap! propertyString str " " (str (@psuedoMapKeysVec x)) ":{" (str (propertyMapKeysVec x)) "},")
-          (recur (+ x 1))))
-      ;;Finalize propertyString by removing end comma and adding ' }'
-      (reset! propertyString (str (apply str (drop-last @propertyString)) " }"))
-      @propertyString)
-    " "))
+  (str "{ "
+       (clojure.string/join ", " 
+                            (vec 
+                             (map #(str %1 ":{" %2 "}")
+                                  (removeVectorStringSuffixes (vec (keys propertyMap)) characteristicString)
+                                  (vec (keys propertyMap))
+                                  )
+                             )
+                            )
+       " }"
+       )
+  )
+
+
+(defn getAllLabels
+  "Get all the Labels from the graph, parsed."
+  []
+  (((gdriver/runQuery {:query "MATCH (n) RETURN DISTINCT LABELS(n)" :parameters {}}) :results) 0)
+  )
+
+(defn getAllNodes
+  "Returns a lazy sequence of labels and properties of all nodes in the graph"
+  []
+  (map #(% "n") (((gdriver/runQuery {:query "MATCH (n) RETURN n" :parameters {}}) :results) 0))
+  )
 
 (defn combinePropertyMap
   "Combine PropertyMaps and associated propertyStrings.
-  Name PropertyMaps appropriately.
-  Input PropertyMaps as map of maps.
-  Keys Should be strings"
+	Name PropertyMaps appropriately.
+	Input PropertyMaps as map of maps.
+	Keys Should be strings"
   [propertyMaps]
   (let [propertyStringMap (atom {}) combinedPropertyMap (atom {})]
     (doall (map (fn
@@ -184,42 +87,49 @@
 
 (defn createNewNode
   "Create a new node in the graph. Without any relationships.
-  Node properties should be a clojure map.
-  Map keys will be used as neo4j node keys.
-  Map keys should be Strings only.
-  Map values must be neo4j compatible Objects"
-  [label propertyMap]
-  ((gdriver/runQuery {:query (str "CREATE (node:" label " " (createParameterPropertyString propertyMap) " )") :parameters propertyMap}) :summary)
-)
-
-(defn createNewNode_tx
-  "Create a new Node under a transaction."
-  [label propertyMap tx]
-  (getFullSummary (.run tx (str "CREATE (node:" label " " (createParameterPropertyString propertyMap) " )") (java.util.HashMap. propertyMap))))
+	Node properties should be a clojure map.
+	Map keys will be used as neo4j node keys.
+	Map keys should be Strings only.
+	Map values must be neo4j compatible Objects"
+  [& {:keys [label parameters execute?] :or {execute? true parameters {}}}]
+  (if execute?
+    ((gdriver/runQuery {:query (str "CREATE (node:" label " " (createParameterPropertyString parameters) " )") :parameters parameters}) :summary)
+    {:query (str "CREATE (node:" label " " (createParameterPropertyString parameters) " )") :parameters parameters}
+    )
+  )
 
 (defn createRelation
   "Relate two nodes matched with their properties (input as clojure map) with it's own properties"
-  [label1 propertyMap1 relationshipType relationshipPropertyMap label2 propertyMap2]
-  (let [combinedProperties (combinePropertyMap {"1" propertyMap1 "2" propertyMap2 "R" relationshipPropertyMap})]
-    ((gdriver/runQuery {:query (str "MATCH (node1:" label1 " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" label2 " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}) :summary)
+  [& {:keys [inNodeLabel inNodeParameters relationshipType relationshipParameters outNodeLabel outNodeParameters execute?] :or {execute? true}}]
+  (let [combinedProperties (combinePropertyMap {"1" inNodeParameters "2" outNodeParameters "R" relationshipParameters})]
+    (if execute?
+      ((gdriver/runQuery {:query (str "MATCH (node1:" inNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" outNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}) :summary)
+      {:query (str "MATCH (node1:" inNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" outNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}
+      )
+    )
   )
-)
 
 (defn deleteDetachNodes
   "Delete node(s) matched using property map and detach (remove relationships)"
-  [label propertyMap]
-  ((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString propertyMap) " ) DETACH DELETE node") :parameters propertyMap}) :summary)
-)
+  [& {:keys [label parameters execute?] :or {execute? true parameters {}}}]
+  (if execute?
+    ((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) " ) DETACH DELETE node") :parameters parameters}) :summary)
+    {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) " ) DETACH DELETE node") :parameters parameters}
+    )
+  )
 
 (defn deleteNodes
   "Delete node(s) matched using property map"
-  [label propertyMap]
-  ((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString propertyMap) " ) DELETE node") :parameters propertyMap}) :summary)
-)
+  [& {:keys [label parameters execute?] :or {execute? true parameters {}}}]
+  (if execute?
+    ((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) " ) DELETE node") :parameters parameters}) :summary)
+    {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) " ) DELETE node") :parameters parameters}
+    )
+  )
 
 (defn createNodeEditString
   "Creates a node edit string.
-  eg.., nodeName.prop1=val1 , nodeName.prop2=val2"
+	eg.., nodeName.prop1=val1 , nodeName.prop2=val2"
   [nodeName editPropertyMap & [characteristicString]]
   (if (> (count (keys editPropertyMap)) 0)
     (let [editPropertyMapKeysVec (vec (keys editPropertyMap)) editString (atom " ") psuedoEditMapKeysVec (atom [])]
@@ -239,62 +149,41 @@
 
 (defn editNodeProperties
   "Edit Properties of Node(s)"
-  [label matchPropertyMap targetPropertyMap]
-  (let [driver (getDriver) session (.session driver) fullSummary (atom nil) mPM (addStringToMapKeys matchPropertyMap "M") tPME (addStringToMapKeys targetPropertyMap "E")]
-    (reset! fullSummary (getFullSummary (.run session (str "MATCH (node1:" label " " (createParameterPropertyString mPM "M") " ) " (createNodeEditString "node1" tPME "E")) (java.util.HashMap. (merge mPM tPME)))))
-    (.close driver)
-    @fullSummary))
+  [& {:keys [label parameters changeMap execute?] :or {execute? true parameters {}}}]
+  (let [mPM (addStringToMapKeys parameters "M") tPME (addStringToMapKeys changeMap "E")]
+    (if execute?
+      ((gdriver/runQuery {:query (str "MATCH (node1:" label " " (createParameterPropertyString mPM "M") " ) " (createNodeEditString "node1" tPME "E")) :parameters (merge mPM tPME)}) :summary)
+      {:query (str "MATCH (node1:" label " " (createParameterPropertyString mPM "M") " ) " (createNodeEditString "node1" tPME "E")) :parameters (merge mPM tPME)}
+      )
+    )
+  )
 
 (defn createNodeRemString
   "Creates a node property removal string.
-  eg.., nodeName.prop1 , nodeName.prop2"
+	eg.., nodeName.prop1 , nodeName.prop2"
   [nodeName remPropertyVec]
   (str "REMOVE " (clojure.string/join ", " (doall (map (fn
                                                          [remProperty]
                                                          (str nodeName "." remProperty)) remPropertyVec)))))
 
+
 (defn removeNodeProperties
   "Remove properties from Node"
-  [label matchPropertyMap remPropertyVec]
-  (let [driver (getDriver) session (.session driver) fullSummary (atom nil)]
-    (reset! fullSummary (getFullSummary (.run session (str "MATCH (node1:" label " " (createParameterPropertyString matchPropertyMap) " ) " (createNodeRemString "node1" remPropertyVec)) (java.util.HashMap. matchPropertyMap))))
-    (.close driver)
-    @fullSummary))
+  [& {:keys [label parameters removeProperties execute?] :or {execute? true parameters {}}}]
+  (if execute?
+    ((gdriver/runQuery {:query (str "MATCH (node1:" label " " (createParameterPropertyString parameters) " ) " (createNodeRemString "node1" removeProperties)) :parameters parameters}) :summary)
+    {:query (str "MATCH (node1:" label " " (createParameterPropertyString parameters) " ) " (createNodeRemString "node1" removeProperties)) :parameters parameters}
+    )
+  )
 
 (defn getNodes
   "Get Node(s) matched by label and propertyMap"
-  [label propertyMap]
-  (map #(% "node")(((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString propertyMap) ") RETURN node") :parameters propertyMap}) :results) 0))
-)
-
-
-
-(defn getNodesParsed
-  "Get parsed Node(s) matched by label and propertyMap"
-  [label propertyMap]
-  (parsePlainNodes (getNodes label propertyMap)))
-
-(defn customMatchQuery
-  "Get Nodes by a custom parameterized Cypher query.
-  paramterMap should be a clojure map"
-  [cypherQuery parameterMap]
-  (let [driver (getDriver) session (.session driver) stList (atom nil)]
-    (reset! stList (.list (.run session cypherQuery (java.util.HashMap. parameterMap))))
-    (.close driver)
-    @stList))
-
-(defn customMatchQueryParsed
-  "Get Nodes by a custom parameterized Cypher query parsed"
-  [cypherQuery parameterMap]
-  (parsePlainNodes (customMatchQuery cypherQuery parameterMap)))
-
-(defn customUpdateQuery
-  "Perform update by a parameterized Cypher Query"
-  [cypherQuery parameterMap]
-  (let [driver (getDriver) session (.session driver) fullSummary (atom nil)]
-    (reset! fullSummary (getFullSummary (.run session cypherQuery (java.util.HashMap. parameterMap))))
-    (.close driver)
-    @fullSummary))
+  [& {:keys [label parameters execute?] :or {execute? true parameters {}}}]
+  (if execute?
+    (map #(% "node") (((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) ") RETURN node") :parameters parameters}) :results) 0))
+    {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) ") RETURN node") :parameters parameters}
+    )
+  )
 
 ;;Class building functions start here
 
@@ -541,37 +430,41 @@
 (defn applyClassNeoConstraints
   "Apply all NeoConstraints for a class"
   [& {:keys [:className :execute?] :as keyArgs}]
-  (let [builtQueries (map
-                      #(apply applyClassNeoConstraint
-                              (prepMapAsArg
-                               (assoc
-                                (clojure.set/rename-keys
-                                 (merge keyArgs
-                                        (into {} ((% "neo") :properties))
-                                        (into {} ((% "ncat") :properties))
-                                        )
-                                 {"constraintValue" :constraintValue
-                                  "constraintType" :constraintType
-                                  "constraintTarget" :constraintTarget
-                                  }
+  (let [builtQueries (reduceQueryColl
+                      (map
+                       #(apply applyClassNeoConstraint
+                               (prepMapAsArg
+                                (assoc
+                                 (clojure.set/rename-keys
+                                  (merge keyArgs
+                                         (into {} ((% "neo") :properties))
+                                         (into {} ((% "ncat") :properties))
+                                         )
+                                  {"constraintValue" :constraintValue
+                                   "constraintType" :constraintType
+                                   "constraintTarget" :constraintTarget
+                                   }
+                                  )
+                                 :execute? false
                                  )
-                                :execute? false
                                 )
                                )
-                              )
-                      (((getClassNeoConstraints className) :results) 0)
+                       (((getClassNeoConstraints className) :results) 0)
+                       )
                       )
         ]
     (if
-      execute?
+        execute?
       (apply gdriver/runQuery builtQueries)
       builtQueries)
     )
   )
 
+;;TODO : Rewrite class creation funtions
+
 ;; (defn createClassSQ
 ;;   ;; WARNING!!!!!!!!!!!!!!! NOT BUG FREE ... YET ... BUT SINGLE QUERY.... SO TRANSACTIONAL, ie SOMEWHAT SAFE. 
-  
+
 ;;   "Creates a node with label Class (Sequentially in a cypher query).
 ;;   isAbstract : true or false.
 ;;   className : unique string.

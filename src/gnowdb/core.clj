@@ -1,9 +1,7 @@
 (ns gnowdb.core
   (:gen-class)
   (:require [gnowdb.neo4j.gneo :as gneo]
-  			[gnowdb.neo4j.gdriver :as gdriver]))
-
-(use 'clojure.reflect)
+            [gnowdb.neo4j.gdriver :as gdriver]))
 
 (defn reload-all
   "Reload All"
@@ -13,12 +11,3 @@
 (defn -main
   ""
   [& args])
-
-
-
-
-
-
-
-
-

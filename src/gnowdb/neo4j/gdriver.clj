@@ -21,15 +21,7 @@
 (defn- getDriver
 	"Get neo4j Database Driver"
 	[]
-	(let [neo4jDBDetails getNeo4jDBDetails]
-	(GraphDatabase/driver (neo4jDBDetails :bolt-url) (AuthTokens/basic (neo4jDBDetails :username) (neo4jDBDetails :password)))
-	)
-)
-
-(defn- newTransaction
-	"Get a new Transaction to query the Database"
-	[driver]
-	(.beginTransaction (.session (getDriver)))
+	(GraphDatabase/driver (getNeo4jDBDetails :bolt-url) (AuthTokens/basic (getNeo4jDBDetails :username) (getNeo4jDBDetails :password)))
 )
 
 (defn- createSummaryMap
@@ -106,7 +98,8 @@
 	[& queriesList]
 	(let [
 			driver (getDriver)
-			transaction (newTransaction driver)
+			session (.session driver)
+			transaction (.beginTransaction session)
 		 ]
 		(try
 			(let
@@ -140,7 +133,7 @@
 				finalResult
 			)
 			(catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
-			(finally (.close transaction) (.close driver))
+			(finally (.close transaction) (.close session) (.close driver))
 		)
 	)
 )

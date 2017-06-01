@@ -30,13 +30,13 @@
 )
 
 (defn- createSummaryMap
-  "Creates a summary map from StatementResult object.
-  This Object is returned by the run() method of session object
-  To be used for cypher queries that dont return nodes
-  Driver should not be closed before invoking this function"
-  [statementResult]
-  (let [summaryCounters (.counters (.consume statementResult))]
-    {:constraintsAdded (.constraintsAdded summaryCounters) :constraintsRemoved (.constraintsRemoved summaryCounters) :containsUpdates (.containsUpdates summaryCounters) :indexesAdded (.indexesAdded summaryCounters) :indexesRemoved (.indexesRemoved summaryCounters) :labelsAdded (.labelsAdded summaryCounters) :labelsRemoved (.labelsRemoved summaryCounters) :nodesCreated (.nodesCreated summaryCounters) :nodesDeleted (.nodesDeleted summaryCounters) :propertiesSet (.propertiesSet summaryCounters) :relationshipsCreated (.relationshipsCreated summaryCounters) :relationshipsDeleted (.relationshipsDeleted summaryCounters)}))
+	"Creates a summary map from StatementResult object.
+	This Object is returned by the run() method of session object
+	To be used for cypher queries that dont return nodes
+	Driver should not be closed before invoking this function"
+	[statementResult]
+	(let [summaryCounters (.counters (.consume statementResult))]
+	{:constraintsAdded (.constraintsAdded summaryCounters) :constraintsRemoved (.constraintsRemoved summaryCounters) :containsUpdates (.containsUpdates summaryCounters) :indexesAdded (.indexesAdded summaryCounters) :indexesRemoved (.indexesRemoved summaryCounters) :labelsAdded (.labelsAdded summaryCounters) :labelsRemoved (.labelsRemoved summaryCounters) :nodesCreated (.nodesCreated summaryCounters) :nodesDeleted (.nodesDeleted summaryCounters) :propertiesSet (.propertiesSet summaryCounters) :relationshipsCreated (.relationshipsCreated summaryCounters) :relationshipsDeleted (.relationshipsDeleted summaryCounters)}))
 
 (defn- createSummaryString 
 	"Creates Summary String only with only necessary information.
@@ -55,10 +55,12 @@
 )
 
 (defn- getFullSummary
-  "Returns summaryMap and summaryString"
-  [statementResult]
-  (let [sumMap (createSummaryMap statementResult)]
-    {:summaryMap sumMap :summaryString (createSummaryString sumMap)}))
+	"Returns summaryMap and summaryString"
+	[statementResult]
+	(let [sumMap (createSummaryMap statementResult)]
+		{:summaryMap sumMap :summaryString (createSummaryString sumMap)}
+	)
+)
 
 (defn- getCombinedFullSummary
   "Combine FullSummaries obtained from 'getFullSummary'"

@@ -5,6 +5,7 @@ pom.xml.asc
 /classes/
 /target/
 /checkouts/
+/src/gnowdb/neo4j/gconf.clj
 .lein-deps-sum
 .lein-repl-history
 .lein-plugins/

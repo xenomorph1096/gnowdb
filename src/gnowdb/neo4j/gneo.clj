@@ -8,6 +8,56 @@
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
 				'[java.io PushbackReader])
 
+(defn addStringToMapKeys
+	[stringMap string]
+	(apply conj
+		(map
+			(fn
+				[[stringKey value]]
+					{(str stringKey string) value}
+			)
+			stringMap
+		)
+	)
+)
+
+(defn removeVectorStringSuffixes
+	"Removes the string suffix from the Vector members"
+	[mapKeyVector stringSuffix]
+		(
+			into []
+				(
+					map (fn
+							[keyValue]
+								(if (clojure.string/ends-with? (str keyValue) stringSuffix) 
+									(subs (str keyValue) 0 (clojure.string/last-index-of (str keyValue) stringSuffix))
+									(str keyValue)
+								)
+						)
+					mapKeyVector
+				)
+		)
+)
+
+(defn createParameterPropertyString
+	"Create Property String with parameter fields using map keys"
+	[propertyMap & [characteristicString]]
+	;;The characteristicString is sometimes appended to map keys to distinguish
+	;;the keys when multiple maps and their keys are used in the same cypher
+	;;query with parameters
+	(str "{ "
+		(clojure.string/join ", " 
+			(vec 
+				(map #(str %1 ":{" %2 "}")
+					(removeVectorStringSuffixes (vec (keys propertyMap)) characteristicString)
+					(vec (keys propertyMap))
+				)
+			)
+		)
+		" }"
+	)
+)
+
 
 (defn getAllLabels
 	"Get all the Labels from the graph, parsed."
@@ -20,46 +70,6 @@
 	[]
 	(map #(% "n") (((gdriver/runQuery {:query "MATCH (n) RETURN n" :parameters {}}) :results) 0))
  )
-
-(defn addStringToMapKeys
-	"Adds a string to every key of a map
-	Map keys should be strings."
-	[stringMap string]
-	(let [stringMap2 (atom {}) mapKeyVec (vec (keys stringMap))]
-		(doall (map (fn
-									[mapKey]
-									(swap! stringMap2 assoc (str mapKey string) (stringMap mapKey))) mapKeyVec))
-		@stringMap2))
-
-(defn removeVectorStringSuffixes
-	"Removes the string suffix from the Vector members"
-	[mapKeyVector stringSuffix]
-	(let [suffixPattern (java.util.regex.Pattern/compile (str stringSuffix "$")) retMapKeyVector (atom [])]
-		(doall (map (fn
-									[mapKey]
-									(swap! retMapKeyVector conj (clojure.string/replace mapKey suffixPattern ""))) mapKeyVector))
-		@retMapKeyVector))
-
-(defn createParameterPropertyString
-	"Create Property String with parameter fields using map keys"
-	[propertyMap & [characteristicString]]
-	;;The characteristicString is sometimes appended to map keys to distinguish
-	;;the keys when multiple maps and their keys are used in the same cypher
-	;;query with parameters
-	(if (> (count (keys propertyMap)) 0)
-		(let [propertyMapKeysVec (vec (keys propertyMap)) propertyString (atom "{") psuedoMapKeysVec (atom [])]
-			(if characteristicString
-				(reset! psuedoMapKeysVec (removeVectorStringSuffixes propertyMapKeysVec characteristicString))
-				(reset! psuedoMapKeysVec propertyMapKeysVec))
-			;;Concatenate propertyString with map keys as parameter keys and Node keys
-			(loop [x 0]
-				(when (< x (count propertyMapKeysVec))
-					(swap! propertyString str " " (str (@psuedoMapKeysVec x)) ":{" (str (propertyMapKeysVec x)) "},")
-					(recur (+ x 1))))
-			;;Finalize propertyString by removing end comma and adding ' }'
-			(reset! propertyString (str (apply str (drop-last @propertyString)) " }"))
-			@propertyString)
-		" "))
 
 (defn combinePropertyMap
 	"Combine PropertyMaps and associated propertyStrings.
@@ -283,57 +293,9 @@
 (defn getNodeKeys
 	"Gets Node Keys as seq using NodeValue"
 	[nodeValue]
-	(iterator-seq (.iterator (.keys nodeValue)))
+	(iterator-seq (.iterator (.keys nodeValue))))
 
-(defn addStringToMapKeys
-	[stringMap string]
-	(apply conj
-		(map
-			(fn
-				[[stringKey value]]
-					{(str stringKey string) value}
-			)
-			stringMap
-		)
-	)
-)
 
-(defn removeVectorStringSuffixes
-	"Removes the string suffix from the Vector members"
-	[mapKeyVector stringSuffix]
-		(
-			into []
-				(
-					map (fn
-							[keyValue]
-								(if (clojure.string/ends-with? (str keyValue) stringSuffix) 
-									(subs (str keyValue) 0 (clojure.string/last-index-of (str keyValue) stringSuffix))
-									(str keyValue)
-								)
-						)
-					mapKeyVector
-				)
-		)
-)
-
-(defn createParameterPropertyString
-	"Create Property String with parameter fields using map keys"
-	[propertyMap & [characteristicString]]
-	;;The characteristicString is sometimes appended to map keys to distinguish
-	;;the keys when multiple maps and their keys are used in the same cypher
-	;;query with parameters
-	(str "{ "
-		(clojure.string/join ", " 
-			(vec 
-				(map #(str %1 ":{" %2 "}")
-					(removeVectorStringSuffixes (vec (keys propertyMap)) characteristicString)
-					(vec (keys propertyMap))
-				)
-			)
-		)
-		" }"
-	)
-)
 
 (defn createNewNode_tx
 	"Create a new Node under a transaction."

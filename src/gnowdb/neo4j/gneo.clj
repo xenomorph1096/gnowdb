@@ -29,10 +29,7 @@
    (
     map (fn
           [keyValue]
-          (if (clojure.string/ends-with? (str keyValue) stringSuffix) 
-            (subs (str keyValue) 0 (clojure.string/last-index-of (str keyValue) stringSuffix))
-            (str keyValue)
-            )
+          (clojure.string/replace keyValue (java.util.regex.Pattern/compile (str stringSuffix "$")) "")
           )
     mapKeyVector
     )
@@ -166,7 +163,6 @@
                                                          [remProperty]
                                                          (str nodeName "." remProperty)) remPropertyVec)))))
 
-
 (defn removeNodeProperties
   "Remove properties from Node"
   [& {:keys [label parameters removeProperties execute?] :or {execute? true parameters {}}}]
@@ -214,7 +210,7 @@
   :constraintType should be either UNIQUE or NODEEXISTANCE or RELATIONEXISTANCE or NODEKEY.
   if :constraintType is NODEKEY, :propertyVec should be a vector of vectors of properties(string).
   :execute? (boolean) whether the constraints are to be created, or just return preparedQueries"
-  [& {:keys [:label :CD :propertyVec :constraintType :execute?]}]
+  [& {:keys [:label :CD :propertyVec :constraintType :execute?] :or {:execute? true}}]
   {:pre [
          (string? label)
          (contains? #{"CREATE" "DROP"} CD)
@@ -258,7 +254,7 @@
   :label is treated as a Node Label.
   :CD can be CREATE,DROP.
   :propertyVec should be a vector of properties"
-  [& {:keys [:label :CD :propertyVec :execute?] :as keyArgs}]
+  [& {:keys [:label :CD :propertyVec :execute?] :or {:execute? true} :as keyArgs}]
   (apply manageConstraints
          (prepMapAsArg
           (assoc
@@ -275,8 +271,8 @@
   :CD can be CREATE, DROP.
   :propertyVec should be a vector of properties.
   :NR should be either NODE or RELATION"
-  [& {:keys [:label :CD :propertyVec :NR :execute?] :as keyArgs}]
-  {:pre [(contains? #{"CREATE" "DROP"} NR)]
+  [& {:keys [:label :CD :propertyVec :NR :execute?] :or {:execute? true} :as keyArgs}]
+  {:pre [(contains? #{"CREATE" "DROP"} CD)]
    }
   (apply manageConstraints
          (prepMapAsArg
@@ -294,69 +290,109 @@
   :label is treated as node label.
   :CD can be CREATE, DROP.
   :propPropVec should be a vector of vectors of properties(string)."
-  [& {:keys [:label :CD :propPropVec :execute?] :as keyArgs}]
+  [& {:keys [:label :CD :propPropVec :execute?] :or {:execute? true} :as keyArgs}]
   ;;For some reason, creating/dropping a nodekey doesn't reflect on summary.
   ;;So don't be surprised if no errors occur or no changes exist in the summary.
   (apply manageConstraints
          (prepMapAsArg
           (assoc
            keyArgs
-           :constraintType "NODEKEY")
+           :constraintType "NODEKEY"
+           :propertyVec propPropVec)
           )
          )
   )
 
 (defn createNCConstraints
   "Create Constraints that apply to nodes with label NeoConstraint"
-  []
-  (manageNodeKeyConstraints :label "NeoConstraint" :CD "CREATE" :propPropVec [["constraintType" "constraintTarget"]] :execute? true))
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (manageNodeKeyConstraints :label "NeoConstraint" :CD "CREATE" :propPropVec [["constraintType" "constraintTarget"]] :execute? execute?))
 
 (defn createCATConstraints
   "Create Constraints that apply to relationships with label NeoConstraintAppliesTo"
-  []
-  (manageExistanceConstraints :label "NeoConstraintAppliesTo" :CD "CREATE" :propertyVec ["constraintValue"] :NR "RELATION" :execute? true))
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (manageExistanceConstraints :label "NeoConstraintAppliesTo" :CD "CREATE" :propertyVec ["constraintValue"] :NR "RELATION" :execute? execute?))
+
+(defn createATConstraints
+  "Creates Constraints that apply to nodes with label AttributeType"
+  [& {:keys [:execute?] :or {:execute true}}]
+  (manageNodeKeyConstraints :label "AttributeType" :CD "CREATE" :propPropVec [["_name" "_datatype"]] :execute? execute?))
+
+(defn createClassConstraints
+  "Create Constraints that apply to nodes with label Class"
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (let [builtQueries (reduceQueryColl
+                      [(manageExistanceConstraints :label "Class"
+                                                   :CD "CREATE"
+                                                   :propertyVec ["isAbstract" "classType"]
+                                                   :NR "NODE"
+                                                   :execute? false)
+                       (manageNodeKeyConstraints :label "Class"
+                                                 :CD "CREATE"
+                                                 :propPropVec [["className"]]
+                                                 :execute? false)
+                       ]
+                      )
+        ]
+    (if
+        execute?
+      (apply gdriver/runQuery builtQueries)
+      builtQueries)
+    )
+  )
 
 (defn createNeoConstraint
   "Creates a NeoConstraint Node that describes a supported neo4j constraint.
   :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
   :constraintTarget should be either of NODE,RELATION.
   If :constraintTarget is RELATION, then constraintType can only be EXISTANCE"
-  [& {:keys [:constraintType :constraintTarget :execute?] :as keyArgs}]
+  [& {:keys [:constraintType :constraintTarget :execute?] :or {:execute? true} :as keyArgs}]
   {:pre [
          (contains? #{"UNIQUE" "EXISTANCE" "NODEKEY"} constraintType)
          (contains? #{"NODE" "RELATION"} constraintTarget)
-         (and
-          (contains? #{"UNIQUE" "NODEKEY"} constraintType)
-          (= "RELATION" constraintTarget)
+         (not
+          (and
+           (contains? #{"UNIQUE" "NODEKEY"} constraintType)
+           (= "RELATION" constraintTarget)
+           )
           )
          ]
    }
-  (createNewNode "NeoConstraint" {"constraintType" constraintType "constraintTarget" constraintTarget})
+  (createNewNode :label "NeoConstraint"
+                 :parameters {"constraintType" constraintType "constraintTarget" constraintTarget}
+                 :execute? execute?
+                 )
   )
 
 (defn createAllNeoConstraints
   "Creates all NeoConstraints"
-  []
-  (pcalls
-   #(createNeoConstraint :constraintType "UNIQUE" :constraintTarget "NODE")
-   #(createNeoConstraint :constraintType "NODEKEY" :constraintTarget "NODE")
-   #(createNeoConstraint :constraintType "EXISTANCE" :constraintTarget "NODE")
-   #(createNeoConstraint :constraintType "EXISTANCE" :constraintTarget "RELATION")
-   )
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (let [builtQueries
+        (map #(createNeoConstraint
+               :constraintType (% 0)
+               :constraintTarget (% 1)
+               :execute? false)
+             [
+              ["UNIQUE" "NODE"]
+              ["NODEKEY" "NODE"]
+              ["EXISTANCE" "NODE"]
+              ["EXISTANCE" "RELATION"]
+              ]
+             )
+        ]
+    (if
+        execute?
+      (apply gdriver/runQuery builtQueries)
+      builtQueries))
   )
 
 ;;TODO CUSTOM CONSTRAINTS
-
-(defn createATConstraints
-  "Creates Constraints that apply to nodes with label AttributeType"
-  []
-  (manageNodeKeyConstraints :label "AttributeType" :CD "CREATE" :propPropVec [["_name" "_datatype"]] :execute? true))
 
 (defn createAttributeType
   "Creates a node with Label AttributeType.
   :_name should be a string
   :_datatype should be a string of one of the following: 'java.lang.Boolean', 'java.lang.Byte', 'java.lang.Short', 'java.lang.Integer', 'java.lang.Long', 'java.lang.Float', 'java.lang.Double', 'java.lang.Character', 'java.lang.String', 'java.util.ArrayList'"
-  [& {:keys [:_name :_datatype] :as keyArgs}]
+  [& {:keys [:_name :_datatype :execute?] :or {:execute? true} :as keyArgs}]
   {:pre [
          (string? _name)
          (contains? #{"java.lang.Boolean",
@@ -372,13 +408,10 @@
                     _datatype)
          ]
    }
-  (createNewNode "AttributeType" {"_name" _name "_datatype" _datatype}))
-
-(defn createClassConstraints
-  "Create Constraints that apply to nodes with label Class"
-  []
-  (manageExistanceConstraints :label "Class" :CD "CREATE" :propertyVec ["isAbstract" "classType"] :NR "NODE" :execute? true)
-  (manageNodeKeyConstraints :label "Class" :CD "CREATE" :propPropVec [["className"]] :execute? true))
+  (createNewNode :label "AttributeType"
+                 :parameters {"_name" _name "_datatype" _datatype}
+                 :execute? execute?)
+  )
 
 (defn getClassAttributeTypes
   "Get all AttributeTypes 'attributed' to a class"

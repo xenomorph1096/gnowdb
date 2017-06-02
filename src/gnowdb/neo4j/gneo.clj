@@ -40,23 +40,23 @@
   )
 
 (defn createParameterPropertyString
-  "Create Property String with parameter fields using map keys"
-  [propertyMap & [characteristicString]]
-  ;;The characteristicString is sometimes appended to map keys to distinguish
-  ;;the keys when multiple maps and their keys are used in the same cypher
-  ;;query with parameters
-  (str "{ "
-       (clojure.string/join ", " 
-                            (vec 
-                             (map #(str %1 ":{" %2 "}")
-                                  (removeVectorStringSuffixes (vec (keys propertyMap)) characteristicString)
-                                  (vec (keys propertyMap))
-                                  )
-                             )
-                            )
-       " }"
-       )
-  )
+	"Create Property String with parameter fields using map keys"
+	[propertyMap & [characteristicString]]
+	;;The characteristicString is sometimes appended to map keys to distinguish
+	;;the keys when multiple maps and their keys are used in the same cypher
+	;;query with parameters
+	(str "{ "
+		(clojure.string/join ", " 
+			(vec 
+				(map #(str %1 ":{" %2 "}")
+					(removeVectorStringSuffixes (vec (keys propertyMap)) characteristicString)
+					(vec (keys propertyMap))
+				)
+			)
+		)
+		" }"
+	)
+)
 
 
 (defn getAllLabels
@@ -128,24 +128,24 @@
   )
 
 (defn createNodeEditString
-  "Creates a node edit string.
+	"Creates a node edit string.
 	eg.., nodeName.prop1=val1 , nodeName.prop2=val2"
-  [nodeName editPropertyMap & [characteristicString]]
-  (if (> (count (keys editPropertyMap)) 0)
-    (let [editPropertyMapKeysVec (vec (keys editPropertyMap)) editString (atom " ") psuedoEditMapKeysVec (atom [])]
-      (if characteristicString
-        (reset! psuedoEditMapKeysVec (removeVectorStringSuffixes editPropertyMapKeysVec characteristicString))
-        (reset! psuedoEditMapKeysVec editPropertyMapKeysVec))
-      (reset! editString " SET ")
-      (loop [x 0]
-        (when (< x (count editPropertyMapKeysVec))
-          ;;Similar to createParameterPropertyString
-          (swap! editString str " " nodeName "." (str (@psuedoEditMapKeysVec x)) " = {" (str (editPropertyMapKeysVec x)) "} ,")
-          (recur (+ x 1))))
-      ;;Finalize editString)
-      (reset! editString (str (apply str (drop-last @editString)) " "))
-      @editString)
-    " "))
+	[nodeName editPropertyMap & [characteristicString]]
+	(str " SET  "
+		(clojure.string/join " , "
+			(
+				vec(map #(str nodeName"."%1" = {"%2"}")
+						(if characteristicString 
+							(removeVectorStringSuffixes (vec (keys editPropertyMap)) characteristicString)	
+							(vec (keys editPropertyMap))
+						)
+						(vec (keys editPropertyMap))
+					)
+			)
+		)
+		"  "
+	)
+)
 
 (defn editNodeProperties
   "Edit Properties of Node(s)"
@@ -159,13 +159,19 @@
   )
 
 (defn createNodeRemString
-  "Creates a node property removal string.
-	eg.., nodeName.prop1 , nodeName.prop2"
-  [nodeName remPropertyVec]
-  (str "REMOVE " (clojure.string/join ", " (doall (map (fn
-                                                         [remProperty]
-                                                         (str nodeName "." remProperty)) remPropertyVec)))))
-
+	"Creates a node property removal string.
+	eg.REMOVE nodeName nodeName.prop1 , nodeName.prop2"
+	[nodeName remPropertyVec]
+	(str "REMOVE "
+		(clojure.string/join ", "
+			(	
+				vec (map #(str nodeName"."%1) 
+						remPropertyVec
+					)	
+			)
+		)
+	)	
+)
 
 (defn removeNodeProperties
   "Remove properties from Node"

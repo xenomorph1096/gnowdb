@@ -222,25 +222,7 @@
         			)
         		)
         	)
-        	(testing "relationship between pre-existing nodes"
-        		(is (= 
-        			)
-        		)
-        	)
-        	(testing "creating paths"
-        		(is (=  
-        			)
-        		)
-
-        	)
-
-        )
-
-        (testing "Error in merging"
-        	(testing ""
-        	)
-
-        )
+        	
 
 
 

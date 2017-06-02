@@ -347,7 +347,7 @@
 (defn createATConstraints
   "Creates Constraints that apply to nodes with label AttributeType"
   [& {:keys [:execute?] :or {:execute? true}}]
-  (manageNodeKeyConstraints :label "AttributeType" :CD "CREATE" :propPropVec [["_name" "_datatype"]] :execute? execute?))
+  (manageNodeKeyConstraints :label "AttributeType" :CD "CREATE" :propPropVec [["_name"] ["_datatype"]] :execute? execute?))
 
 (defn createClassConstraints
   "Create Constraints that apply to nodes with label Class"
@@ -524,81 +524,28 @@
     )
   )
 
-;;TODO : Rewrite class creation funtions
-
-;; (defn createClassSQ
-;;   ;; WARNING!!!!!!!!!!!!!!! NOT BUG FREE ... YET ... BUT SINGLE QUERY.... SO TRANSACTIONAL, ie SOMEWHAT SAFE. 
-
-;;   "Creates a node with label Class (Sequentially in a cypher query).
-;;   isAbstract : true or false.
-;;   className : unique string.
-;;   classType : either 'NODE' or 'RELATION'.
-;;   superClasses : vector of classNames.
-;;   _attributeTypes : vector of maps with keys '_name', '_datatype'
-;;   newAttributeTypes : same.
-;;   propertyMap : optional propertyMap.
-;;   _constraintsVec : vector of maps with keys 'constraintType', 'constraintTarget', 'constraintValue'."
-;;   [isAbstract? className classType superClasses _attributeTypes &[propertyMap newAttributeTypes _constraintsVec]]
-;;   (let [attributeTypes (atom []) constraintsVec (atom [])]
-;;     (doall (map (fn
-;;                   [_constraint]
-;;                   (if (not= classType (_constraint "constraintTarget"))
-;;                     (throw (Exception. (str "ConstraintTarget should be same as classType" _constraint))))) _constraintsVec))
-;;     (doall (map (fn
-;;                   [superClass]
-;;                   (let [fetchedClass (getNodesParsed "Class" {"className" superClass}) c_attributeTypes (atom []) c_constraintsVec (atom [])]
-;;                     (if (empty? fetchedClass)
-;;                       (throw (Exception. (str "Class Does not Exist: " superClass))))
-;;                     (if (not= classType (((fetchedClass 0) :properties) "classType"))
-;;                       (throw (Exception. (str "Superclass should have same classType as new Class: " superClass)))
-;;                       (do
-;;                         (reset! c_attributeTypes (getClassAttributeTypes superClass))
-;;                         (reset! c_constraintsVec (getClassNeoConstraints superClass))
-;;                         (reset! attributeTypes (vec (distinct (concat @attributeTypes @c_attributeTypes))))
-;;                         (reset! constraintsVec (vec (distinct (concat @constraintsVec @c_constraintsVec)))))))) superClasses))
-;;     (reset! attributeTypes (vec (distinct (concat @attributeTypes _attributeTypes))))
-;;     (reset! constraintsVec (vec (distinct (concat @constraintsVec _constraintsVec))))
-;;     (let [driver (getDriver) session (.session driver) fullSummary (atom nil) constraintValues (vec (map (fn [constraint] {"constraintValue" (constraint "constraintValue")}) @constraintsVec)) subConstraintsVec (vec (map (fn [constraint] (dissoc constraint "constraintValue")) @constraintsVec)) combinedPropertyMap (combinePropertyMap (merge {"C" (merge {"isAbstract" isAbstract? "className" className "classType" classType} propertyMap)} (addStringToMapKeys (into {} (map-indexed vector @attributeTypes)) "AT") (addStringToMapKeys (into {} (map-indexed vector newAttributeTypes)) "NAT") (addStringToMapKeys (into {} (map-indexed vector subConstraintsVec)) "NEOC") (addStringToMapKeys (into {} (map-indexed vector constraintValues)) "NEOCV") (addStringToMapKeys (into {} (map-indexed vector ((fn [] (let [newMaps (atom [])] (doall (map (fn [superClass] (swap! newMaps conj {"className" superClass})) superClasses)) @newMaps))))) "SUP"))) cypherQuery (atom nil)]
-;;       (if (or (not (contains? #{"NODE" "RELATION"} classType)) (not (= "java.lang.Boolean" (.getName (type isAbstract?)))))
-;;         (throw (Exception. "classType or isAbstract? arguments dont conform to their standards. Read DOC")))
-;;       (reset! cypherQuery (str (if (= 0 (count (vec (concat @attributeTypes superClasses @constraintsVec)))) "" " MATCH ") (clojure.string/join ", " (map (fn
-;;                                                                                                                                                             [attribute]
-;;                                                                                                                                                             (let [atindex (.indexOf @attributeTypes attribute)]
-;;                                                                                                                                                               (str "(AT" atindex ":AttributeType " ((combinedPropertyMap :propertyStringMap) (str atindex "AT")) ") "))) @attributeTypes)) (if (or (= 0 (count @attributeTypes)) (= 0 (count superClasses))) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [superClass]
-;;                                                                 (let
-;;                                                                     [supindex (.indexOf superClasses superClass)]
-;;                                                                   (str "(SUP" supindex ":Class " ((combinedPropertyMap :propertyStringMap) (str supindex "SUP")) ") "))) superClasses)) (if (= 0 (count @constraintsVec)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [constraint]
-;;                                                                 (let [neocindex (.indexOf @constraintsVec constraint)]
-;;                                                                   (str "(NEOC" neocindex ":NeoConstraint " ((combinedPropertyMap :propertyStringMap) (str neocindex "NEOC")) ") "))) @constraintsVec))
-;;                                "CREATE (newClass:Class " ((combinedPropertyMap :propertyStringMap) "C") ")" (if (= 0 (count superClasses)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [superClass]
-;;                                                                 (let [supindex (.indexOf superClasses superClass)]
-;;                                                                   (str "(newClass)-[:IsSubClassOf]->(SUP" supindex ")"))) superClasses)) (if (= 0 (count newAttributeTypes)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [newAttribute]
-;;                                                                 (let [natindex (.indexOf newAttributeTypes newAttribute)]
-;;                                                                   (str " (NAT" natindex ":AttributeType " ((combinedPropertyMap :propertyStringMap) (str natindex "NAT")) ") ")
-;;                                                                   )) newAttributeTypes)) (if (= 0 (count @attributeTypes)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [attribute]
-;;                                                                 (let [atindex (.indexOf @attributeTypes attribute)]
-;;                                                                   (str "(newClass)-[HAT" atindex ":HasAttributeType]->(AT" atindex") "))) @attributeTypes)) (if (= 0 (count newAttributeTypes)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [newAttribute]
-;;                                                                 (let [natindex (.indexOf newAttributeTypes newAttribute)]
-;;                                                                   (str "(newClass)-[NHAT" natindex ":HasAttributeType]->(NAT" natindex ")"))) newAttributeTypes)) (if (= 0 (count @constraintsVec)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [constraint]
-;;                                                                 (let [neocindex (.indexOf @constraintsVec constraint)]
-;;                                                                   (str "(NEOC" neocindex ")-[NEOCAT" neocindex ":NeoConstraintAppliesTo " ((combinedPropertyMap :propertyStringMap) (str neocindex "NEOCV")) "]->(newClass)"))) @constraintsVec))))
-;;       (reset! fullSummary (getCombinedFullSummary [(getFullSummary (.run session @cypherQuery (combinedPropertyMap :combinedPropertyMap))) (applyClassNeoConstraints className)]))
-;;       (.close driver)
-;;       @fullSummary)))
+(defn createClass
+  "Create a node with label Class"
+  [& {:keys [:className :classType :isAbstract? :properties :execute?] :or {:execute? true}}]
+  {:pre [(string? className)
+         (contains? #{"NODE" "RELATION"} classType)
+         (not
+          (or (contains? properties "className")
+              (contains? properties "classType")
+              (contains? properties "isAbstract")
+              )
+          )
+         ]
+   }
+  (createNewNode :label "Class"
+                 :parameters (assoc properties
+                                    "className" className
+                                    "classType" classType
+                                    "isAbstract" isAbstract?
+                                    )
+                 :execute? execute?
+                 )
+  )
 
 (defn addClassAT
   "Adds a relation HasAttributeType from Class to AttributeType.
@@ -629,7 +576,7 @@
   :constraintValue should be _name of an  AttributeType or collection of _names, in case of NODEKEY"
   [& {:keys [:constraintType :constraintTarget :constraintValue :className :execute?] :or {:execute? true}}]
   {:pre [(= 1 (count (getNodes :label "Class"
-                               :parameters {"className" className "classType" :constraintTarget}
+                               :parameters {"className" className "classType" constraintTarget}
                                ))
             )
          ]

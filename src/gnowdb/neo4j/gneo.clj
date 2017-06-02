@@ -8,7 +8,7 @@
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
         '[java.io PushbackReader])
 
-(defn addStringToMapKeys
+(defn- addStringToMapKeys
   [stringMap string]
   (apply conj
          (map
@@ -21,7 +21,7 @@
          )
   )
 
-(defn removeVectorStringSuffixes
+(defn- removeVectorStringSuffixes
   "Removes the string suffix from the Vector members"
   [mapKeyVector stringSuffix]
   (
@@ -29,17 +29,14 @@
    (
     map (fn
           [keyValue]
-          (if (clojure.string/ends-with? (str keyValue) stringSuffix) 
-            (subs (str keyValue) 0 (clojure.string/last-index-of (str keyValue) stringSuffix))
-            (str keyValue)
-            )
+          (clojure.string/replace keyValue (java.util.regex.Pattern/compile (str stringSuffix "$")) "")
           )
     mapKeyVector
     )
    )
   )
 
-(defn createParameterPropertyString
+(defn- createParameterPropertyString
 	"Create Property String with parameter fields using map keys"
 	[propertyMap & [characteristicString]]
 	;;The characteristicString is sometimes appended to map keys to distinguish
@@ -58,6 +55,77 @@
 	)
 )
 
+(defn- combinePropertyMap
+  "Combine PropertyMaps and associated propertyStrings.
+  Name PropertyMaps appropriately.
+  Input PropertyMaps as map of maps.
+  Keys Should be strings"
+  [propertyMaps]
+  {:combinedPropertyMap (reduce
+                         #(if
+                              (empty? (%2 1))
+                            %1
+                            (merge %1
+                                   (addStringToMapKeys
+                                    (%2 1)
+                                    (%2 0)
+                                    )
+                                   )
+                            )
+                         {}
+                         (seq propertyMaps)
+                         )
+   :propertyStringMap (reduce
+                       #(assoc
+                         %1
+                         (%2 0)
+                         (if
+                             (empty? (%2 1))
+                           ""
+                           (createParameterPropertyString (addStringToMapKeys (%2 1) (%2 0)) (%2 0))
+                           )
+                         )
+                       {}
+                       (seq propertyMaps)
+                       )
+   }
+  )
+
+(defn- createNodeEditString
+	"Creates a node edit string.
+	eg.., nodeName.prop1=val1 , nodeName.prop2=val2"
+	[nodeName editPropertyMap & [characteristicString]]
+	(str " SET  "
+		(clojure.string/join " , "
+			(
+				vec(map #(str nodeName"."%1" = {"%2"}")
+						(if characteristicString 
+							(removeVectorStringSuffixes (vec (keys editPropertyMap)) characteristicString)	
+							(vec (keys editPropertyMap))
+						)
+						(vec (keys editPropertyMap))
+					)
+			)
+		)
+		"  "
+	)
+)
+
+(defn- createNodeRemString
+	"Creates a node property removal string.
+	eg.REMOVE nodeName nodeName.prop1 , nodeName.prop2"
+	[nodeName remPropertyVec]
+	(str "REMOVE "
+		(clojure.string/join ", "
+			(	
+				vec (map #(str nodeName"."%1) 
+						remPropertyVec
+					)	
+			)
+		)
+	)	
+)
+
 
 (defn getAllLabels
   "Get all the Labels from the graph, parsed."
@@ -70,20 +138,6 @@
   []
   (map #(% "n") (((gdriver/runQuery {:query "MATCH (n) RETURN n" :parameters {}}) :results) 0))
   )
-
-(defn combinePropertyMap
-  "Combine PropertyMaps and associated propertyStrings.
-	Name PropertyMaps appropriately.
-	Input PropertyMaps as map of maps.
-	Keys Should be strings"
-  [propertyMaps]
-  (let [propertyStringMap (atom {}) combinedPropertyMap (atom {})]
-    (doall (map (fn
-                  [mapKey]
-                  (let [newPropertyMap (addStringToMapKeys (propertyMaps mapKey) mapKey)]
-                    (swap! combinedPropertyMap merge newPropertyMap)
-                    (swap! propertyStringMap assoc mapKey (createParameterPropertyString newPropertyMap mapKey)))) (vec (keys propertyMaps))))
-    {:combinedPropertyMap @combinedPropertyMap :propertyStringMap @propertyStringMap}))
 
 (defn createNewNode
   "Create a new node in the graph. Without any relationships.
@@ -100,11 +154,20 @@
 
 (defn createRelation
   "Relate two nodes matched with their properties (input as clojure map) with it's own properties"
-  [& {:keys [inNodeLabel inNodeParameters relationshipType relationshipParameters outNodeLabel outNodeParameters execute?] :or {execute? true}}]
-  (let [combinedProperties (combinePropertyMap {"1" inNodeParameters "2" outNodeParameters "R" relationshipParameters})]
+  [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters execute?] :or {execute? true}}]
+  (let [combinedProperties
+        (combinePropertyMap
+         {"1" fromNodeParameters
+          "2" toNodeParameters
+          "R" relationshipParameters
+          }
+         )
+        builtQuery
+        {:query
+         (str "MATCH (node1:" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}]
     (if execute?
-      ((gdriver/runQuery {:query (str "MATCH (node1:" inNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" outNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}) :summary)
-      {:query (str "MATCH (node1:" inNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" outNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}
+      (gdriver/runQuery builtQuery)
+      builtQuery
       )
     )
   )
@@ -127,26 +190,6 @@
     )
   )
 
-(defn createNodeEditString
-	"Creates a node edit string.
-	eg.., nodeName.prop1=val1 , nodeName.prop2=val2"
-	[nodeName editPropertyMap & [characteristicString]]
-	(str " SET  "
-		(clojure.string/join " , "
-			(
-				vec(map #(str nodeName"."%1" = {"%2"}")
-						(if characteristicString 
-							(removeVectorStringSuffixes (vec (keys editPropertyMap)) characteristicString)	
-							(vec (keys editPropertyMap))
-						)
-						(vec (keys editPropertyMap))
-					)
-			)
-		)
-		"  "
-	)
-)
-
 (defn editNodeProperties
   "Edit Properties of Node(s)"
   [& {:keys [label parameters changeMap execute?] :or {execute? true parameters {}}}]
@@ -157,21 +200,6 @@
       )
     )
   )
-
-(defn createNodeRemString
-	"Creates a node property removal string.
-	eg.REMOVE nodeName nodeName.prop1 , nodeName.prop2"
-	[nodeName remPropertyVec]
-	(str "REMOVE "
-		(clojure.string/join ", "
-			(	
-				vec (map #(str nodeName"."%1) 
-						remPropertyVec
-					)	
-			)
-		)
-	)	
-)
 
 (defn removeNodeProperties
   "Remove properties from Node"
@@ -220,7 +248,7 @@
   :constraintType should be either UNIQUE or NODEEXISTANCE or RELATIONEXISTANCE or NODEKEY.
   if :constraintType is NODEKEY, :propertyVec should be a vector of vectors of properties(string).
   :execute? (boolean) whether the constraints are to be created, or just return preparedQueries"
-  [& {:keys [:label :CD :propertyVec :constraintType :execute?]}]
+  [& {:keys [:label :CD :propertyVec :constraintType :execute?] :or {:execute? true}}]
   {:pre [
          (string? label)
          (contains? #{"CREATE" "DROP"} CD)
@@ -236,7 +264,7 @@
   (let [queryBuilder (case constraintType
                        "UNIQUE" #(str "(label:" label ") ASSERT label." % " IS UNIQUE")
                        "NODEEXISTANCE" #(str "(label:" label ") ASSERT exists(label." % ")")
-                       "RELATIONEXISTANCE" #(str "()-[label:" label "]-() AS ASSERT exists(label." % ")")
+                       "RELATIONEXISTANCE" #(str "()-[label:" label "]-() ASSERT exists(label." % ")")
                        "NODEKEY" #(str
                                    "(label:" label ") ASSERT (" (clojure.string/join
                                                                  ", "
@@ -264,7 +292,7 @@
   :label is treated as a Node Label.
   :CD can be CREATE,DROP.
   :propertyVec should be a vector of properties"
-  [& {:keys [:label :CD :propertyVec :execute?] :as keyArgs}]
+  [& {:keys [:label :CD :propertyVec :execute?] :or {:execute? true} :as keyArgs}]
   (apply manageConstraints
          (prepMapAsArg
           (assoc
@@ -281,8 +309,8 @@
   :CD can be CREATE, DROP.
   :propertyVec should be a vector of properties.
   :NR should be either NODE or RELATION"
-  [& {:keys [:label :CD :propertyVec :NR :execute?] :as keyArgs}]
-  {:pre [(contains? #{"CREATE" "DROP"} NR)]
+  [& {:keys [:label :CD :propertyVec :NR :execute?] :or {:execute? true} :as keyArgs}]
+  {:pre [(contains? #{"CREATE" "DROP"} CD)]
    }
   (apply manageConstraints
          (prepMapAsArg
@@ -300,69 +328,109 @@
   :label is treated as node label.
   :CD can be CREATE, DROP.
   :propPropVec should be a vector of vectors of properties(string)."
-  [& {:keys [:label :CD :propPropVec :execute?] :as keyArgs}]
+  [& {:keys [:label :CD :propPropVec :execute?] :or {:execute? true} :as keyArgs}]
   ;;For some reason, creating/dropping a nodekey doesn't reflect on summary.
   ;;So don't be surprised if no errors occur or no changes exist in the summary.
   (apply manageConstraints
          (prepMapAsArg
           (assoc
            keyArgs
-           :constraintType "NODEKEY")
+           :constraintType "NODEKEY"
+           :propertyVec propPropVec)
           )
          )
   )
 
 (defn createNCConstraints
   "Create Constraints that apply to nodes with label NeoConstraint"
-  []
-  (manageNodeKeyConstraints :label "NeoConstraint" :CD "CREATE" :propPropVec [["constraintType" "constraintTarget"]] :execute? true))
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (manageNodeKeyConstraints :label "NeoConstraint" :CD "CREATE" :propPropVec [["constraintType" "constraintTarget"]] :execute? execute?))
 
 (defn createCATConstraints
   "Create Constraints that apply to relationships with label NeoConstraintAppliesTo"
-  []
-  (manageExistanceConstraints :label "NeoConstraintAppliesTo" :CD "CREATE" :propertyVec ["constraintValue"] :NR "RELATION" :execute? true))
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (manageExistanceConstraints :label "NeoConstraintAppliesTo" :CD "CREATE" :propertyVec ["constraintValue"] :NR "RELATION" :execute? execute?))
+
+(defn createATConstraints
+  "Creates Constraints that apply to nodes with label AttributeType"
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (manageNodeKeyConstraints :label "AttributeType" :CD "CREATE" :propPropVec [["_name"] ["_datatype"]] :execute? execute?))
+
+(defn createClassConstraints
+  "Create Constraints that apply to nodes with label Class"
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (let [builtQueries (reduceQueryColl
+                      [(manageExistanceConstraints :label "Class"
+                                                   :CD "CREATE"
+                                                   :propertyVec ["isAbstract" "classType"]
+                                                   :NR "NODE"
+                                                   :execute? false)
+                       (manageNodeKeyConstraints :label "Class"
+                                                 :CD "CREATE"
+                                                 :propPropVec [["className"]]
+                                                 :execute? false)
+                       ]
+                      )
+        ]
+    (if
+        execute?
+      (apply gdriver/runQuery builtQueries)
+      builtQueries)
+    )
+  )
 
 (defn createNeoConstraint
   "Creates a NeoConstraint Node that describes a supported neo4j constraint.
   :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
   :constraintTarget should be either of NODE,RELATION.
   If :constraintTarget is RELATION, then constraintType can only be EXISTANCE"
-  [& {:keys [:constraintType :constraintTarget :execute?] :as keyArgs}]
+  [& {:keys [:constraintType :constraintTarget :execute?] :or {:execute? true} :as keyArgs}]
   {:pre [
          (contains? #{"UNIQUE" "EXISTANCE" "NODEKEY"} constraintType)
          (contains? #{"NODE" "RELATION"} constraintTarget)
-         (and
-          (contains? #{"UNIQUE" "NODEKEY"} constraintType)
-          (= "RELATION" constraintTarget)
+         (not
+          (and
+           (contains? #{"UNIQUE" "NODEKEY"} constraintType)
+           (= "RELATION" constraintTarget)
+           )
           )
          ]
    }
-  (createNewNode "NeoConstraint" {"constraintType" constraintType "constraintTarget" constraintTarget})
+  (createNewNode :label "NeoConstraint"
+                 :parameters {"constraintType" constraintType "constraintTarget" constraintTarget}
+                 :execute? execute?
+                 )
   )
 
 (defn createAllNeoConstraints
   "Creates all NeoConstraints"
-  []
-  (pcalls
-   #(createNeoConstraint :constraintType "UNIQUE" :constraintTarget "NODE")
-   #(createNeoConstraint :constraintType "NODEKEY" :constraintTarget "NODE")
-   #(createNeoConstraint :constraintType "EXISTANCE" :constraintTarget "NODE")
-   #(createNeoConstraint :constraintType "EXISTANCE" :constraintTarget "RELATION")
-   )
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (let [builtQueries
+        (map #(createNeoConstraint
+               :constraintType (% 0)
+               :constraintTarget (% 1)
+               :execute? false)
+             [
+              ["UNIQUE" "NODE"]
+              ["NODEKEY" "NODE"]
+              ["EXISTANCE" "NODE"]
+              ["EXISTANCE" "RELATION"]
+              ]
+             )
+        ]
+    (if
+        execute?
+      (apply gdriver/runQuery builtQueries)
+      builtQueries))
   )
 
 ;;TODO CUSTOM CONSTRAINTS
-
-(defn createATConstraints
-  "Creates Constraints that apply to nodes with label AttributeType"
-  []
-  (manageNodeKeyConstraints :label "AttributeType" :CD "CREATE" :propPropVec [["_name" "_datatype"]] :execute? true))
 
 (defn createAttributeType
   "Creates a node with Label AttributeType.
   :_name should be a string
   :_datatype should be a string of one of the following: 'java.lang.Boolean', 'java.lang.Byte', 'java.lang.Short', 'java.lang.Integer', 'java.lang.Long', 'java.lang.Float', 'java.lang.Double', 'java.lang.Character', 'java.lang.String', 'java.util.ArrayList'"
-  [& {:keys [:_name :_datatype] :as keyArgs}]
+  [& {:keys [:_name :_datatype :execute?] :or {:execute? true} :as keyArgs}]
   {:pre [
          (string? _name)
          (contains? #{"java.lang.Boolean",
@@ -378,13 +446,10 @@
                     _datatype)
          ]
    }
-  (createNewNode "AttributeType" {"_name" _name "_datatype" _datatype}))
-
-(defn createClassConstraints
-  "Create Constraints that apply to nodes with label Class"
-  []
-  (manageExistanceConstraints :label "Class" :CD "CREATE" :propertyVec ["isAbstract" "classType"] :NR "NODE" :execute? true)
-  (manageNodeKeyConstraints :label "Class" :CD "CREATE" :propPropVec [["className"]] :execute? true))
+  (createNewNode :label "AttributeType"
+                 :parameters {"_name" _name "_datatype" _datatype}
+                 :execute? execute?)
+  )
 
 (defn getClassAttributeTypes
   "Get all AttributeTypes 'attributed' to a class"
@@ -466,118 +531,72 @@
     )
   )
 
-;;TODO : Rewrite class creation funtions
+(defn createClass
+  "Create a node with label Class"
+  [& {:keys [:className :classType :isAbstract? :properties :execute?] :or {:execute? true}}]
+  {:pre [(string? className)
+         (contains? #{"NODE" "RELATION"} classType)
+         (not
+          (or (contains? properties "className")
+              (contains? properties "classType")
+              (contains? properties "isAbstract")
+              )
+          )
+         ]
+   }
+  (createNewNode :label "Class"
+                 :parameters (assoc properties
+                                    "className" className
+                                    "classType" classType
+                                    "isAbstract" isAbstract?
+                                    )
+                 :execute? execute?
+                 )
+  )
 
-;; (defn createClassSQ
-;;   ;; WARNING!!!!!!!!!!!!!!! NOT BUG FREE ... YET ... BUT SINGLE QUERY.... SO TRANSACTIONAL, ie SOMEWHAT SAFE. 
+(defn addClassAT
+  "Adds a relation HasAttributeType from Class to AttributeType.
+  :_atname: _name of AttributeType.
+  :_atdatatype: _datatype of AttributeType.
+  :className: className of Class"
+  [& {:keys [:_atname :_atdatatype :className :execute?] :or {:execute? true}}]
+  {:pre [
+         (= 1 (count (getNodes :label "AttributeType"
+                               :parameters {"_name" _atname "_datatype" _atdatatype}
+                                ))
+            )
+         ]
+   }
+  (createRelation :fromNodeLabel "Class"
+                  :fromNodeParameters {"className" className}
+                  :relationshipType "HasAttributeType"
+                  :relationshipParameters {}
+                  :toNodeLabel "AttributeType"
+                  :toNodeParameters {"_name" _atname "_datatype" _atdatatype}
+                  :execute? execute?)
+  )
 
-;;   "Creates a node with label Class (Sequentially in a cypher query).
-;;   isAbstract : true or false.
-;;   className : unique string.
-;;   classType : either 'NODE' or 'RELATION'.
-;;   superClasses : vector of classNames.
-;;   _attributeTypes : vector of maps with keys '_name', '_datatype'
-;;   newAttributeTypes : same.
-;;   propertyMap : optional propertyMap.
-;;   _constraintsVec : vector of maps with keys 'constraintType', 'constraintTarget', 'constraintValue'."
-;;   [isAbstract? className classType superClasses _attributeTypes &[propertyMap newAttributeTypes _constraintsVec]]
-;;   (let [attributeTypes (atom []) constraintsVec (atom [])]
-;;     (doall (map (fn
-;;                   [_constraint]
-;;                   (if (not= classType (_constraint "constraintTarget"))
-;;                     (throw (Exception. (str "ConstraintTarget should be same as classType" _constraint))))) _constraintsVec))
-;;     (doall (map (fn
-;;                   [superClass]
-;;                   (let [fetchedClass (getNodesParsed "Class" {"className" superClass}) c_attributeTypes (atom []) c_constraintsVec (atom [])]
-;;                     (if (empty? fetchedClass)
-;;                       (throw (Exception. (str "Class Does not Exist: " superClass))))
-;;                     (if (not= classType (((fetchedClass 0) :properties) "classType"))
-;;                       (throw (Exception. (str "Superclass should have same classType as new Class: " superClass)))
-;;                       (do
-;;                         (reset! c_attributeTypes (getClassAttributeTypes superClass))
-;;                         (reset! c_constraintsVec (getClassNeoConstraints superClass))
-;;                         (reset! attributeTypes (vec (distinct (concat @attributeTypes @c_attributeTypes))))
-;;                         (reset! constraintsVec (vec (distinct (concat @constraintsVec @c_constraintsVec)))))))) superClasses))
-;;     (reset! attributeTypes (vec (distinct (concat @attributeTypes _attributeTypes))))
-;;     (reset! constraintsVec (vec (distinct (concat @constraintsVec _constraintsVec))))
-;;     (let [driver (getDriver) session (.session driver) fullSummary (atom nil) constraintValues (vec (map (fn [constraint] {"constraintValue" (constraint "constraintValue")}) @constraintsVec)) subConstraintsVec (vec (map (fn [constraint] (dissoc constraint "constraintValue")) @constraintsVec)) combinedPropertyMap (combinePropertyMap (merge {"C" (merge {"isAbstract" isAbstract? "className" className "classType" classType} propertyMap)} (addStringToMapKeys (into {} (map-indexed vector @attributeTypes)) "AT") (addStringToMapKeys (into {} (map-indexed vector newAttributeTypes)) "NAT") (addStringToMapKeys (into {} (map-indexed vector subConstraintsVec)) "NEOC") (addStringToMapKeys (into {} (map-indexed vector constraintValues)) "NEOCV") (addStringToMapKeys (into {} (map-indexed vector ((fn [] (let [newMaps (atom [])] (doall (map (fn [superClass] (swap! newMaps conj {"className" superClass})) superClasses)) @newMaps))))) "SUP"))) cypherQuery (atom nil)]
-;;       (if (or (not (contains? #{"NODE" "RELATION"} classType)) (not (= "java.lang.Boolean" (.getName (type isAbstract?)))))
-;;         (throw (Exception. "classType or isAbstract? arguments dont conform to their standards. Read DOC")))
-;;       (reset! cypherQuery (str (if (= 0 (count (vec (concat @attributeTypes superClasses @constraintsVec)))) "" " MATCH ") (clojure.string/join ", " (map (fn
-;;                                                                                                                                                             [attribute]
-;;                                                                                                                                                             (let [atindex (.indexOf @attributeTypes attribute)]
-;;                                                                                                                                                               (str "(AT" atindex ":AttributeType " ((combinedPropertyMap :propertyStringMap) (str atindex "AT")) ") "))) @attributeTypes)) (if (or (= 0 (count @attributeTypes)) (= 0 (count superClasses))) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [superClass]
-;;                                                                 (let
-;;                                                                     [supindex (.indexOf superClasses superClass)]
-;;                                                                   (str "(SUP" supindex ":Class " ((combinedPropertyMap :propertyStringMap) (str supindex "SUP")) ") "))) superClasses)) (if (= 0 (count @constraintsVec)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [constraint]
-;;                                                                 (let [neocindex (.indexOf @constraintsVec constraint)]
-;;                                                                   (str "(NEOC" neocindex ":NeoConstraint " ((combinedPropertyMap :propertyStringMap) (str neocindex "NEOC")) ") "))) @constraintsVec))
-;;                                "CREATE (newClass:Class " ((combinedPropertyMap :propertyStringMap) "C") ")" (if (= 0 (count superClasses)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [superClass]
-;;                                                                 (let [supindex (.indexOf superClasses superClass)]
-;;                                                                   (str "(newClass)-[:IsSubClassOf]->(SUP" supindex ")"))) superClasses)) (if (= 0 (count newAttributeTypes)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [newAttribute]
-;;                                                                 (let [natindex (.indexOf newAttributeTypes newAttribute)]
-;;                                                                   (str " (NAT" natindex ":AttributeType " ((combinedPropertyMap :propertyStringMap) (str natindex "NAT")) ") ")
-;;                                                                   )) newAttributeTypes)) (if (= 0 (count @attributeTypes)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [attribute]
-;;                                                                 (let [atindex (.indexOf @attributeTypes attribute)]
-;;                                                                   (str "(newClass)-[HAT" atindex ":HasAttributeType]->(AT" atindex") "))) @attributeTypes)) (if (= 0 (count newAttributeTypes)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [newAttribute]
-;;                                                                 (let [natindex (.indexOf newAttributeTypes newAttribute)]
-;;                                                                   (str "(newClass)-[NHAT" natindex ":HasAttributeType]->(NAT" natindex ")"))) newAttributeTypes)) (if (= 0 (count @constraintsVec)) "" ", ")
-;;                                (clojure.string/join ", " (map (fn
-;;                                                                 [constraint]
-;;                                                                 (let [neocindex (.indexOf @constraintsVec constraint)]
-;;                                                                   (str "(NEOC" neocindex ")-[NEOCAT" neocindex ":NeoConstraintAppliesTo " ((combinedPropertyMap :propertyStringMap) (str neocindex "NEOCV")) "]->(newClass)"))) @constraintsVec))))
-;;       (reset! fullSummary (getCombinedFullSummary [(getFullSummary (.run session @cypherQuery (combinedPropertyMap :combinedPropertyMap))) (applyClassNeoConstraints className)]))
-;;       (.close driver)
-;;       @fullSummary)))
-
-;; (defn addClassAT_tx
-;;   "Adds a relation HasAttributeType from Class to AttributeType under transaction.
-;;   tx: neo4j bolt transaction object or session object
-;;   _atname: _name of AttributeType.
-;;   _atdatatype: _datatype of AttributeType.
-;;   className: className of Class"
-;;   [tx className _atname _atdatatype]
-;;   (if (not= 1 (count (getNodesParsed "AttributeType" {"_name" _atname "_datatype" _atdatatype})))
-;;     (throw (Exception. (str "Unique AttributeType with _name: " _atname ", _datatype:" _atdatatype " not found"))))
-;;   (let [fullSummary (atom nil) combinedPropertyMap (combinePropertyMap {"C" {"className" className} "AT" {"_name" _atname "_datatype" _atdatatype}})]
-;;     (reset! fullSummary (getFullSummary (.run tx (str "MATCH (class:Class " ((combinedPropertyMap :propertyStringMap) "C") ") , (att:AttributeType " ((combinedPropertyMap :propertyStringMap) "AT") ") CREATE (class)-[:HasAttributeType]->(att)") (combinedPropertyMap :combinedPropertyMap))))
-;;     @fullSummary))
-
-;; (defn addClassAT
-;;   "Adds a relation HasAttributeType from Class to AttributeType.
-;;   _atname: _name of AttributeType.
-;;   _atdatatype: _datatype of AttributeType.
-;;   className: className of Class"
-;;   [className _atname _atdatatype]
-;;   (let [driver (getDriver) fullSummary (atom nil)]
-;;     (reset! fullSummary (addClassAT_tx (.session driver) className _atname _atdatatype))
-;;     (.close driver)
-;;     @fullSummary))
-
-;; (defn addClassNC_tx
-;;   "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint under transaction.
-;;   tx: neo4j bolt transaction object or session object.
-;;   constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
-;;   constraintTarget should be either of NODE,RELATION.
-;;   constraintValue should be the AttributeType"
-;;   [tx className _constraintType _constraintTarget _constraintValue]
-;;   (let [fetchedClass (getNodesParsed "Class" {"className" className "classType" _constraintTarget}) fullSummary (atom nil) combinedPropertyMap (combinePropertyMap {"C" {"className" className} "NEOC" {"constraintType" _constraintType  "constraintTarget" _constraintTarget} "CV" {"constraintValue" _constraintValue}})]
-;;     (if (not= 1 (count fetchedClass))
-;;       (throw (Exception. (str "Unique Class with className:" className ", and classType:" _constraintTarget " not found"))))
-;;     (reset! fullSummary (getFullSummary (.run tx (str "MATCH (class:Class " ((combinedPropertyMap :propertyStringMap) "C") ") , (neoc:NeoConstraint " ((combinedPropertyMap :propertyStringMap) "NEOC") ") CREATE (neoc)-[ncat:NeoConstraintAppliesTo " ((combinedPropertyMap :propertyStringMap) "CV") "]->(class)") (combinedPropertyMap :combinedPropertyMap))))
-;;     @fullSummary))
+(defn addClassNC
+  "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint.
+  :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
+  :constraintTarget should be either of NODE,RELATION.
+  :constraintValue should be _name of an  AttributeType or collection of _names, in case of NODEKEY"
+  [& {:keys [:constraintType :constraintTarget :constraintValue :className :execute?] :or {:execute? true}}]
+  {:pre [(= 1 (count (getNodes :label "Class"
+                               :parameters {"className" className "classType" constraintTarget}
+                               ))
+            )
+         ]
+   }
+  (createRelation :fromNodeLabel "NeoConstraint"
+                  :fromNodeParameters {"constraintType" constraintType
+                                       "constraintTarget" constraintTarget}
+                  :relationshipType "NeoConstraintAppliesTo"
+                  :relationshipParameters {"constraintValue" constraintValue}
+                  :toNodeLabel "Class"
+                  :toNodeParameters {"className" className}
+                  :execute? execute?)
+  )
 
 ;; (defn addClassNC
 ;;   "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint.

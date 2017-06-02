@@ -70,17 +70,39 @@
 
 (defn combinePropertyMap
   "Combine PropertyMaps and associated propertyStrings.
-	Name PropertyMaps appropriately.
-	Input PropertyMaps as map of maps.
-	Keys Should be strings"
+  Name PropertyMaps appropriately.
+  Input PropertyMaps as map of maps.
+  Keys Should be strings"
   [propertyMaps]
-  (let [propertyStringMap (atom {}) combinedPropertyMap (atom {})]
-    (doall (map (fn
-                  [mapKey]
-                  (let [newPropertyMap (addStringToMapKeys (propertyMaps mapKey) mapKey)]
-                    (swap! combinedPropertyMap merge newPropertyMap)
-                    (swap! propertyStringMap assoc mapKey (createParameterPropertyString newPropertyMap mapKey)))) (vec (keys propertyMaps))))
-    {:combinedPropertyMap @combinedPropertyMap :propertyStringMap @propertyStringMap}))
+  {:combinedPropertyMap (reduce
+                         #(if
+                              (empty? (%2 1))
+                            %1
+                            (merge %1
+                                   (addStringToMapKeys
+                                    (%2 1)
+                                    (%2 0)
+                                    )
+                                   )
+                            )
+                         {}
+                         (seq propertyMaps)
+                         )
+   :propertyStringMap (reduce
+                       #(assoc
+                         %1
+                         (%2 0)
+                         (if
+                             (empty? (%2 1))
+                           ""
+                           (createParameterPropertyString (addStringToMapKeys (%2 1) (%2 0)) (%2 0))
+                           )
+                         )
+                       {}
+                       (seq propertyMaps)
+                       )
+   }
+  )
 
 (defn createNewNode
   "Create a new node in the graph. Without any relationships.
@@ -97,11 +119,20 @@
 
 (defn createRelation
   "Relate two nodes matched with their properties (input as clojure map) with it's own properties"
-  [& {:keys [inNodeLabel inNodeParameters relationshipType relationshipParameters outNodeLabel outNodeParameters execute?] :or {execute? true}}]
-  (let [combinedProperties (combinePropertyMap {"1" inNodeParameters "2" outNodeParameters "R" relationshipParameters})]
+  [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters execute?] :or {execute? true}}]
+  (let [combinedProperties
+        (combinePropertyMap
+         {"1" fromNodeParameters
+          "2" toNodeParameters
+          "R" relationshipParameters
+          }
+         )
+        builtQuery
+        {:query
+         (str "MATCH (node1:" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}]
     (if execute?
-      ((gdriver/runQuery {:query (str "MATCH (node1:" inNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" outNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}) :summary)
-      {:query (str "MATCH (node1:" inNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" outNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}
+      (gdriver/runQuery builtQuery)
+      builtQuery
       )
     )
   )
@@ -226,7 +257,7 @@
   (let [queryBuilder (case constraintType
                        "UNIQUE" #(str "(label:" label ") ASSERT label." % " IS UNIQUE")
                        "NODEEXISTANCE" #(str "(label:" label ") ASSERT exists(label." % ")")
-                       "RELATIONEXISTANCE" #(str "()-[label:" label "]-() AS ASSERT exists(label." % ")")
+                       "RELATIONEXISTANCE" #(str "()-[label:" label "]-() ASSERT exists(label." % ")")
                        "NODEKEY" #(str
                                    "(label:" label ") ASSERT (" (clojure.string/join
                                                                  ", "
@@ -315,7 +346,7 @@
 
 (defn createATConstraints
   "Creates Constraints that apply to nodes with label AttributeType"
-  [& {:keys [:execute?] :or {:execute true}}]
+  [& {:keys [:execute?] :or {:execute? true}}]
   (manageNodeKeyConstraints :label "AttributeType" :CD "CREATE" :propPropVec [["_name" "_datatype"]] :execute? execute?))
 
 (defn createClassConstraints
@@ -569,42 +600,49 @@
 ;;       (.close driver)
 ;;       @fullSummary)))
 
-;; (defn addClassAT_tx
-;;   "Adds a relation HasAttributeType from Class to AttributeType under transaction.
-;;   tx: neo4j bolt transaction object or session object
-;;   _atname: _name of AttributeType.
-;;   _atdatatype: _datatype of AttributeType.
-;;   className: className of Class"
-;;   [tx className _atname _atdatatype]
-;;   (if (not= 1 (count (getNodesParsed "AttributeType" {"_name" _atname "_datatype" _atdatatype})))
-;;     (throw (Exception. (str "Unique AttributeType with _name: " _atname ", _datatype:" _atdatatype " not found"))))
-;;   (let [fullSummary (atom nil) combinedPropertyMap (combinePropertyMap {"C" {"className" className} "AT" {"_name" _atname "_datatype" _atdatatype}})]
-;;     (reset! fullSummary (getFullSummary (.run tx (str "MATCH (class:Class " ((combinedPropertyMap :propertyStringMap) "C") ") , (att:AttributeType " ((combinedPropertyMap :propertyStringMap) "AT") ") CREATE (class)-[:HasAttributeType]->(att)") (combinedPropertyMap :combinedPropertyMap))))
-;;     @fullSummary))
+(defn addClassAT
+  "Adds a relation HasAttributeType from Class to AttributeType.
+  :_atname: _name of AttributeType.
+  :_atdatatype: _datatype of AttributeType.
+  :className: className of Class"
+  [& {:keys [:_atname :_atdatatype :className :execute?] :or {:execute? true}}]
+  {:pre [
+         (= 1 (count (getNodes :label "AttributeType"
+                               :parameters {"_name" _atname "_datatype" _atdatatype}
+                                ))
+            )
+         ]
+   }
+  (createRelation :fromNodeLabel "Class"
+                  :fromNodeParameters {"className" className}
+                  :relationshipType "HasAttributeType"
+                  :relationshipParameters {}
+                  :toNodeLabel "AttributeType"
+                  :toNodeParameters {"_name" _atname "_datatype" _atdatatype}
+                  :execute? execute?)
+  )
 
-;; (defn addClassAT
-;;   "Adds a relation HasAttributeType from Class to AttributeType.
-;;   _atname: _name of AttributeType.
-;;   _atdatatype: _datatype of AttributeType.
-;;   className: className of Class"
-;;   [className _atname _atdatatype]
-;;   (let [driver (getDriver) fullSummary (atom nil)]
-;;     (reset! fullSummary (addClassAT_tx (.session driver) className _atname _atdatatype))
-;;     (.close driver)
-;;     @fullSummary))
-
-;; (defn addClassNC_tx
-;;   "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint under transaction.
-;;   tx: neo4j bolt transaction object or session object.
-;;   constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
-;;   constraintTarget should be either of NODE,RELATION.
-;;   constraintValue should be the AttributeType"
-;;   [tx className _constraintType _constraintTarget _constraintValue]
-;;   (let [fetchedClass (getNodesParsed "Class" {"className" className "classType" _constraintTarget}) fullSummary (atom nil) combinedPropertyMap (combinePropertyMap {"C" {"className" className} "NEOC" {"constraintType" _constraintType  "constraintTarget" _constraintTarget} "CV" {"constraintValue" _constraintValue}})]
-;;     (if (not= 1 (count fetchedClass))
-;;       (throw (Exception. (str "Unique Class with className:" className ", and classType:" _constraintTarget " not found"))))
-;;     (reset! fullSummary (getFullSummary (.run tx (str "MATCH (class:Class " ((combinedPropertyMap :propertyStringMap) "C") ") , (neoc:NeoConstraint " ((combinedPropertyMap :propertyStringMap) "NEOC") ") CREATE (neoc)-[ncat:NeoConstraintAppliesTo " ((combinedPropertyMap :propertyStringMap) "CV") "]->(class)") (combinedPropertyMap :combinedPropertyMap))))
-;;     @fullSummary))
+(defn addClassNC
+  "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint.
+  :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
+  :constraintTarget should be either of NODE,RELATION.
+  :constraintValue should be _name of an  AttributeType or collection of _names, in case of NODEKEY"
+  [& {:keys [:constraintType :constraintTarget :constraintValue :className :execute?] :or {:execute? true}}]
+  {:pre [(= 1 (count (getNodes :label "Class"
+                               :parameters {"className" className "classType" :constraintTarget}
+                               ))
+            )
+         ]
+   }
+  (createRelation :fromNodeLabel "NeoConstraint"
+                  :fromNodeParameters {"constraintType" constraintType
+                                       "constraintTarget" constraintTarget}
+                  :relationshipType "NeoConstraintAppliesTo"
+                  :relationshipParameters {"constraintValue" constraintValue}
+                  :toNodeLabel "Class"
+                  :toNodeParameters {"className" className}
+                  :execute? execute?)
+  )
 
 ;; (defn addClassNC
 ;;   "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint.

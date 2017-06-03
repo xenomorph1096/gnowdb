@@ -10,7 +10,7 @@
         '[java.io PushbackReader])
 
 
-(def ^{:private true} getNeo4jDBDetails 
+(def getNeo4jDBDetails 
 	(with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
 		(read (PushbackReader. r)
 		)
@@ -142,10 +142,11 @@
   	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))
     	(spit "src/gnowdb/neo4j/gconf.clj"
           	{
-           	:bolt-url "bolt://localhost:7687"
-           	:username "neo4j"
-           	:password "neo"
-           	}
+                 :bolt-url "bolt://localhost:7687"
+                 :username "neo4j"
+                 :password "neo"
+                 :customFunctionPassword "password"
+                 }
          )
     )
  )
@@ -160,7 +161,7 @@
 				(if (= filename "src/gnowdb/neo4j/gconf.clj")
 					(if (= op :delete)
 						(cancel-changes)
-						(def ^{:private true} getNeo4jDBDetails 
+						(def  getNeo4jDBDetails 
 							(with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
 								(read (PushbackReader. r)
 								)

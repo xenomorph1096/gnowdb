@@ -3,7 +3,8 @@
   (:require [clojure.set :as clojure.set]
             [clojure.java.io :as io]
             [clojure.string :as clojure.string]
-            [gnowdb.neo4j.gdriver :as gdriver]))
+            [gnowdb.neo4j.gdriver :as gdriver]
+            [gnowdb.neo4j.gcust :as gcust]))
 
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
         '[java.io PushbackReader])
@@ -361,6 +362,39 @@
   [& {:keys [:execute?] :or {:execute? true}}]
   (manageNodeKeyConstraints :label "AttributeType" :CD "CREATE" :propPropVec [["_name"]] :execute? execute?))
 
+(defn createCFConstraints
+  "Creates Constraints that apply to nodes with label CustomFunction"
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (let [builtQueries (reduceQueryColl
+                      [(manageNodeKeyConstraints :label "CustomFunction"
+                                                 :CD "CREATE"
+                                                 :propPropVec [["fnName"]]
+                                                 :execute? false)
+                       (manageExistanceConstraints :label "CustomFunction"
+                                                   :CD "CREATE"
+                                                   :propertyVec ["fnString" "fnIntegrity"]
+                                                   :NR "NODE"
+                                                   :execute? false)
+                       ]
+                      )
+        ]
+    (if
+        execute?
+      (apply gdriver/runQuery builtQueries)
+      builtQueries)
+    )
+  )
+
+(defn createVRATConstraints
+  "Creates Constraints that apply to relations with label ValueRestrictionAppliesTo"
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (manageExistanceConstraints :label "ValueRestrictionAppliesTo" :CD "CREATE" :propertyVec ["constraintValue"] :NR "RELATION" :execute? execute?))
+
+(defn createCCATConstraints
+  "Creates Constraints that apply to relations with label CustomConstraintAppliesTo"
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (manageExistanceConstraints :label "CustomConstraintAppliesTo" :CD "CREATE" :propertyVec ["constraintValue" "atList"] :NR "RELATION" :execute? execute?))
+
 (defn createClassConstraints
   "Create Constraints that apply to nodes with label Class"
   [& {:keys [:execute?] :or {:execute? true}}]
@@ -456,11 +490,42 @@
                  :execute? execute?)
   )
 
+(defn createCustomFunction
+  "Creates a customFunction.
+  :fnName should be string.
+  :fnString should be string that represents CustomFunction template."
+  [& {:keys [:fnName :fnString :execute?] :or {:execute? true}}]
+  {:pre [(gcust/stringIsCustFunction? fnString)
+         (string? fnName)]}
+  (createNewNode :label "CustomFunction"
+                 :parameters {"fnName" fnName
+                              "fnString" fnString
+                              "fnIntegrity" (gcust/hashCustomFunction fnString)}
+                 :execute? execute?))
+
+(defn addATVR
+  "Adds a ValueRestriction to an AttributeType.
+  Creates a relation ValueRestrictionAppliesTo from CustomFunction to AttributeType.
+  :_atname should be _name of an AttributeType.
+  :fnName should be fnName of a CustomFunction.
+  :constraintValue should be value to be passed as CustomFunction's second argument"
+  [& {:keys [:_atname :fnName :constraintValue :execute?] :or {:execute? true}}]
+  {:pre [(string? _atname)
+         (string? fnName)]}
+  (createRelation :fromNodeLabel "CustomFunction"
+                  :fromNodeParameters {"fnName" fnName}
+                  :relationshipType "ValueRestrictionAppliesTo"
+                  :relationshipParameters {"constraintValue" constraintValue}
+                  :toNodeLabel "AttributeType"
+                  :toNodeParameters {"_name" _atname}
+                  :execute? execute?)
+  )
+
 (defn getClassAttributeTypes
   "Get all AttributeTypes 'attributed' to a class"
   [className]
   (map #((% "att") :properties) (((gdriver/runQuery
-     {:query "MATCH (class:Class {className:{className}})-[rel:HasAttributeType]-(att:AttributeType) RETURN att"
+     {:query "MATCH (class:Class {className:{className}})-[rel:HasAttributeType]->(att:AttributeType) RETURN att"
       :parameters {"className" className}
       }
      ) :results) 0))
@@ -583,7 +648,7 @@
   )
 
 (defn addClassNC
-  "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint.
+  "Adds a relation NeoConstraintAppliesTo from NeoConstraint to Class.
   :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
   :constraintTarget should be either of NODE,RELATION.
   :constraintValue should be _name of an  AttributeType or collection of _names, in case of NODEKEY"
@@ -605,6 +670,30 @@
                   :toNodeLabel "Class"
                   :toNodeParameters {"className" className}
                   :execute? execute?)
+  )
+
+(defn addClassCC
+  "Adds a relation CustomConstraintAppliesTo from CustomFunction to Class.
+  :fnName of a CustomFunction.
+  :atList should be list of AttributeTypes' _name.
+  :constraintValue should be value to be passed as CustomFunction's second argument"
+  [& {:keys [:fnName :atList :constraintValue :className :execute?] :or {:execute? true}}]
+  {:pre [(string? className)
+         (string? fnName)
+         (coll? atList)
+         (every? string? atList)]}
+  (let [classAttributeTypes (getClassAttributeTypes className)]
+    (if (not (every? #(= 1 (count (filter (fn [at] (= % ((into {} at) "_name"))) classAttributeTypes))) atList))
+      (throw (Exception. (str "atList must contain _name's of an AttributeType :" atList))))
+    (createRelation :fromNodeLabel "CustomFunction"
+                    :fromNodeParameters {"fnName" fnName}
+                    :relationshipType "CustomConstraintAppliesTo"
+                    :relationshipParameters {"atList" atList
+                                             "constraintValue" constraintValue}
+                    :toNodeLabel "Class"
+                    :toNodeParameters {"className" className}
+                    :execute? execute?)
+    )
   )
 
 (defn gnowdbInit

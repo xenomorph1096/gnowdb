@@ -8,14 +8,10 @@
 
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
         '[java.io PushbackReader])
-
-
-(def getNeo4jDBDetails 
-	(with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
-		(read (PushbackReader. r)
-		)
-	)
-)
+(def getNeo4jDBDetails {})
+(defn getCustomPassword
+  []
+  (getNeo4jDBDetails :customFunctionPassword))
 
 (defn- getDriver
 	"Get neo4j Database Driver"
@@ -152,6 +148,13 @@
  )
 
 (generateConf)
+
+(def getNeo4jDBDetails 
+	(with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
+		(read (PushbackReader. r)
+		)
+	)
+  )
 
 (let [changes (changes-in ["src/gnowdb/neo4j"])]
 	(clojure.core.async/go 

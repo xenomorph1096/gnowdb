@@ -3,12 +3,8 @@
   (:require [clojure.string :as clojure.string]
             [digest :as digest]
             [clojure.math.combinatorics :refer [nth-permutation]]
-            [clj-fuzzy.metrics :refer [levenshtein]]))
-
-(defn- getPassword
-  "Get Password from gconf file"
-  []
-  (gdriver/getNeo4jDBDetails :customFunctionPassword))
+            [clj-fuzzy.metrics :refer [levenshtein]]
+            [gnowdb.neo4j.gdriver :refer [getCustomPassword]]))
 
 (defn- arg-count
   "Get number of arguments of a function.
@@ -22,10 +18,15 @@
   [f]
   (every? identity [(fn? f) (= 2 (arg-count f))]))
 
+(defn stringIsCustFunction?
+  "Validates a string against customFunction template."
+  [fnString]
+  (isCustFunction? (eval (read-string fnString))))
+
 (defn str-to-fn
   "Get customFunction from string"
   [fnString]
-  (let [customFunction (eval (read-string fnString))] (if (isCustFunction? customFunction) customFunction (throw (Exception. "Function does not mattch customFunction Template.")))))
+  (let [customFunction (eval (read-string fnString))] (if (isCustFunction? customFunction) customFunction (throw (Exception. "Function does not match customFunction Template.")))))
 
 (defn- combineStrings
   [str1 str2]
@@ -36,4 +37,4 @@
   fnString will be validated"
   [fnString]
   (str-to-fn fnString)
-  (digest/sha-256 (combineStrings fnString (getPassword))))
+  (digest/sha-256 (combineStrings fnString (getCustomPassword))))

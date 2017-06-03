@@ -17,6 +17,20 @@
 	)
 )
 
+(defn- generateConf
+  "Generates a default configuration file"
+  	[]
+  	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))
+    	(spit "src/gnowdb/neo4j/gconf.clj"
+          	{
+           	:bolt-url "bolt://localhost:7687"
+           	:username "neo4j"
+           	:password "neo"
+           	}
+         )
+    )
+)
+
 (defn- getDriver
 	"Get neo4j Database Driver"
 	[]
@@ -80,8 +94,8 @@
 (defn- parse
 	[data]
 	(cond ;More parsers can be added here. (instance? /*InterfaceName*/ data) <Return Value>
-			(instance? org.neo4j.driver.v1.types.Node data) {:labels (.labels data) :properties (.asMap data)}
-			(instance? org.neo4j.driver.v1.types.Relationship data) {:labels (.type data) :properties (.asMap data) :fromNode (.startNodeId data) :toNode (.endNodeId data)}
+			(instance? org.neo4j.driver.v1.types.Node data) {:labels (.labels data) :properties (into {} (.asMap data))}
+			(instance? org.neo4j.driver.v1.types.Relationship data) {:labels (.type data) :properties (into {} (.asMap data)) :fromNode (.startNodeId data) :toNode (.endNodeId data)}
 			(instance? org.neo4j.driver.v1.types.Path data) {:start (parse (.start data)):end (parse (.end data)) :segments (map (fn [segment] {:start (parse (.start segment)) :end (parse (.end segment)) :relationship (parse (.relationship segment))}) data) :length (reduce (fn [counter, data] (+ counter 1)) 0 data)}
 			:else data
 	)
@@ -135,20 +149,19 @@
 	)
 )
 
-
-(defn generateConf
-  "Generates a default configuration file"
-  	[]
-  	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))
-    	(spit "src/gnowdb/neo4j/gconf.clj"
-          	{
-           	:bolt-url "bolt://localhost:7687"
-           	:username "neo4j"
-           	:password "neo"
-           	}
-         )
-    )
- )
+(defn runTransactions
+	"Takes lists of arguments to run in separate transactions"
+	[& transactionList]
+	(let
+		[result (map
+			#(apply runQuery %)
+			transactionList
+		)]
+		{:results result
+		 :summary (getCombinedFullSummary (map #((% :summary) :summaryMap) result))
+		}
+	)
+)
 
 (generateConf)
 

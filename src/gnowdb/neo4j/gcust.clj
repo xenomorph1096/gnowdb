@@ -26,7 +26,7 @@
 (defn str-to-fn
   "Get customFunction from string"
   [fnString]
-  (let [customFunction (eval (read-string fnString))] (if (isCustFunction? customFunction) customFunction (throw (Exception. "Function does not match customFunction Template.")))))
+  (let [customFunction (eval (read-string fnString))] (if (isCustFunction? customFunction) customFunction (throw (Exception. (str "Function " fnString " does not match customFunction Template"))))))
 
 (defn- combineStrings
   [str1 str2]
@@ -38,3 +38,43 @@
   [fnString]
   (str-to-fn fnString)
   (digest/sha-256 (combineStrings fnString (getCustomPassword))))
+
+(defn execCustomFunction
+  "Execute a customFunction.
+  :fnString should be a string representation of a customFunction.
+  :argumentListX should be first argument of customFunction should be a collection of arguments, length and values depending upon the customFunction.
+  :constraintValue should be the second argument to the customFunction"
+  [& {:keys [:fnString :argumentListX :constraintValue]}]
+  {:pre [(string? fnString)
+         (coll? argumentListX)]}
+  ((str-to-fn fnString) argumentListX constraintValue))
+
+(defn cfIsIntegrous?
+  "Check the integrity of a customFunction"
+  [& {:keys [:fnString :fnIntegrity]}]
+  {:pre [(string? fnString)
+         (string? fnIntegrity)]}
+  (= fnIntegrity (hashCustomFunction fnString)))
+
+(defn checkCustomFunction
+  "Check Integrity and output of a customFunction"
+  [& {:keys [:fnString :fnIntegrity :fnName :argumentListX :constraintValue]}]
+  (try
+    (if
+        (not (cfIsIntegrous? :fnString fnString :fnIntegrity fnIntegrity))
+      (throw (Exception. (str "Custom Function " fnName " is invalid."))))
+    (if
+        (execCustomFunction :fnString fnString :argumentListX argumentListX :constraintValue constraintValue)
+      true
+      (str "Arguments " argumentListX " fail(s) to satisfy '" fnName "' with '" constraintValue "'"))
+    (catch Exception E (.getMessage E))))
+
+
+
+
+
+
+
+
+
+

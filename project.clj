@@ -16,4 +16,5 @@
   :main ^:skip-aot gnowdb.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}
-  :plugins [[cider/cider-nrepl "0.15.0-SNAPSHOT"]])
+  :plugins [[lein-codox "0.10.3"] [cider/cider-nrepl "0.15.0-SNAPSHOT"]])
+

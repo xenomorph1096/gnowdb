@@ -151,12 +151,21 @@
 	Map keys will be used as neo4j node keys.
 	Map keys should be Strings only.
 	Map values must be neo4j compatible Objects"
-  [& {:keys [label parameters execute?] :or {execute? true parameters {}}}]
-  (if execute?
-    ((gdriver/runQuery {:query (str "CREATE (node:" label " " (createParameterPropertyString parameters) " )") :parameters parameters}) :summary)
-    {:query (str "CREATE (node:" label " " (createParameterPropertyString parameters) " )") :parameters parameters}
-    )
+  [& {:keys [label parameters execute? unique?] :or {execute? true unique? false parameters {}}}]
+  (let [queryType 
+ 	(if unique?
+  		"MERGE"
+  		"CREATE"
+  	)
+  	builtQuery
+  	{:query (str queryType " (node:" label " " (createParameterPropertyString parameters) " )") :parameters parameters}
+  	]
+  	(if execute?
+    	((gdriver/runQuery builtQuery) :summary)
+    	builtQuery
+   	)
   )
+)  
 
 (defn createRelation
   "Relate two nodes matched with their properties (input as clojure map) with it's own properties"

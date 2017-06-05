@@ -3,7 +3,8 @@
   (:require [clojure.set :as clojure.set]
             [clojure.java.io :as io]
             [clojure.string :as clojure.string]
-            [gnowdb.neo4j.gdriver :as gdriver]))
+            [gnowdb.neo4j.gdriver :as gdriver]
+            [gnowdb.neo4j.gcust :as gcust]))
 
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
         '[java.io PushbackReader])
@@ -366,6 +367,39 @@
   [& {:keys [:execute?] :or {:execute? true}}]
   (manageNodeKeyConstraints :label "AttributeType" :CD "CREATE" :propPropVec [["_name"]] :execute? execute?))
 
+(defn createCFConstraints
+  "Creates Constraints that apply to nodes with label CustomFunction"
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (let [builtQueries (reduceQueryColl
+                      [(manageNodeKeyConstraints :label "CustomFunction"
+                                                 :CD "CREATE"
+                                                 :propPropVec [["fnName"]]
+                                                 :execute? false)
+                       (manageExistanceConstraints :label "CustomFunction"
+                                                   :CD "CREATE"
+                                                   :propertyVec ["fnString" "fnIntegrity"]
+                                                   :NR "NODE"
+                                                   :execute? false)
+                       ]
+                      )
+        ]
+    (if
+        execute?
+      (apply gdriver/runQuery builtQueries)
+      builtQueries)
+    )
+  )
+
+(defn createVRATConstraints
+  "Creates Constraints that apply to relations with label ValueRestrictionAppliesTo"
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (manageExistanceConstraints :label "ValueRestrictionAppliesTo" :CD "CREATE" :propertyVec ["constraintValue"] :NR "RELATION" :execute? execute?))
+
+(defn createCCATConstraints
+  "Creates Constraints that apply to relations with label CustomConstraintAppliesTo"
+  [& {:keys [:execute?] :or {:execute? true}}]
+  (manageExistanceConstraints :label "CustomConstraintAppliesTo" :CD "CREATE" :propertyVec ["constraintValue" "atList"] :NR "RELATION" :execute? execute?))
+
 (defn createClassConstraints
   "Create Constraints that apply to nodes with label Class"
   [& {:keys [:execute?] :or {:execute? true}}]
@@ -461,11 +495,24 @@
                  :execute? execute?)
   )
 
+(defn createCustomFunction
+  "Creates a customFunction.
+  :fnName should be string.
+  :fnString should be string that represents CustomFunction template."
+  [& {:keys [:fnName :fnString :execute?] :or {:execute? true}}]
+  {:pre [(gcust/stringIsCustFunction? fnString)
+         (string? fnName)]}
+  (createNewNode :label "CustomFunction"
+                 :parameters {"fnName" fnName
+                              "fnString" fnString
+                              "fnIntegrity" (gcust/hashCustomFunction fnString)}
+                 :execute? execute?))
+
 (defn getClassAttributeTypes
   "Get all AttributeTypes 'attributed' to a class"
   [className]
   (map #((% "att") :properties) (((gdriver/runQuery
-     {:query "MATCH (class:Class {className:{className}})-[rel:HasAttributeType]-(att:AttributeType) RETURN att"
+     {:query "MATCH (class:Class {className:{className}})-[rel:HasAttributeType]->(att:AttributeType) RETURN att"
       :parameters {"className" className}
       }
      ) :results) 0))
@@ -477,6 +524,26 @@
   (gdriver/runQuery
    {:query "MATCH (class:Class {className:{className}})<-[ncat:NeoConstraintAppliesTo]-(neo:NeoConstraint) RETURN ncat,neo"
     :parameters {"className" className}
+    }
+   )
+  )
+
+(defn getClassCustomConstraints
+  "Get all CustomConstraints applicable to a class"
+  [className]
+  (gdriver/runQuery
+   {:query "MATCH (class:Class {className:{className}})<-[ccat:CustomConstraintAppliesTo]-(cf:CustomFunction) RETURN ccat,cf"
+    :parameters {"className" className}
+    }
+   )
+  )
+
+(defn getATValueRestrictions
+  "Get all ValueRestriction applicable to an AttributeType with _name atname"
+  [atname]
+  (gdriver/runQuery
+   {:query "MATCH (at:AttributeType {_name:{atname}})<-[vr:ValueRestrictionAppliesTo]-(cf:CustomFunction) RETURN cf,vr"
+    :parameters {"atname" atname}
     }
    )
   )
@@ -587,8 +654,26 @@
                   :execute? execute?)
   )
 
+(defn addATVR
+  "Adds a ValueRestriction to an AttributeType.
+  Creates a relation ValueRestrictionAppliesTo from CustomFunction to AttributeType.
+  :_atname should be _name of an AttributeType.
+  :fnName should be fnName of a CustomFunction.
+  :constraintValue should be value to be passed as CustomFunction's second argument"
+  [& {:keys [:_atname :fnName :constraintValue :execute?] :or {:execute? true}}]
+  {:pre [(string? _atname)
+         (string? fnName)]}
+  (createRelation :fromNodeLabel "CustomFunction"
+                  :fromNodeParameters {"fnName" fnName}
+                  :relationshipType "ValueRestrictionAppliesTo"
+                  :relationshipParameters {"constraintValue" constraintValue}
+                  :toNodeLabel "AttributeType"
+                  :toNodeParameters {"_name" _atname}
+                  :execute? execute?)
+  )
+
 (defn addClassNC
-  "Adds a relation NeoConstraintAppliesTo from Class to NeoConstraint.
+  "Adds a relation NeoConstraintAppliesTo from NeoConstraint to Class.
   :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
   :constraintTarget should be either of NODE,RELATION.
   :constraintValue should be _name of an  AttributeType or collection of _names, in case of NODEKEY"
@@ -612,6 +697,30 @@
                   :execute? execute?)
   )
 
+(defn addClassCC
+  "Adds a relation CustomConstraintAppliesTo from CustomFunction to Class.
+  :fnName of a CustomFunction.
+  :atList should be list of AttributeTypes' _name.
+  :constraintValue should be value to be passed as CustomFunction's second argument"
+  [& {:keys [:fnName :atList :constraintValue :className :execute?] :or {:execute? true}}]
+  {:pre [(string? className)
+         (string? fnName)
+         (coll? atList)
+         (every? string? atList)]}
+  (let [classAttributeTypes (getClassAttributeTypes className)]
+    (if (not (every? #(= 1 (count (filter (fn [at] (= % ((into {} at) "_name"))) classAttributeTypes))) atList))
+      (throw (Exception. (str "atList must contain _name's of an AttributeType :" atList))))
+    (createRelation :fromNodeLabel "CustomFunction"
+                    :fromNodeParameters {"fnName" fnName}
+                    :relationshipType "CustomConstraintAppliesTo"
+                    :relationshipParameters {"atList" atList
+                                             "constraintValue" constraintValue}
+                    :toNodeLabel "Class"
+                    :toNodeParameters {"className" className}
+                    :execute? execute?)
+    )
+  )
+
 (defn gnowdbInit
   "Create Initial constraints"
   [& {:keys [:execute?]  :or {:execute? true}}]
@@ -620,6 +729,9 @@
                           (createATConstraints :execute? false)
                           (createCATConstraints :execute? false)
                           (createClassConstraints :execute? false)
+                          (createCFConstraints :execute? false)
+                          (createCCATConstraints :execute? false)
+                          (createVRATConstraints :execute? false)
                           (createAllNeoConstraints :execute? false)])]
     (if
         execute?
@@ -637,23 +749,53 @@
          (string? className)
          (coll? propertyMapList)
          (every? map? propertyMapList)]}
-  (let [classAttributeTypes (getClassAttributeTypes className)]
+  (let [classAttributeTypes (getClassAttributeTypes className)
+        classATValueRestrictions (reduce (fn
+                                           [fullMap classAttributeType]
+                                           (let [atname ((into {} classAttributeType) "_name") atValueRestrictions (first ((getATValueRestrictions atname) :results))]
+                                             (if
+                                                 (= 0 (count atValueRestrictions))
+                                               (assoc fullMap atname nil)
+                                               (assoc fullMap atname (map #(merge (into {} ((% "cf") :properties)) (into {} ((% "vr") :properties))) atValueRestrictions)
+                                                      )
+                                               )
+                                             )
+                                           ) {} classAttributeTypes)
+        classCustomConstraints (map #(let [customConstraint (merge
+                                                              (into {} ((% "cf") :properties))
+                                                              (into {} ((% "ccat") :properties))
+                                                              )
+                                            ]
+                                        (assoc customConstraint "atList" (into [] (customConstraint "atList")))
+                                      ) (first ((getClassCustomConstraints className) :results)))]
     (reduce
      (fn [errors propertyMap]
        (reduce
         (fn [x y]
           (let [property (y 0) datatype (.getName (type (y 1)))]
-            (if (not= 1 (count (filter #(= % {"_name" property
-                                              "_datatype" datatype}
-                                           )
-                                       classAttributeTypes)
-                               )
+            (concat (if (not= 1 (count (filter #(= % {"_name" property
+                                                      "_datatype" datatype}
+                                                   )
+                                               classAttributeTypes)
+                                       )
+                              )
+                      (conj x
+                            (str "Unique AttributeType : (" property "," datatype ") not found for " className " in propertyMap -->" propertyMap)
+                            )
+                      x
                       )
-              (conj x
-                    (str "Unique AttributeType : (" property "," datatype ") not found for " className " in propertyMap -->" propertyMap)
+                    (reduce (fn [vrerrors atvr] (if (nil? atvr)
+                                                  vrerrors
+                                                  (let [atvrEr (gcust/checkCustomFunction :fnName (atvr "fnName") :fnString (atvr "fnString") :fnIntegrity (atvr "fnIntegrity") :argumentListX [(y 1)] :constraintValue (atvr "constraintValue"))]
+                                                    (if
+                                                        (= true atvrEr)
+                                                      vrerrors
+                                                      (conj vrerrors atvrEr)
+                                                      )
+                                                    )
+                                                  )
+                              ) [] (classATValueRestrictions property))
                     )
-              x
-              )
             )
           )
         (concat
@@ -665,6 +807,12 @@
               )
            [(str "No of properties (" (count (keys propertyMap)) ") > No of associated AttributeTypes (" (count classAttributeTypes) ") in " className " : " propertyMap)]
            [])
+         (reduce (fn [ccerrors ccc]
+                   (let [cccEr (gcust/checkCustomFunction :fnName (ccc "fnName") :fnString (ccc "fnString") :fnIntegrity (ccc "fnIntegrity") :argumentListX (seq (map #(propertyMap %) (ccc "atList"))) :constraintValue (ccc "constraintValue"))]
+                     (if
+                         (= true cccEr)
+                       ccerrors
+                       (conj ccerrors cccEr)))) [] classCustomConstraints)
          )
         (seq propertyMap)))
      []
@@ -697,7 +845,7 @@
                                              )
         ]
     (if (not= 0 (count propertyErrors))
-      (throw (Exception. (str propertyErrors)))
+      (throw (Exception. (str (seq propertyErrors))))
       )
     )
   )

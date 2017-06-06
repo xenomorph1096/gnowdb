@@ -44,12 +44,13 @@
    :labelsRemoved 0,
    :constraintsAdded 0,
    :propertiesSet 0,
-   :labelsAdded 0,
+   :labelsAdded 1,
    :constraintsRemoved 0,
    :indexesAdded 0,
    :relationshipsDeleted 0},
-  :summaryString "ContainsUpdates :true ;NodesCreated :1 ;"}}
- (runQuery {:query "Create ()" :parameters {"a" "test_case2"}})
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :1 ;LabelsAdded :1 ;"}}
+ (runQuery {:query "Create (:test)" :parameters {"a" "test_case2"}})
 		    	    )
 		    	)
 		    )
@@ -66,15 +67,18 @@
    :labelsRemoved 0,
    :constraintsAdded 0,
    :propertiesSet 0,
-   :labelsAdded 0,
+   :labelsAdded 1,
    :constraintsRemoved 0,
    :indexesAdded 0,
    :relationshipsDeleted 0},
-  :summaryString "ContainsUpdates :true ;NodesCreated :1 ;"}}
-   (runQuery {:query "Create (test_case3)" :parameters {}}))
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :1 ;LabelsAdded :1 ;"}} 
+  (runQuery {:query "Create (test_case3:test)" :parameters {}})
 
-		    	)
-		    )
+		    	   )
+		      )
+
+        )
 		    (testing "two nodes simultaneously"
 		    	(is (= {:results [()],
  :summary
@@ -87,12 +91,13 @@
    :labelsRemoved 0,
    :constraintsAdded 0,
    :propertiesSet 0,
-   :labelsAdded 0,
+   :labelsAdded 2,
    :constraintsRemoved 0,
    :indexesAdded 0,
    :relationshipsDeleted 0},
-  :summaryString "ContainsUpdates :true ;NodesCreated :2 ;"}}
- (runQuery {:query "Create (node1),(node2)" :parameters {}})
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :2 ;LabelsAdded :2 ;"}} 
+  (runQuery {:query "Create (node1:test),(node2:test)" :parameters {}})
 		    	    )
 		    
 		        )
@@ -111,13 +116,13 @@
    :labelsRemoved 0,
    :constraintsAdded 0,
    :propertiesSet 2,
-   :labelsAdded 0,
+   :labelsAdded 1,
    :constraintsRemoved 0,
    :indexesAdded 0,
    :relationshipsDeleted 0},
   :summaryString
-  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :2 ;"}} 
-  (runQuery {:query "Create (node2 {name:{a},place:{b}})" :parameters {"a" "test_case4" "b" "Mumbai"}}) 
+  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :2 ;LabelsAdded :1 ;"}} 
+  (runQuery {:query "Create (node2:test {name:{a},place:{b}})" :parameters {"a" "test_case4" "b" "Mumbai"}}) 
 		    		)
 		    	
 		    	)
@@ -145,9 +150,34 @@
   (runQuery {:query "Create (node2:test {name:{a},place:{b}}), (node3:test {name:{c}, place:{d}})" :parameters {"a" "test_case4" "b" "Mumbai" "c" "test_case5" "d" "mumbai"}})
 		    		)
 		    	)
-		    )
         )
-        (testing "Error in creating Relationships"
+
+           (testing "creating nodes with multiple labels"
+          (is (= {:results [()],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates true,
+   :nodesCreated 1,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 0,
+   :labelsAdded 2,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :1 ;LabelsAdded :2 ;"}} 
+  (runQuery {:query "Create (test_case3:test:test1)" :parameters {}})
+              )
+          )
+		    )
+
+          
+              )
+        (testing "Error in creating Relationships:"
         	
 
         	(testing "Relationship query between two nodes"
@@ -222,10 +252,56 @@
         			)
         		)
         	)
-        	
+        )
+        
+
+    (testing "Error in passing more than one query"
+        (is (= {:results [() ()],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates true,
+   :nodesCreated 3,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 3,
+   :labelsAdded 3,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :3 ;PropertiesSet :3 ;LabelsAdded :3 ;"}} 
+  (runQuery {:query "create (node:test {name:{a}}), (node1:test {name:{b}})" :parameters {"a" "t_db18" "b" "t_db19"}} {:query "create (node3:test {name:{c}})" :parameters {"c" "t_db20"}})
+            )
         )
 
+    )
 
-)
-		    
+    (testing "Deleting all changes"
+        (is (= {:results [()],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates true,
+   :nodesCreated 0,
+   :nodesDeleted 17,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 0,
+   :labelsAdded 0,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 4},
+  :summaryString
+  "ContainsUpdates :true ;NodesDeleted :17 ;RelationshipsDeleted :4 ;"}} 
+  (runQuery {:query "match (n) detach delete n" :parameters {}}) 
+            )
+        )
+
+    )
+
+)	    
 (run-tests)

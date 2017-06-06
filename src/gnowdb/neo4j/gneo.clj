@@ -6,9 +6,6 @@
             [gnowdb.neo4j.gdriver :as gdriver]
             [gnowdb.neo4j.gcust :as gcust]))
 
-(import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
-        '[java.io PushbackReader])
-
 (defn- addStringToMapKeys
   [stringMap string]
   (apply conj
@@ -132,12 +129,14 @@
 	)	
 )
 
+;;Genral NEO4J functions start here
 
 (defn getAllLabels
   "Get all the Labels from the graph, parsed."
   []
-  (((gdriver/runQuery {:query "MATCH (n) RETURN DISTINCT LABELS(n)" :parameters {}}) :results) 0)
+  (map #(% "LABELS(n)") (((gdriver/runQuery {:query "MATCH (n) RETURN DISTINCT LABELS(n)" :parameters {}}) :results) 0)
   )
+)
 
 (defn getAllNodes
   "Returns a lazy sequence of labels and properties of all nodes in the graph"
@@ -151,16 +150,25 @@
 	Map keys will be used as neo4j node keys.
 	Map keys should be Strings only.
 	Map values must be neo4j compatible Objects"
-  [& {:keys [label parameters execute?] :or {execute? true parameters {}}}]
-  (if execute?
-    ((gdriver/runQuery {:query (str "CREATE (node:" label " " (createParameterPropertyString parameters) " )") :parameters parameters}) :summary)
-    {:query (str "CREATE (node:" label " " (createParameterPropertyString parameters) " )") :parameters parameters}
-    )
+  [& {:keys [label parameters execute? unique?] :or {execute? true unique? false parameters {}}}]
+  (let [queryType 
+ 	(if unique?
+  		"MERGE"
+  		"CREATE"
+  	)
+  	builtQuery
+  	{:query (str queryType " (node:" label " " (createParameterPropertyString parameters) " )") :parameters parameters}
+  	]
+  	(if execute?
+    	((gdriver/runQuery builtQuery) :summary)
+    	builtQuery
+   	)
   )
+)  
 
 (defn createRelation
   "Relate two nodes matched with their properties (input as clojure map) with it's own properties"
-  [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters execute?] :or {execute? true}}]
+  [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters execute? unique?] :or {execute? true unique? false toNodeParameters {} fromNodeParameters {} relationshipParameters {}}}]
   {:pre [
          (every? string? [fromNodeLabel relationshipType toNodeLabel])
          (every? map? [fromNodeParameters relationshipParameters toNodeParameters])]}
@@ -171,9 +179,14 @@
           "R" relationshipParameters
           }
          )
+        unique
+          (if unique?
+            "UNIQUE"
+            ""
+          )
         builtQuery
         {:query
-         (str "MATCH (node1:" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}]
+         (str "MATCH (node1:" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") " ) , (node2:" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") " ) CREATE " unique " (node1)-[:" relationshipType " " ((combinedProperties :propertyStringMap) "R") " ]->(node2)") :parameters (combinedProperties :combinedPropertyMap)}]
     (if execute?
       (gdriver/runQuery builtQuery)
       builtQuery
@@ -221,9 +234,72 @@
 
 (defn getNodes
   "Get Node(s) matched by label and propertyMap"
-  [& {:keys [:label :parameters] :or {:parameters {}}}]
+  [& {:keys [:label :parameters :execute?] :or {:parameters {} :execute? true}}]
   {:pre [(string? label)]}
-  (map #(% "node") (((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) ") RETURN node") :parameters parameters}) :results) 0)))
+  (if execute?
+    (map #(% "node") (((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) ") RETURN node") :parameters parameters}) :results) 0))
+    {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) ") RETURN node") :parameters parameters}
+  )
+)
+
+(defn getRelations
+  "Get relations matched by inNode/outNode/type and properties"
+  [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters execute?] :or {execute? true toNodeParameters {} fromNodeParameters {} relationshipParameters {} fromNodeLabel "" toNodeLabel "" relationshipType ""}}]
+  (let [combinedProperties
+        (combinePropertyMap
+         {"1" fromNodeParameters
+          "2" toNodeParameters
+          "R" relationshipParameters
+          }
+         )
+         fromNodeLabel
+          (if (= fromNodeLabel "")
+            ""
+            (reduce #(str %1 ":" %2) "" fromNodeLabel)
+          )
+         toNodeLabel
+          (if (= toNodeLabel "")
+            ""
+            (reduce #(str %1 ":" %2) "" toNodeLabel)
+          )
+         relationshipType
+          (if (= relationshipType "")
+            ""
+            (str ":" relationshipType)
+          )
+        builtQuery  
+        {:query
+          (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN p")
+         :parameters
+          (combinedProperties :combinedPropertyMap)
+        }
+       ]
+        (if execute?
+          (map #(% "p") (first ((gdriver/runQuery builtQuery) :results)))
+          builtQuery
+        )
+  )
+)
+
+(defn getNeighborhood
+  "Get the neighborhood of a particular node"
+  [& {:keys [:label :parameters] :or {:parameters {}}}]
+  (let [nodeseq (getNodes :label label :parameters parameters)]
+    (if (not= (count nodeseq) 1)
+      "Error"
+      (let [nodeLabel ((first nodeseq) :labels)
+            nodeParameters ((first nodeseq) :properties)
+            ]
+        {
+          :labels nodeLabel
+          :properties nodeParameters
+          :outNodes (map #(select-keys % [:labels :properties :toNode]) (getRelations :fromNodeLabel nodeLabel :fromNodeParameters nodeParameters))
+          :inNodes (map #(select-keys % [:labels :properties :fromNode]) (getRelations :toNodeLabel nodeLabel :toNodeParameters nodeParameters))
+        }
+      )
+    )
+  )
+)
 
 ;;Class building functions start here
 
@@ -259,7 +335,7 @@
          (string? label)
          (contains? #{"CREATE" "DROP"} CD)
          (not (empty? propertyVec))
-         (contains? #{"UNIQUE" "NODEEXISTANCE" "RELATIONEXISTANCE" "NODEKEY"} constraintType)
+         (contains?   #{"UNIQUE" "NODEEXISTANCE" "RELATIONEXISTANCE" "NODEKEY"} constraintType)
          (if
              (= "NODEKEY" constraintType)
            (every? #(and (coll? %) (not (empty? %))) propertyVec)

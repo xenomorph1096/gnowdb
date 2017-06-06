@@ -94,42 +94,44 @@
    }
   )
 
-(defn- createNodeEditString
-	"Creates a node edit string.
-	eg.., nodeName.prop1=val1 , nodeName.prop2=val2"
-	[nodeName editPropertyMap & [characteristicString]]
-	(str " SET  "
-		(clojure.string/join " , "
-			(
-				vec(map #(str nodeName"."%1" = {"%2"}")
-						(if characteristicString 
-							(removeVectorStringSuffixes (vec (keys editPropertyMap)) characteristicString)	
-							(vec (keys editPropertyMap))
-						)
-						(vec (keys editPropertyMap))
-					)
-			)
-		)
-		"  "
-	)
-)
+(defn- createEditString
+  "Creates an edit string.
+  eg.., varName.prop1={prop1} , varName.prop2={prop2}
+  :varName should be name of the node/relation variable.
+  :editPropertyList should be a collection of properties."
+  [& {:keys [:varName :editPropertyList :characteristicString] :or {:characteristicString ""}}]
+  {:pre [(string? varName)
+         (coll? editPropertyList)
+         (every? string? editPropertyList)]}
+  (str " SET "
+       (clojure.string/join " ,"
+                            (map #(str varName"."%1" = {"%2"}")
+                                 (removeVectorStringSuffixes editPropertyList characteristicString)
+                                 editPropertyList)
+                            )
+       )
+  )
 
-(defn- createNodeRemString
-	"Creates a node property removal string.
-	eg.REMOVE nodeName nodeName.prop1 , nodeName.prop2"
-	[nodeName remPropertyVec]
-	(str "REMOVE "
-		(clojure.string/join ", "
-			(	
-				vec (map #(str nodeName"."%1) 
-						remPropertyVec
-					)	
-			)
-		)
-	)	
-)
+(defn- createRemString
+  "Creates a property removal string.
+  eg.., REMOVE  varName.prop1 ,varName.prop2.
+  :varName should be a string representing node/relation variable.
+  :remPropertyList should be collection of properties for removal"
+  [& {:keys [:varName :remPropertyList]}]
+  {:pre [(string? varName)
+         (coll? remPropertyList)
+         (every? string? remPropertyList)]}
+  (str "REMOVE "
+       (clojure.string/join ", "
+                            (vec (map #(str varName"."%1) 
+                                      remPropertyList
+                                      )	
+                             )
+                            )
+       )
+  )
 
-;;Genral NEO4J functions start here
+;;General NEO4J functions start here
 
 (defn getAllLabels
   "Get all the Labels from the graph, parsed."
@@ -206,29 +208,34 @@
 (defn deleteNodes
   "Delete node(s) matched using property map"
   [& {:keys [label parameters execute?] :or {execute? true parameters {}}}]
-  (if execute?
-    ((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) " ) DELETE node") :parameters parameters}) :summary)
-    {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) " ) DELETE node") :parameters parameters}
+  (let [builtQuery {:query (str "MATCH (node:"label" "(createParameterPropertyString parameters)" ) DELETE node") :parameters parameters}]
+    (if
+        execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery
+      )
     )
   )
 
 (defn editNodeProperties
   "Edit Properties of Node(s)"
   [& {:keys [label parameters changeMap execute?] :or {execute? true parameters {}}}]
-  (let [mPM (addStringToMapKeys parameters "M") tPME (addStringToMapKeys changeMap "E")]
-    (if execute?
-      ((gdriver/runQuery {:query (str "MATCH (node1:" label " " (createParameterPropertyString mPM "M") " ) " (createNodeEditString "node1" tPME "E")) :parameters (merge mPM tPME)}) :summary)
-      {:query (str "MATCH (node1:" label " " (createParameterPropertyString mPM "M") " ) " (createNodeEditString "node1" tPME "E")) :parameters (merge mPM tPME)}
-      )
+  (let [mPM (addStringToMapKeys parameters "M") tPME (addStringToMapKeys changeMap "E") builtQuery {:query (str "MATCH (node1:" label " " (createParameterPropertyString mPM "M") " ) " (createEditString :varName "node1" :editPropertyList tPME :characteristicString "E")) :parameters (merge mPM tPME)}]
+    (if
+        execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery)
     )
   )
 
 (defn removeNodeProperties
   "Remove properties from Node"
   [& {:keys [label parameters removeProperties execute?] :or {execute? true parameters {}}}]
-  (if execute?
-    ((gdriver/runQuery {:query (str "MATCH (node1:" label " " (createParameterPropertyString parameters) " ) " (createNodeRemString "node1" removeProperties)) :parameters parameters}) :summary)
-    {:query (str "MATCH (node1:" label " " (createParameterPropertyString parameters) " ) " (createNodeRemString "node1" removeProperties)) :parameters parameters}
+  (let [builtQuery {:query (str "MATCH (node1:"label" "(createParameterPropertyString parameters)" ) "(createRemString :varName "node1" :remPropertyList removeProperties)) :parameters parameters}]
+    (if
+        execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery)
     )
   )
 
@@ -239,8 +246,8 @@
   (if execute?
     (map #(% "node") (((gdriver/runQuery {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) ") RETURN node") :parameters parameters}) :results) 0))
     {:query (str "MATCH (node:" label " " (createParameterPropertyString parameters) ") RETURN node") :parameters parameters}
+    )
   )
-)
 
 (defn getRelations
   "Get relations matched by inNode/outNode/type and properties"
@@ -252,34 +259,34 @@
           "R" relationshipParameters
           }
          )
-         fromNodeLabel
-          (if (= fromNodeLabel "")
-            ""
-            (reduce #(str %1 ":" %2) "" fromNodeLabel)
+        fromNodeLabel
+        (if (= fromNodeLabel "")
+          ""
+          (reduce #(str %1 ":" %2) "" fromNodeLabel)
           )
-         toNodeLabel
-          (if (= toNodeLabel "")
-            ""
-            (reduce #(str %1 ":" %2) "" toNodeLabel)
+        toNodeLabel
+        (if (= toNodeLabel "")
+          ""
+          (reduce #(str %1 ":" %2) "" toNodeLabel)
           )
-         relationshipType
-          (if (= relationshipType "")
-            ""
-            (str ":" relationshipType)
+        relationshipType
+        (if (= relationshipType "")
+          ""
+          (str ":" relationshipType)
           )
         builtQuery  
         {:query
-          (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN p")
+         (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN p")
          :parameters
-          (combinedProperties :combinedPropertyMap)
-        }
-       ]
-        (if execute?
-          (map #(% "p") (first ((gdriver/runQuery builtQuery) :results)))
-          builtQuery
-        )
+         (combinedProperties :combinedPropertyMap)
+         }
+        ]
+    (if execute?
+      (map #(% "p") (first ((gdriver/runQuery builtQuery) :results)))
+      builtQuery
+      )
+    )
   )
-)
 
 (defn getNeighborhood
   "Get the neighborhood of a particular node"
@@ -291,13 +298,13 @@
             nodeParameters ((first nodeseq) :properties)
             ]
         {
-          :labels nodeLabel
-          :properties nodeParameters
-          :outNodes (map #(select-keys % [:labels :properties :toNode]) (getRelations :fromNodeLabel nodeLabel :fromNodeParameters nodeParameters))
-          :inNodes (map #(select-keys % [:labels :properties :fromNode]) (getRelations :toNodeLabel nodeLabel :toNodeParameters nodeParameters))
-        }
+         :labels nodeLabel
+         :properties nodeParameters
+         :outNodes (map #(select-keys % [:labels :properties :toNode]) (getRelations :fromNodeLabel nodeLabel :fromNodeParameters nodeParameters))
+         :inNodes (map #(select-keys % [:labels :properties :fromNode]) (getRelations :toNodeLabel nodeLabel :toNodeParameters nodeParameters))
+         }
+        )
       )
-    )
   )
 )
 
@@ -541,6 +548,17 @@
 
 ;;TODO CUSTOM CONSTRAINTS
 
+(def validATDatatypes #{"java.lang.Boolean",
+                        "java.lang.Byte",
+                        "java.lang.Short",
+                        "java.lang.Integer",
+                        "java.lang.Long",
+                        "java.lang.Float",
+                        "java.lang.Double",
+                        "java.lang.Character",
+                        "java.lang.String",
+                        "java.util.ArrayList"})
+
 (defn createAttributeType
   "Creates a node with Label AttributeType.
   :_name should be a string
@@ -548,23 +566,14 @@
   [& {:keys [:_name :_datatype :execute?] :or {:execute? true} :as keyArgs}]
   {:pre [
          (string? _name)
-         (contains? #{"java.lang.Boolean",
-                      "java.lang.Byte",
-                      "java.lang.Short",
-                      "java.lang.Integer",
-                      "java.lang.Long",
-                      "java.lang.Float",
-                      "java.lang.Double",
-                      "java.lang.Character",
-                      "java.lang.String",
-                      "java.util.ArrayList"}
-                    _datatype)
+         (contains? validATDatatypes _datatype)
          ]
    }
   (createNewNode :label "AttributeType"
                  :parameters {"_name" _name "_datatype" _datatype}
                  :execute? execute?)
   )
+
 
 (defn createCustomFunction
   "Creates a customFunction.

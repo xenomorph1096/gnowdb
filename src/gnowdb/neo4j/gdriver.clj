@@ -77,7 +77,7 @@
 (defn- parse
 	[data]
 	(cond ;More parsers can be added here. (instance? /*InterfaceName*/ data) <Return Value>
-			(instance? org.neo4j.driver.v1.types.Node data) {:labels (.labels data) :properties (into {} (.asMap data))}
+			(instance? org.neo4j.driver.v1.types.Node data) {:labels (into [] (.labels data)) :properties (into {} (.asMap data))}
 			(instance? org.neo4j.driver.v1.types.Relationship data) {:labels (.type data) :properties (into {} (.asMap data)) :fromNode (.startNodeId data) :toNode (.endNodeId data)}
 			(instance? org.neo4j.driver.v1.types.Path data) {:start (parse (.start data)):end (parse (.end data)) :segments (map (fn [segment] {:start (parse (.start segment)) :end (parse (.end segment)) :relationship (parse (.relationship segment))}) data) :length (reduce (fn [counter, data] (+ counter 1)) 0 data)}
 			:else data

@@ -260,14 +260,14 @@
          toNodeLabel
           (if (= toNodeLabel "")
             ""
-            (reduce #(str %1 ":" %2) "" fromNodeLabel)
+            (reduce #(str %1 ":" %2) "" toNodeLabel)
           )
          relationshipType
           (if (= relationshipType "")
             ""
             (str ":" relationshipType)
           )
-        builtQuery
+        builtQuery  
         {:query
           (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN p")
          :parameters
@@ -335,7 +335,7 @@
          (string? label)
          (contains? #{"CREATE" "DROP"} CD)
          (not (empty? propertyVec))
-         (contains? #{"UNIQUE" "NODEEXISTANCE" "RELATIONEXISTANCE" "NODEKEY"} constraintType)
+         (contains?   #{"UNIQUE" "NODEEXISTANCE" "RELATIONEXISTANCE" "NODEKEY"} constraintType)
          (if
              (= "NODEKEY" constraintType)
            (every? #(and (coll? %) (not (empty? %))) propertyVec)

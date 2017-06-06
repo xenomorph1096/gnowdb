@@ -702,6 +702,36 @@
                   :execute? execute?)
   )
 
+(defn addSubClassAT
+	[& {:keys [:className :subClassOf :createNewNodeQuery :execute?] :or {:execute? true}}] 
+	(let [[superClassName] subClassOf superClassATVec (vec (getClassAttributeTypes (str superClassName))) 
+  				is_aRelationQuery 	
+  					(createRelation 	
+						:fromNodeLabel "Class"
+						:fromNodeParameters {"className" className}
+						:relationshipType "is_a"
+						:relationshipParameters {}
+						:toNodeLabel "Class"
+						:toNodeParameters {"className" superClassName}
+						:execute? false
+					)
+				queriesVec
+					(into [createNewNodeQuery is_aRelationQuery]
+						(
+							map (fn
+									[SingleATMap] 
+									(addClassAT :_atname (SingleATMap "_name") :className className :execute? false)
+								)
+							superClassATVec
+						)
+					)]
+		(if execute? 
+			((apply gdriver/runQuery queriesVec) :summary)
+			queriesVec
+		)					
+	)
+)
+
 (defn createClass
   "Create a node with label Class"
   [& {:keys [:className :classType :isAbstract?	:subClassOf :properties :execute?] :or {:execute? true :subClassOf []}}]
@@ -727,31 +757,8 @@
 			)
 		]
 		(if (not (empty? subClassOf))
-			;;Adds the attributes of the superclass to the subclass 
-  			(let [[superClassName] subClassOf superClassATVec (vec (getClassAttributeTypes (str superClassName))) 
-  				is_aRelationQuery 	(createRelation 	:fromNodeLabel "Class"
-											:fromNodeParameters {"className" className}
-											:relationshipType "is_a"
-											:relationshipParameters {}
-											:toNodeLabel "Class"
-											:toNodeParameters {"className" superClassName}
-											:execute? false
-									)
-				queriesVec
-					(into [createNewNodeQuery is_aRelationQuery]
-						(
-							map (fn
-									[SingleATMap] 
-									(addClassAT :_atname (SingleATMap "_name") :className className :execute? false)
-								)
-							superClassATVec
-						)
-					)]
-						(if execute? 
-							((apply gdriver/runQuery queriesVec) :summary)
-							queriesVec
-						)					
-			)
+			;;Adds the attributes of the superclass to the subclass
+			(addSubClassAT :className className :subClassOf subClassOf :createNewNodeQuery createNewNodeQuery :execute? execute?) 
   			(
   				if execute?
 				((gdriver/runQuery createNewNodeQuery) :summary)

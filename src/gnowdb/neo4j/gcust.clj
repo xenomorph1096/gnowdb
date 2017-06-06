@@ -3,8 +3,15 @@
   (:require [clojure.string :as clojure.string]
             [digest :as digest]
             [clojure.math.combinatorics :refer [nth-permutation]]
-            [clj-fuzzy.metrics :refer [levenshtein]]
-            [gnowdb.neo4j.gdriver :refer [getCustomPassword]]))
+            [clj-fuzzy.metrics :refer [levenshtein]]))
+
+
+(defn getCustomPassword
+  [details]
+  (def ^{:private true} customPassword 
+    (select-keys details [:customFunctionPassword])
+  )
+)
 
 (defn- arg-count
   "Get number of arguments of a function.
@@ -37,7 +44,7 @@
   fnString will be validated"
   [fnString]
   (str-to-fn fnString)
-  (digest/sha-256 (combineStrings fnString (getCustomPassword))))
+  (digest/sha-256 (combineStrings fnString customPassword)))
 
 (defn execCustomFunction
   "Execute a customFunction.
@@ -69,12 +76,4 @@
       (str "Arguments " argumentListX " fail(s) to satisfy '" fnName "' with '" constraintValue "'"))
     (catch Exception E (.getMessage E))))
 
-
-
-
-
-
-
-
-
-
+3

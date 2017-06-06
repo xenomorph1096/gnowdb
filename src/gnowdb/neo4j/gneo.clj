@@ -6,9 +6,6 @@
             [gnowdb.neo4j.gdriver :as gdriver]
             [gnowdb.neo4j.gcust :as gcust]))
 
-(import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
-        '[java.io PushbackReader])
-
 (defn- addStringToMapKeys
   [stringMap string]
   (apply conj

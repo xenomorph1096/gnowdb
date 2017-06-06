@@ -2,28 +2,22 @@
   (:gen-class)
   (:require [clojure.set :as clojure.set]
             [clojure.java.io :as io]
-            [clojure.string :as clojure.string]
-            [async-watch.core :refer [changes-in cancel-changes]]))
+            [clojure.string :as clojure.string]))
 			
 
-(import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values]
-        '[java.io PushbackReader])
+(import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values])
 
-(def getNeo4jDBDetails 
-	(with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
-		(read (PushbackReader. r)
-		)
+(defn getNeo4jDBDetails
+	[details]
+	(def ^{:private true} neo4jDBDetails 
+		(select-keys details [:bolt-url :username :password])
 	)
 )
-
-(defn getCustomPassword
-  []
-  (getNeo4jDBDetails :customFunctionPassword))
 
 (defn- getDriver
 	"Get neo4j Database Driver"
 	[]
-	(GraphDatabase/driver (getNeo4jDBDetails :bolt-url) (AuthTokens/basic (getNeo4jDBDetails :username) (getNeo4jDBDetails :password)))
+	(GraphDatabase/driver (neo4jDBDetails :bolt-url) (AuthTokens/basic (neo4jDBDetails :username) (neo4jDBDetails :password)))
 )
 
 (defn- createSummaryMap
@@ -149,43 +143,5 @@
 		{:results result
 		 :summary (getCombinedFullSummary (map #((% :summary) :summaryMap) result))
 		}
-	)
-)
-
-(defn generateConf
-  "Generates a default configuration file"
-  	[]
-  	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))
-    	(spit "src/gnowdb/neo4j/gconf.clj"
-          	{
-                 :bolt-url "bolt://localhost:7687"
-                 :username "neo4j"
-                 :password "neo"
-                 :customFunctionPassword "password"
-                 }
-         )
-    )
- )
-
-(generateConf)
-
-(let [changes (changes-in ["src/gnowdb/neo4j"])]
-	(clojure.core.async/go 
-		(while true
-			(let [[op filename] (<! changes)]
-				;; op will be one of :create, :modify or :delete
-				(if (= filename "src/gnowdb/neo4j/gconf.clj")
-					(if (= op :delete)
-						(cancel-changes)
-						(def  getNeo4jDBDetails 
-							(with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
-								(read (PushbackReader. r)
-								)
-							)
-						)
-					)
-				)
-			)
-		)
 	)
 )

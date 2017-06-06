@@ -4,15 +4,14 @@
             [clojure.java.io :as io]
             [clojure.string :as clojure.string]))
 			
-
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values])
 
 (defn getNeo4jDBDetails
-	[details]
-	(def ^{:private true} neo4jDBDetails 
-		(select-keys details [:bolt-url :username :password])
-	)
-)
+  [details]
+  (def ^{:private true} neo4jDBDetails 
+    (select-keys details [:bolt-url :username :password])
+    )
+  )
 
 (defn- getDriver
 	"Get neo4j Database Driver"

@@ -44,12 +44,13 @@
    :labelsRemoved 0,
    :constraintsAdded 0,
    :propertiesSet 0,
-   :labelsAdded 0,
+   :labelsAdded 1,
    :constraintsRemoved 0,
    :indexesAdded 0,
    :relationshipsDeleted 0},
-  :summaryString "ContainsUpdates :true ;NodesCreated :1 ;"}}
- (runQuery {:query "Create ()" :parameters {"a" "test_case2"}})
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :1 ;LabelsAdded :1 ;"}}
+ (runQuery {:query "Create (:test)" :parameters {"a" "test_case2"}})
 		    	    )
 		    	)
 		    )
@@ -66,15 +67,18 @@
    :labelsRemoved 0,
    :constraintsAdded 0,
    :propertiesSet 0,
-   :labelsAdded 0,
+   :labelsAdded 1,
    :constraintsRemoved 0,
    :indexesAdded 0,
    :relationshipsDeleted 0},
-  :summaryString "ContainsUpdates :true ;NodesCreated :1 ;"}}
-   (runQuery {:query "Create (test_case3)" :parameters {}}))
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :1 ;LabelsAdded :1 ;"}} 
+  (runQuery {:query "Create (test_case3:test)" :parameters {}})
 
-		    	)
-		    )
+		    	   )
+		      )
+
+        )
 		    (testing "two nodes simultaneously"
 		    	(is (= {:results [()],
  :summary
@@ -87,12 +91,13 @@
    :labelsRemoved 0,
    :constraintsAdded 0,
    :propertiesSet 0,
-   :labelsAdded 0,
+   :labelsAdded 2,
    :constraintsRemoved 0,
    :indexesAdded 0,
    :relationshipsDeleted 0},
-  :summaryString "ContainsUpdates :true ;NodesCreated :2 ;"}}
- (runQuery {:query "Create (node1),(node2)" :parameters {}})
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :2 ;LabelsAdded :2 ;"}} 
+  (runQuery {:query "Create (node1:test),(node2:test)" :parameters {}})
 		    	    )
 		    
 		        )
@@ -111,13 +116,13 @@
    :labelsRemoved 0,
    :constraintsAdded 0,
    :propertiesSet 2,
-   :labelsAdded 0,
+   :labelsAdded 1,
    :constraintsRemoved 0,
    :indexesAdded 0,
    :relationshipsDeleted 0},
   :summaryString
-  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :2 ;"}} 
-  (runQuery {:query "Create (node2 {name:{a},place:{b}})" :parameters {"a" "test_case4" "b" "Mumbai"}}) 
+  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :2 ;LabelsAdded :1 ;"}} 
+  (runQuery {:query "Create (node2:test {name:{a},place:{b}})" :parameters {"a" "test_case4" "b" "Mumbai"}}) 
 		    		)
 		    	
 		    	)
@@ -146,8 +151,8 @@
 		    		)
 		    	)
 		    )
-        )
-        (testing "Error in creating Relationships"
+      )
+        (testing "Error in creating Relationships:"
         	
 
         	(testing "Relationship query between two nodes"
@@ -222,10 +227,10 @@
         			)
         		)
         	)
-        	
-        )
 
+                )
 
+        
 )
 		    
 (run-tests)

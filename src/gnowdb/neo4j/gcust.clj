@@ -5,7 +5,6 @@
             [clojure.math.combinatorics :refer [nth-permutation]]
             [clj-fuzzy.metrics :refer [levenshtein]]))
 
-
 (defn getCustomPassword
   [details]
   (def ^{:private true} customPassword 
@@ -75,5 +74,3 @@
       true
       (str "Arguments " argumentListX " fail(s) to satisfy '" fnName "' with '" constraintValue "'"))
     (catch Exception E (.getMessage E))))
-
-3

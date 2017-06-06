@@ -679,29 +679,6 @@
     )
   )
 
-(defn createClass
-  "Create a node with label Class"
-  [& {:keys [:className :classType :isAbstract? :properties :execute?] :or {:execute? true}}]
-  {:pre [(string? className)
-         (contains? #{"NODE" "RELATION"} classType)
-         (not
-          (or (contains? properties "className")
-              (contains? properties "classType")
-              (contains? properties "isAbstract")
-              )
-          )
-         ]
-   }
-  (createNewNode :label "Class"
-                 :parameters (assoc properties
-                                    "className" className
-                                    "classType" classType
-                                    "isAbstract" isAbstract?
-                                    )
-                 :execute? execute?
-                 )
-  )
-
 (defn addClassAT
   "Adds a relation HasAttributeType from Class to AttributeType.
   :_atname: _name of AttributeType.
@@ -724,6 +701,57 @@
                   :toNodeParameters {"_name" _atname}
                   :execute? execute?)
   )
+
+(defn createClass
+  "Create a node with label Class"
+  [& {:keys [:className :classType :isAbstract?	:subClassOf :properties :execute?] :or {:execute? true :subClassOf []}}]
+  	{:pre [
+  			(string? className)
+         	(contains? #{"NODE" "RELATION"} classType)
+         	(not
+         	(or (contains? properties "className")
+            	(contains? properties "classType")
+              	(contains? properties "isAbstract")
+              	)
+         	)
+       	 ]
+   	}
+   (let [createNewNodeQuery 
+			(createNewNode 	:label "Class"
+							:parameters (assoc properties
+	    							"className" className
+	                                "classType" classType
+	                                "isAbstract" isAbstract?
+	        	                    )
+							:execute? false
+			)
+		]
+		(if (not (empty? subClassOf))
+			;;Adds the attributes of the superclass to the subclass 
+  			(let [[superClassName] subClassOf superClassATVec (vec (getClassAttributeTypes (str superClassName)))  
+				queriesVec
+					(into [createNewNodeQuery]
+						(
+							map (fn
+									[SingleATMap] 
+									(addClassAT :_atname (SingleATMap "_name") :className className :execute? false)
+								)
+							superClassATVec
+						)
+					)]
+						(if execute? 
+							(apply gdriver/runQuery queriesVec)
+							queriesVec
+						)					
+			)
+  			(
+  				if execute?
+				(gdriver/runQuery createNewNodeQuery)
+				createNewNodeQuery
+			)
+ 		)
+	)
+)   
 
 (defn addATVR
   "Adds a ValueRestriction to an AttributeType.

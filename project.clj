@@ -9,10 +9,12 @@
   :dependencies [
                  [org.clojure/clojure "1.8.0"]
                  [org.neo4j.driver/neo4j-java-driver "1.3.0"]
-		 [async-watch "0.1.1"]
+		             [async-watch "0.1.1"]
                  [digest "1.4.5"] ;;for hashing
                  [org.clojure/math.combinatorics "0.1.4"] ;;for nth permutation
                  [clj-fuzzy "0.4.0"]] ;;for levenshtein distance
+                 
+  
   :main ^:skip-aot gnowdb.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}

@@ -35,12 +35,10 @@
   )
 )
 
-(defn- init
+(defn init
   []
   (gneo/defineInitialConstraints)
   (createAbstractNodeClass)
   (addCustomFunctionality)
   (workspaces/init)
 )
-
-(init)

@@ -62,6 +62,7 @@
 
 (generateConf)
 (initiateReadback)
+(init/init)
 
 (let [changes (changes-in ["src/gnowdb/neo4j"])]
 	(clojure.core.async/go 

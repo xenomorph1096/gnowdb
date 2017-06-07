@@ -583,6 +583,26 @@
      ) :results) 0))
   )
 
+(defn getClassApplicableSourceNT
+  "Get all AttributeTypes 'attributed' to a class"
+  [className]
+  (map #((% "rl") :properties) (((gdriver/runQuery
+     {:query "MATCH (class:Class {className:{className}})<-[rel:ApplicableSourceNT]-(rl:Class) RETURN rl"
+      :parameters {"className" className}
+      }
+     ) :results) 0))
+  )
+
+(defn getClassApplicableTargetNT
+  "Get all AttributeTypes 'attributed' to a class"
+  [className]
+  (map #((% "rl") :properties) (((gdriver/runQuery
+     {:query "MATCH (class:Class {className:{className}})<-[rel:ApplicableTargetNT]-(rl:Class) RETURN rl"
+      :parameters {"className" className}
+      }
+     ) :results) 0))
+  )
+
 (defn getClassNeoConstraints
   "Get all NeoConstraints attributed to a class"
   [className]
@@ -980,6 +1000,56 @@
 	)
 )
 
+(defn addRelApplicableTypeQuery
+  "Returns the query of the function addRelApplicableType withoout doing a check 
+  on the existence and uniqueness of applicableClass.
+  :className should be className of relation class.
+  :applicationType should be either SOURCE or TARGET as string.
+  :applicableClassName should be a className of the source or target Node Class"
+  [& {:keys [:className :applicationType :applicableClassName]}]
+  {:pre [(string? className)
+         (contains? #{"Source" "Target"} applicationType)
+         (string? applicableClassName)
+         (= 1 (count (getNodes :label "Class" :parameters {"className" className "classType" "RELATION"})))
+         ]
+   }
+  (let [builtQuery (createRelation :fromNodeLabel "Class" :fromNodeParameters {"className" className "classType" "RELATION"} :relationshipType (str "Applicable"applicationType"NT") :relationshipParameters {} :toNodeLabel "Class" :toNodeParameters {"className" applicableClassName "classType" "NODE"} :execute? false :unique? true)]
+    builtQuery
+  )
+)
+
+(defn addSubClassAppTypeQueryVec
+	"Returns a vector of queries consisting of the queries 
+	for adding superclass ApplicableTypeRelations to the subclass"
+	[& {:keys [:className :subClassOf]}]
+	(let
+		[[superClassName] subClassOf superClassAppSourceNTVec (vec (getClassApplicableSourceNT (str superClassName)))
+			AppSourceNTQueriesVec
+				(into []
+					(
+						map (fn
+								[SingleMap]
+								(addRelApplicableTypeQuery :className (SingleMap "className") :applicationType "Source" :applicableClassName className)
+							)
+						superClassAppSourceNTVec
+					)
+				)
+				superClassAppTargetNTVec (vec (getClassApplicableTargetNT (str superClassName)))
+			AppNTQueriesVec
+				(into AppSourceNTQueriesVec
+					(
+						map (fn
+								[SingleMap]
+								(addRelApplicableTypeQuery :className (SingleMap "className") :applicationType "Target" :applicableClassName className)
+							)
+						superClassAppTargetNTVec
+					)
+				)
+			]
+		AppNTQueriesVec	
+	)
+)
+
 (defn createClass
   "Create a node with label Class
   :subClassOf should be a vector containing the name of the superclass if any"
@@ -1006,7 +1076,7 @@
 			)
 		]
 		(if (not (empty? subClassOf))
-			;"Adds the attributes,NeoConstraints and CustomConstraints of the superclass to the subclass"
+			;"Adds the attributes,NeoConstraints,CustomConstraints and ApplicableRelationNTs of the superclass to the subclass"
 			(let
 				[completeQueryVec
 				(vec
@@ -1014,6 +1084,7 @@
 							(addSubClassATQueryVec :className className :subClassOf subClassOf)
 							(addSubClassNCQueryVec :className className :subClassOf subClassOf :classType classType)
 							(addSubClassCCQueryVec :className className :subClassOf subClassOf)
+							(addSubClassAppTypeQueryVec :className className :subClassOf subClassOf)
 					)		
 				)
 				[superClassName] subClassOf]

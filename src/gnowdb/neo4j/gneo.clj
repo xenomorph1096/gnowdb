@@ -559,21 +559,6 @@
                         "java.lang.String",
                         "java.util.ArrayList"})
 
-(defn createAttributeType
-  "Creates a node with Label AttributeType.
-  :_name should be a string
-  :_datatype should be a string of one of the following: 'java.lang.Boolean', 'java.lang.Byte', 'java.lang.Short', 'java.lang.Integer', 'java.lang.Long', 'java.lang.Float', 'java.lang.Double', 'java.lang.Character', 'java.lang.String', 'java.util.ArrayList'"
-  [& {:keys [:_name :_datatype :execute?] :or {:execute? true} :as keyArgs}]
-  {:pre [
-         (string? _name)
-         (contains? validATDatatypes _datatype)
-         ]
-   }
-  (createNewNode :label "AttributeType"
-                 :parameters {"_name" _name "_datatype" _datatype}
-                 :execute? execute?)
-  )
-
 
 (defn createCustomFunction
   "Creates a customFunction.
@@ -658,28 +643,29 @@
 (defn applyClassNeoConstraints
   "Apply all NeoConstraints for a class"
   [& {:keys [:className :execute?] :or {:execute? true} :as keyArgs}]
-  (let [builtQueries (reduceQueryColl
-                      (map
-                       #(apply applyClassNeoConstraint
-                               (prepMapAsArg
-                                (assoc
-                                 (clojure.set/rename-keys
-                                  (merge keyArgs
-                                         (into {} ((% "neo") :properties))
-                                         (into {} ((% "ncat") :properties))
-                                         )
-                                  {"constraintValue" :constraintValue
-                                   "constraintType" :constraintType
-                                   "constraintTarget" :constraintTarget
-                                   }
-                                  )
-                                 :execute? false
-                                 )
-                                )
-                               )
-                       (((getClassNeoConstraints className) :results) 0)
-                       )
-                      )
+  (let [builtQueries 
+  			(reduceQueryColl
+	          (map
+	           #(apply applyClassNeoConstraint
+	                   (prepMapAsArg
+	                    (assoc
+	                     (clojure.set/rename-keys
+	                      (merge keyArgs
+	                             (into {} ((% "neo") :properties))
+	                             (into {} ((% "ncat") :properties))
+	                             )
+	                      {"constraintValue" :constraintValue
+	                       "constraintType" :constraintType
+	                       "constraintTarget" :constraintTarget
+	                       }
+	                      )
+	                     :execute? false
+	                     )
+	                    )
+	                   )
+	           (((getClassNeoConstraints className) :results) 0)
+	           )
+	         )
         ]
     (if
         execute?
@@ -710,72 +696,6 @@
                   :toNodeParameters {"_name" _atname}
                   :execute? execute?)
   )
-
-(defn addSubClassAT
-	[& {:keys [:className :subClassOf :createNewNodeQuery :execute?] :or {:execute? true}}] 
-	(let [[superClassName] subClassOf superClassATVec (vec (getClassAttributeTypes (str superClassName))) 
-  				is_aRelationQuery 	
-  					(createRelation 	
-						:fromNodeLabel "Class"
-						:fromNodeParameters {"className" className}
-						:relationshipType "is_a"
-						:relationshipParameters {}
-						:toNodeLabel "Class"
-						:toNodeParameters {"className" superClassName}
-						:execute? false
-					)
-				queriesVec
-					(into [createNewNodeQuery is_aRelationQuery]
-						(
-							map (fn
-									[SingleATMap] 
-									(addClassAT :_atname (SingleATMap "_name") :className className :execute? false)
-								)
-							superClassATVec
-						)
-					)]
-		(if execute? 
-			((apply gdriver/runQuery queriesVec) :summary)
-			queriesVec
-		)					
-	)
-)
-
-(defn createClass
-  "Create a node with label Class"
-  [& {:keys [:className :classType :isAbstract?	:subClassOf :properties :execute?] :or {:execute? true :subClassOf []}}]
-  	{:pre [
-  			(string? className)
-         	(contains? #{"NODE" "RELATION"} classType)
-         	(not
-         	(or (contains? properties "className")
-            	(contains? properties "classType")
-              	(contains? properties "isAbstract")
-              	)
-         	)
-       	 ]
-   	}
-   (let [createNewNodeQuery 
-			(createNewNode 	:label "Class"
-							:parameters (assoc properties
-	    							"className" className
-	                                "classType" classType
-	                                "isAbstract" isAbstract?
-	        	                    )
-							:execute? false
-			)
-		]
-		(if (not (empty? subClassOf))
-			;;Adds the attributes of the superclass to the subclass
-			(addSubClassAT :className className :subClassOf subClassOf :createNewNodeQuery createNewNodeQuery :execute? execute?) 
-  			(
-  				if execute?
-				((gdriver/runQuery createNewNodeQuery) :summary)
-				createNewNodeQuery
-			)
- 		)
-	)
-)   
 
 (defn addATVR
   "Adds a ValueRestriction to an AttributeType.
@@ -844,10 +764,246 @@
     )
   )
 
+(defn addSubTypeVRQueryVec
+	"Returns a vector of queries consisting of the queries 
+	for adding superclass NeoConstraints to the subclass"
+	[& {:keys [:_name :_datatype :subTypeOf]}]
+	(let
+		[[superTypeName] subTypeOf superTypeVRVec (vec (((getATValueRestrictions (str superTypeName)) :results) 0))
+			is_aRelationQuery 	
+					(createRelation 	
+					:fromNodeLabel "AttributeType"
+					:fromNodeParameters {"_name" _name}
+					:relationshipType "is_a"
+					:relationshipParameters {}
+					:toNodeLabel "AttributeType"
+					:toNodeParameters {"_name" superTypeName}
+					:execute? false
+					)
+			VRQueriesVec
+				(into [is_aRelationQuery]
+					(
+						map (fn
+								[SingleVRMap]
+								(addATVR :_atname _name :fnName (((SingleVRMap "cf") :properties) "fnName") :constraintValue (((SingleVRMap "vr") :properties) "constraintValue") :execute? false)
+							)
+						superTypeVRVec
+					)
+				)]
+		VRQueriesVec	
+	)
+)
+
+(defn createAttributeType
+  "Creates a node with Label AttributeType.
+  :subTypeOf should be a vector containing the name of the superType if any
+  :_name should be a string
+  :_datatype should be a string of one of the following: 'java.lang.Boolean', 'java.lang.Byte', 'java.lang.Short', 'java.lang.Integer', 'java.lang.Long', 'java.lang.Float', 'java.lang.Double', 'java.lang.Character', 'java.lang.String', 'java.util.ArrayList'"
+  [& {:keys [:_name :_datatype :subTypeOf :execute?] :or {:execute? true} :as keyArgs}]
+  {:pre [
+         (string? _name)
+         (contains? validATDatatypes _datatype)
+         ]
+   }
+
+   (let [createNewNodeQuery 
+			(createNewNode :label "AttributeType"
+                 :parameters {"_name" _name "_datatype" _datatype}
+                 :execute? false)]
+  		(if (not (empty? subTypeOf))
+			;"Adds the attributes,NeoConstraints and CustomConstraints of the superclass to the subclass"
+			(let
+				[completeQueryVec
+				(vec
+					(concat [createNewNodeQuery]
+							(addSubTypeVRQueryVec :_name _name :_datatype _datatype :subTypeOf subTypeOf)
+					)		
+				)
+				[superTypeName] subTypeOf]
+				(if (not (empty? (getNodes :label "AttributeType" :parameters {"_name" (str superTypeName)} :execute? true)))
+					(
+						if execute?
+						((apply gdriver/runQuery completeQueryVec) :summary)
+						completeQueryVec	
+					)
+					(println "SuperType doesn't exist!")
+				)
+			)
+  			(
+  				if execute?
+				((gdriver/runQuery createNewNodeQuery) :summary)
+				createNewNodeQuery
+			)
+ 		)
+  	)
+)
+
+(defn addSubClassATQueryVec
+	"Returns a vector of queries consisting of is_aRelationship 
+	query and the queries for adding superclass AttributeTypes to the subclass"
+	[& {:keys [:className :subClassOf]}] 
+	(let [[superClassName] subClassOf superClassATVec (vec (getClassAttributeTypes (str superClassName))) 
+			is_aRelationQuery 	
+					(createRelation 	
+						:fromNodeLabel "Class"
+						:fromNodeParameters {"className" className}
+						:relationshipType "is_a"
+						:relationshipParameters {}
+						:toNodeLabel "Class"
+						:toNodeParameters {"className" superClassName}
+						:execute? false
+					)
+			queriesVec
+				(into [is_aRelationQuery]
+					(
+						map (fn
+								[SingleATMap] 
+								(addClassAT :_atname (SingleATMap "_name") :className className :execute? false)
+							)
+						superClassATVec
+					)
+				)]
+			queriesVec	
+	)
+)
+
+(defn addClassNCQuery
+  	"Returns addClassNC query without doing a check on the existence and the uniqueness of the class.
+  	:constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
+  	:constraintTarget should be either of NODE,RELATION.
+  	:constraintValue should be _name of an  AttributeType or collection of _names, in case of NODEKEY"
+  	[& {:keys [:constraintType :constraintTarget :constraintValue :className]}]
+  	(createRelation 
+  		:fromNodeLabel "NeoConstraint"
+	  	:fromNodeParameters {"constraintType" constraintType
+	                       "constraintTarget" constraintTarget}
+	  	:relationshipType "NeoConstraintAppliesTo"
+	  	:relationshipParameters {"constraintValue" constraintValue}
+	  	:toNodeLabel "Class"
+	  	:toNodeParameters {"className" className}
+	  	:execute? false
+	)
+)
+
+(defn addSubClassNCQueryVec
+	"Returns a vector of queries consisting of the queries 
+	for adding superclass NeoConstraints to the subclass"
+	[& {:keys [:className :subClassOf :classType]}]
+	(let
+		[[superClassName] subClassOf superClassNCVec (vec (((getClassNeoConstraints (str superClassName)) :results) 0))
+			NCQueriesVec
+				(into []
+					(
+						map (fn
+								[SingleNCMap]
+								(addClassNCQuery :constraintType (((SingleNCMap "neo") :properties) "constraintType") :constraintTarget classType :constraintValue (((SingleNCMap "ncat") :properties) "constraintValue") :className className :execute? false)
+							)
+						superClassNCVec
+					)
+				)
+		]
+		NCQueriesVec	
+	)
+)
+
+(defn addClassCCQuery
+  "Returns query for addClassCC without doing a check on atList
+  :fnName of a CustomFunction.
+  :constraintValue should be value to be passed as CustomFunction's second argument"
+  [& {:keys [:fnName :atList :constraintValue :className]}]
+  {:pre [(string? className)
+         (string? fnName)]}
+    (createRelation 
+    	:fromNodeLabel "CustomFunction"
+        :fromNodeParameters {"fnName" fnName}
+        :relationshipType "CustomConstraintAppliesTo"
+        :relationshipParameters {"atList" atList
+                                 "constraintValue" constraintValue}
+        :toNodeLabel "Class"
+        :toNodeParameters {"className" className}
+        :execute? false
+    )
+ )
+
+(defn addSubClassCCQueryVec
+	"Returns a vector of queries consisting of the queries 
+	for adding superclass CustomConstraints to the subclass"
+	[& {:keys [:className :subClassOf]}]
+	(let
+		[[superClassName] subClassOf superClassCCVec (vec (((getClassCustomConstraints (str superClassName)) :results) 0))
+			CCQueriesVec
+				(into []
+					(
+						map (fn
+								[SingleCCMap]
+								(addClassCCQuery :fnName (((SingleCCMap "cf") :properties) "fnName") :atList (vec (((SingleCCMap "ccat") :properties) "atList")) :constraintValue (((SingleCCMap "ccat") :properties) "constraintValue") :className className)
+							)
+						superClassCCVec
+					)
+				)]
+		CCQueriesVec	
+	)
+)
+
+(defn createClass
+  "Create a node with label Class
+  :subClassOf should be a vector containing the name of the superclass if any"
+  [& {:keys [:className :classType :isAbstract?	:subClassOf :properties :execute?] :or {:execute? true :subClassOf []}}]
+  	{:pre [
+  			(string? className)
+         	(contains? #{"NODE" "RELATION"} classType)
+         	(not
+         	(or (contains? properties "className")
+            	(contains? properties "classType")
+              	(contains? properties "isAbstract")
+              	)
+         	)
+       	 ]
+   	}
+   (let [createNewNodeQuery 
+			(createNewNode 	:label "Class"
+							:parameters (assoc properties
+	    							"className" className
+	                                "classType" classType
+	                                "isAbstract" isAbstract?
+	        	                    )
+							:execute? false
+			)
+		]
+		(if (not (empty? subClassOf))
+			;"Adds the attributes,NeoConstraints and CustomConstraints of the superclass to the subclass"
+			(let
+				[completeQueryVec
+				(vec
+					(concat [createNewNodeQuery]
+							(addSubClassATQueryVec :className className :subClassOf subClassOf)
+							(addSubClassNCQueryVec :className className :subClassOf subClassOf :classType classType)
+							(addSubClassCCQueryVec :className className :subClassOf subClassOf)
+					)		
+				)
+				[superClassName] subClassOf]
+				(if (not (empty? (getNodes :label "Class" :parameters {"className" (str superClassName)} :execute? true)))
+					(
+						if execute?
+						((apply gdriver/runQuery completeQueryVec) :summary)
+						completeQueryVec	
+					)
+					(println "Superclass doesn't exist!")
+				)
+			)
+  			(
+  				if execute?
+				((gdriver/runQuery createNewNodeQuery) :summary)
+				createNewNodeQuery
+			)
+ 		)
+	)
+)   
+
 (defn gnowdbInit
-  "Create Initial constraints"
-  [& {:keys [:execute?]  :or {:execute? true}}]
-  (let [builtQueries
+  	"Create Initial constraints"
+  	[& {:keys [:execute?]  :or {:execute? true}}]
+  	(let [builtQueries
         (reduceQueryColl [(createNCConstraints :execute? false)
                           (createATConstraints :execute? false)
                           (createCATConstraints :execute? false)
@@ -860,8 +1016,8 @@
         execute?
       (apply gdriver/runQuery builtQueries)
       builtQueries)
-    )
-  )
+  	)
+)
 
 (defn validatePropertyMaps
   "Validates propertyMaps for a class with className.

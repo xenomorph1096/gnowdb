@@ -694,6 +694,7 @@
                   :relationshipParameters {}
                   :toNodeLabel "AttributeType"
                   :toNodeParameters {"_name" _atname}
+                  :unique? true
                   :execute? execute?)
   )
 
@@ -762,7 +763,7 @@
                     :toNodeParameters {"className" className}
                     :execute? execute?)
     )
-  )
+)
 
 (defn addSubTypeVRQueryVec
 	"Returns a vector of queries consisting of the queries 
@@ -1000,21 +1001,21 @@
 	)
 )   
 
-(defn gnowdbInit
-  	"Create Initial constraints"
-  	[& {:keys [:execute?]  :or {:execute? true}}]
-  	(let [builtQueries
-        (reduceQueryColl [(createNCConstraints :execute? false)
+(defn defineInitialConstraints
+  "Creates Initial constraints"
+  [& {:keys [:execute?]  :or {:execute? true}}]
+  (let [builtQueries
+        				 [(createNCConstraints :execute? false)
                           (createATConstraints :execute? false)
                           (createCATConstraints :execute? false)
                           (createClassConstraints :execute? false)
                           (createCFConstraints :execute? false)
                           (createCCATConstraints :execute? false)
                           (createVRATConstraints :execute? false)
-                          (createAllNeoConstraints :execute? false)])]
+                          (createAllNeoConstraints :execute? false)]]
     (if
         execute?
-      (apply gdriver/runQuery builtQueries)
+      (apply gdriver/runTransactions builtQueries)
       builtQueries)
   	)
 )

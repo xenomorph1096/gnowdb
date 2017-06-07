@@ -4,6 +4,7 @@
   			[gnowdb.neo4j.gneo :as gneo]
             [gnowdb.neo4j.gdriver :as gdriver]
             [gnowdb.neo4j.gcust :as gcust]
+            [gnowdb.spec.init :as init]
             [async-watch.core :refer [changes-in cancel-changes]]))
 
 (import '[java.io PushbackReader])
@@ -61,6 +62,7 @@
 
 (generateConf)
 (initiateReadback)
+(init/init)
 
 (let [changes (changes-in ["src/gnowdb/neo4j"])]
 	(clojure.core.async/go 

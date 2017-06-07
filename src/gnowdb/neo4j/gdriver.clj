@@ -140,7 +140,7 @@
 			transactionList
 		)]
 		{:results result
-		 :summary (getCombinedFullSummary (map #((% :summary) :summaryMap) result))
+		 :summary (getCombinedFullSummary (map #(% :summary) result))
 		}
 	)
 )

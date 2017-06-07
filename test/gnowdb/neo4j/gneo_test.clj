@@ -9,8 +9,9 @@
 )
 
 (deftest getRelations-test
+
 	(testing "Creating nodes to run the tests"
-		(is (= {:results [()],
+		(is (= (select-keys {:results [() () ()],
  :summary
  {:summaryMap
   {:relationshipsCreated 1,
@@ -26,23 +27,65 @@
    :indexesAdded 0,
    :relationshipsDeleted 0},
   :summaryString
-  "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :2 ;PropertiesSet :1 ;LabelsAdded :2 ;"}} 
-  (runQuery {:query "create (n:test {name:{a}})-[r:r]->(n1:test)" :parameters {"a" "test_case5"}})
+  "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :2 ;PropertiesSet :1 ;LabelsAdded :2 ;"}} [:results]) 
+  (select-keys (runQuery {:query "create (n:test1 {name:{b}})-[:rel1]->(n1:test)" :parameters {"b" "t-db21"}} {:query "create (n2:test)-[:rel2]->(n3:test)" :parameters {}} 
+   {:query "create (n:test3 {name:{a}})-[:rel3 {name:{b}}]->(n1:test)" :parameters {"a" "t-db-20" "b" "rel_name3"}}
+  	) [:results])
 			)
 		)
 	)
 
-	   (testing "Error in getting a relationship"
-		(is (= (select-keys {:labels "r", :properties {}, :fromNode 41 , :toNode 42} [:labels :properties]) 
-			(select-keys (first (getRelations :fromNodeLabel ["test"] :toNodeLabel ["test"] :fromNodeparameters {"name" "test_case5"})) [:labels :properties])
-			)
-		
-		)
+	(testing "Error in getting a relationship:"
 
-	)
+     (testing "matching by to and from node labels-case1"
+    (is (= (select-keys {:labels "rel1", :properties {}, :fromNode 41 , :toNode 42} [:labels :properties]) 
+      (select-keys (first (getRelations :fromNodeLabel ["test1"] :toNodeLabel ["test"] )) [:labels :properties])
+      )
+    
+    )
+     )
 
-	(testing "Deleting all changes"
-        (is (= {:results [()],
+     (testing "matching by to and from node labels-case2"
+    (is (= (select-keys {:labels "rel2", :properties {}, :fromNode 41 , :toNode 42} [:labels :properties]) 
+      (select-keys (first (getRelations :fromNodeLabel ["test"] )) [:labels :properties])
+      )
+    
+    )
+     )
+
+     (testing "matching by relationship parameter"
+      (is (= (select-keys {:labels "rel3", :properties {"name" "rel_name3"}, :fromNode 41 , :toNode 42} [:labels :properties]) 
+        (select-keys (first (getRelations :relationshipParameters {"name" "rel_name3"})) [:labels :properties])
+        )
+      )
+
+     )
+
+     (testing "matching by node parameter"
+    (is (= (select-keys {:labels "rel3", :properties {"name" "rel_name3"}, :fromNode 41 , :toNode 42} [:labels :properties]) 
+        (select-keys (first (getRelations :fromNodeParameters {"name" "t-db-20"})) [:labels :properties])
+        )
+
+    
+    )
+     )
+
+     (testing "matching by relationship type"
+      (is (= (select-keys {:labels "rel3", :properties {"name" "rel_name3"}, :fromNode 41 , :toNode 42} [:labels :properties]) 
+        (select-keys (first (getRelations :relationshipType "rel3")) [:labels :properties])
+        )
+      )
+     )
+
+
+
+     
+     )
+
+
+
+  (testing "Deleting all changes"
+        (is (= (select-keys {:results [()],
  :summary
  {:summaryMap
   {:relationshipsCreated 0,
@@ -58,12 +101,16 @@
    :indexesAdded 0,
    :relationshipsDeleted 1},
   :summaryString
-  "ContainsUpdates :true ;NodesDeleted :2 ;RelationshipsDeleted :1 ;"}} 
-  (runQuery {:query "match (n) detach delete n" :parameters {}}) 
+  "ContainsUpdates :true ;NodesDeleted :2 ;RelationshipsDeleted :1 ;"}} [:results])
+  (select-keys (runQuery {:query "match (n) detach delete n" :parameters {}}) [:results]) 
             )
         )
 
     )
+
+
+	
+	  
 
 	)
 (run-tests)

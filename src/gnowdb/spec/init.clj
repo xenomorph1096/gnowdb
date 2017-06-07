@@ -14,12 +14,14 @@
   (gneo/createAttributeType :_name "GDB_Created_At" :_datatype "java.lang.String")
   (gneo/createAttributeType :_name "GDB_Modified_At" :_datatype "java.lang.String")
   (gneo/createAttributeType :_name "GDB_Description" :_datatype "java.lang.String")
+  (gneo/createAttributeType :_name "GDB_SnapshotID" :_datatype "java.lang.String")
   (gneo/addClassAT :_atname "GDB_UUID" :className "GDB_Node")
   (gneo/addClassAT :_atname "GDB_Display_Name" :className "GDB_Node")
   (gneo/addClassAT :_atname "GDB_Alternate_Name" :className "GDB_Node")
   (gneo/addClassAT :_atname "GDB_Created_At" :className "GDB_Node")
   (gneo/addClassAT :_atname "GDB_Modified_At" :className "GDB_Node")
   (gneo/addClassAT :_atname "GDB_Description" :className "GDB_Node")
+  (gneo/addClassAT :_atname "GDB_SnapshotID" :className "GDB_Node")
 )
 
 (defn- addCustomFunctionality

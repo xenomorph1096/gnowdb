@@ -708,6 +708,7 @@
                   :relationshipParameters {}
                   :toNodeLabel "AttributeType"
                   :toNodeParameters {"_name" _atname}
+                  :unique? true
                   :execute? execute?)
   )
 
@@ -842,26 +843,26 @@
                     :toNodeParameters {"className" className}
                     :execute? execute?)
     )
-  )
+)
 
-(defn gnowdbInit
-  "Create Initial constraints"
+(defn defineInitialConstraints
+  "Creates Initial constraints"
   [& {:keys [:execute?]  :or {:execute? true}}]
   (let [builtQueries
-        (reduceQueryColl [(createNCConstraints :execute? false)
+        				 [(createNCConstraints :execute? false)
                           (createATConstraints :execute? false)
                           (createCATConstraints :execute? false)
                           (createClassConstraints :execute? false)
                           (createCFConstraints :execute? false)
                           (createCCATConstraints :execute? false)
                           (createVRATConstraints :execute? false)
-                          (createAllNeoConstraints :execute? false)])]
+                          (createAllNeoConstraints :execute? false)]]
     (if
         execute?
-      (apply gdriver/runQuery builtQueries)
+      (apply gdriver/runTransactions builtQueries)
       builtQueries)
     )
-  )
+)
 
 (defn validatePropertyMaps
   "Validates propertyMaps for a class with className.

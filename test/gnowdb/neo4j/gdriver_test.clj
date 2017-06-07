@@ -279,8 +279,10 @@
 
     )
 
+    
+
     (testing "Deleting all changes"
-        (is (= {:results [()],
+        (is (= (select-keys {:results [()],
  :summary
  {:summaryMap
   {:relationshipsCreated 0,
@@ -296,8 +298,8 @@
    :indexesAdded 0,
    :relationshipsDeleted 4},
   :summaryString
-  "ContainsUpdates :true ;NodesDeleted :17 ;RelationshipsDeleted :4 ;"}} 
-  (runQuery {:query "match (n) detach delete n" :parameters {}}) 
+  "ContainsUpdates :true ;NodesDeleted :17 ;RelationshipsDeleted :4 ;"}} [:results]) 
+  (select-keys (runQuery {:query "match (n) detach delete n" :parameters {}}) [:results]) 
             )
         )
 

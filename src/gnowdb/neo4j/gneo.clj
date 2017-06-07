@@ -674,6 +674,40 @@
     )
   )
 
+(defn addRelApplicableType
+  "Add an applicable Source/Target type to a Relation Class, by creating a relation: ApplicableSourceNT/ApplicableTargetNT.
+  :className should be className of relation class.
+  :applicationType should be either SOURCE or TARGET as string.
+  :applicableClassName should be a className of the source or target Node Class"
+  [& {:keys [:className :applicationType :applicableClassName :execute?] :or {:execute? true}}]
+  {:pre [(string? className)
+         (contains? #{"Source" "Target"} applicationType)
+         (string? applicableClassName)
+         (= 1 (count (getNodes :label "Class" :parameters {"className" className "classType" "RELATION"})))
+         (= 1 (count (getNodes :label "Class" :parameters {"className" applicableClassName "classType" "NODE"})))
+         ]
+   }
+  (let [builtQuery (createRelation :fromNodeLabel "Class" :fromNodeParameters {"className" className "classType" "RELATION"} :relationshipType (str "Applicable"applicationType"NT") :relationshipParameters {} :toNodeLabel "Class" :toNodeParameters {"className" applicableClassName "classType" "NODE"} :execute? false :unique? true)]
+    (if
+        execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery)
+    )
+  )
+
+(defn getRelApplicableNTs
+  "Get a relation class' ApplicableNTs.
+  :className should be of a Class of classType 'RELATION'."
+  [& {:keys [:className]}]
+  {:pre [(string? className)]}
+  (let [combinedPropertyMap (combinePropertyMap {"RT" {"className" className "classType" "RELATION"} "NT" {"classType" "NODE"}})
+        builtQuery1 {:query (str "MATCH (rt:Class "((combinedPropertyMap :propertyStringMap) "RT")")-[:ApplicableSourceNT]->(nt:Class "((combinedPropertyMap :propertyStringMap) "NT")") RETURN nt") :parameters (combinedPropertyMap :combinedPropertyMap)}
+        builtQuery2 {:query (str "MATCH (rt:Class "((combinedPropertyMap :propertyStringMap) "RT")")-[:ApplicableTargetNT]->(nt:Class "((combinedPropertyMap :propertyStringMap) "NT")") RETURN nt") :parameters (combinedPropertyMap :combinedPropertyMap)}
+        ]
+    ((gdriver/runQuery builtQuery1 builtQuery2) :results)
+    )
+  )
+
 (defn addClassAT
   "Adds a relation HasAttributeType from Class to AttributeType.
   :_atname: _name of AttributeType.
@@ -684,7 +718,7 @@
          (string? className)
          (= 1 (count (getNodes :label "AttributeType"
                                :parameters {"_name" _atname}
-                                ))
+                               ))
             )
          ]
    }
@@ -1174,7 +1208,19 @@
          (every? string? (map #(% :toClassName) relList))
          (coll? relList)
          (every? map? relList)]}
-  (try
+  (try;;MARK remove into {}
+    (let [relApplicableNTs (getRelApplicableNTs :className className)
+          relSourceNTs (into #{} (map #((into {} ((% "nt") :properties)) "className") (first relApplicableNTs)))
+          relTargetNTs (into #{} (map #((into {} ((% "nt") :properties)) "className") (last relApplicableNTs)))
+          ]
+      (doall (map (fn [relation]
+                    (if
+                        (not (contains? relSourceNTs (relation :fromClassName)))
+                      (throw (Exception. (str (relation :fromClassName)" is not an ApplicableSourceNT for "className))))
+                    
+                    (if
+                        (not (contains? relTargetNTs (relation :toClassName)))
+                      (throw (Exception. (str (relation :toClassName)" is not an ApplicableTargetNT for "className))))) relList)))
     (validateClassInstances :className className :classType "RELATION" :instList (map #(% :propertyMap) relList))
     (let [builtQueries (map #(createRelation
                               :fromNodeLabel (% :fromClassName)
@@ -1191,3 +1237,4 @@
     (catch Exception E (.getMessage E))
     )
   )
+

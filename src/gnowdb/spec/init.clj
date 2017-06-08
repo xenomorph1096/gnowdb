@@ -6,6 +6,7 @@
 )
 
 (defn- createAbstractNodeClass
+  "Creates GDB_Node class, it is the only class that has no superclasses"
   []
   (gneo/createClass :className "GDB_Node" :classType "NODE" :isAbstract? true :subClassOf [] :properties {})
   (gneo/createAttributeType :_name "GDB_DisplayName" :_datatype "java.lang.String")

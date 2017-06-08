@@ -32,7 +32,6 @@
 	)
 )
 
-
 (defn- generateConf
   "Generates a default configuration file"
   	[]

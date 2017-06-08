@@ -1263,7 +1263,7 @@
     )
   )
 
-(defn createRelationClassInstance
+(defn createRelationClassInstances
   "Creates a relation between two nodes, as an instance of a class with classType:RELATION.
   :className : relation className
   :relList : list of maps with the following keys
@@ -1300,7 +1300,8 @@
                               :relationshipParameters (% :propertyMap)
                               :toNodeLabel (% :toClassName)
                               :toNodeParameters (% :toPropertyMap)
-                              :execute? false) relList)]
+                              :execute? false
+                              :unique? true) relList)]
       (if
           execute?
         (apply gdriver/runQuery builtQueries)

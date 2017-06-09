@@ -1143,7 +1143,7 @@
 						((apply gdriver/runTransactions completeQueryVec NCQueryVec) :summary)
 						completeQueryVec	
 					)
-					(println "Superclass doesn't exist!")
+					(gdriver/runQuery)
 				)
 			)
   			(

@@ -84,7 +84,127 @@
 
 
 
-  (testing "Deleting all changes"
+  
+
+
+	
+	  
+
+	)
+
+
+(deftest createClass-test
+
+ (testing " Error in Creating Class"
+		(is (= {:summaryMap
+ {:relationshipsCreated 0,
+  :containsUpdates true,
+  :nodesCreated 1,
+  :nodesDeleted 0,
+  :indexesRemoved 0,
+  :labelsRemoved 0,
+  :constraintsAdded 0,
+  :propertiesSet 4,
+  :labelsAdded 1,
+  :constraintsRemoved 0,
+  :indexesAdded 0,
+  :relationshipsDeleted 0},
+ :summaryString
+ "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :4 ;LabelsAdded :1 ;"} 
+ (createClass :className "t-db22" :classType "NODE" :isAbstract? true :subClassOf [] :properties {} :execute? true)
+ )
+		)
+		)
+
+ 	(testing "Error in Creating a sub-class"
+ 		(is (= {:summaryMap
+ {:relationshipsCreated 1,
+  :containsUpdates true,
+  :nodesCreated 1,
+  :nodesDeleted 0,
+  :indexesRemoved 0,
+  :labelsRemoved 0,
+  :constraintsAdded 0,
+  :propertiesSet 4,
+  :labelsAdded 1,
+  :constraintsRemoved 0,
+  :indexesAdded 0,
+  :relationshipsDeleted 0},
+ :summaryString
+ "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :4 ;LabelsAdded :1 ;"}
+ (createClass :className "t-db23" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {} :execute? true)
+ 		    )
+ 		)
+
+ 	)
+
+    (testing "Error in Returning a query (execute? false)"
+    	(is (= (select-keys {:query
+ "CREATE (node:Class { className:{className}, classType:{classType}, isAbstract:{isAbstract}, UUID:{UUID} } )",
+ :parameters
+ {"className" "t-db22",
+  "classType" "NODE",
+  "isAbstract" true,
+  "UUID" "06ad399c-a1ba-4064-af7b-8e843d845d66"}} [:query]) 
+  (select-keys (createClass :className "t-db22" :classType "NODE" :isAbstract? true :subClassOf [] :properties {} :execute? false) [:query])
+
+    		)
+    	)
+
+
+    )
+
+    
+    (testing "Error in creating nodes with two properties"
+    	(is (= {:summaryMap
+ {:relationshipsCreated 0,
+  :containsUpdates true,
+  :nodesCreated 1,
+  :nodesDeleted 0,
+  :indexesRemoved 0,
+  :labelsRemoved 0,
+  :constraintsAdded 0,
+  :propertiesSet 6,
+  :labelsAdded 1,
+  :constraintsRemoved 0,
+  :indexesAdded 0,
+  :relationshipsDeleted 0},
+ :summaryString
+ "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :6 ;LabelsAdded :1 ;"} 
+ (createClass :className "t-db22" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"pr1" "val1" "pr2" "val2"} :execute? true)
+    		)
+    	)
+    )
+
+    (testing "Error in creating a sub-class when super-class doesn`t exist"
+    	(is (= {:results [],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates false,
+   :nodesCreated 0,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 0,
+   :labelsAdded 0,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString "ContainsUpdates :false ;"}} (createClass :className "t-db23" :classType "NODE" :isAbstract? false :subClassOf ["t-db24"] :properties {"pr1" "val1" "pr2" "val2"} :execute? true) 
+    		)
+    	)
+
+    )
+
+    
+	
+
+
+
+
+	(testing "Deleting all changes"
         (is (= (select-keys {:results [()],
  :summary
  {:summaryMap
@@ -107,10 +227,5 @@
         )
 
     )
-
-
-	
-	  
-
 	)
 (run-tests)

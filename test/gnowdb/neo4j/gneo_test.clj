@@ -232,14 +232,42 @@
   :relationshipsDeleted 0},
  :summaryString
  "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"} 
- (createClass :className "t-db25" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true)
+ (createClass :className "t-db26" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true)
     		)
     	)
 
     )
 
+
+
     
-	(testing "Deleting all changes"
+
+    (testing "Error in Creating a node with two parent nodes"
+    	(is (= {:results [],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates false,
+   :nodesCreated 0,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 0,
+   :labelsAdded 0,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString "ContainsUpdates :false ;"}} 
+  (createClass :className "t-db23" :classType "NODE" :isAbstract? true :subClassOf ["t-db24"] :properties {"pr1" "val1" "pr2" "val2" "tag" "test"} :execute? true)
+    		)
+    	)
+
+
+    )
+
+
+    (testing "Deleting all changes2"
         (is (= (select-keys {:results [()],
  :summary
  {:summaryMap
@@ -262,6 +290,10 @@
         )
 
     )
+
+
+    
+	
 
 
 

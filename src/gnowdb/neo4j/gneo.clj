@@ -40,7 +40,6 @@
   ;;The characteristicString is sometimes appended to map keys to distinguish
   ;;the keys when multiple maps and their keys are used in the same cypher
   ;;query with parameters
-
   (if
       (empty? propertyMap)
     ""
@@ -126,11 +125,37 @@
                             (vec (map #(str varName"."%1) 
                                       remPropertyList
                                       )	
-                             )
+                                 )
                             )
        )
   )
 
+(defn createRenameString
+  "Creates a property rename string.
+  eg.., WHERE varName.prop1R is null and varName.prop2R is null .. SET varName.prop1R=varName.prop1, varName.prop1R=varName.prop1 REMOVE varName.prop1 ,varName.prop2
+  :varName should be a string representing node/relation variable.
+  :renameMap should be a map with keys as propertyNames and values as newNames"
+  [& {:keys [:varName :renameMap]}]
+  {:pre [(string? varName)
+         (not (empty? renameMap))
+         (every? string? (keys renameMap))
+         (every? string? (vals renameMap))
+         ]
+   }
+  (str "WHERE " (clojure.string/join " and "
+                                    (map #(str varName"."%" is null")
+                                         (vals renameMap)
+                                         )
+                                    )
+       " SET " (clojure.string/join ", "
+                                   (map #(str varName"."(% 1)"="varName"."(% 0))
+                                        (into [] renameMap)
+                                        )
+                                   )
+       " " (createRemString :varName varName
+                           :remPropertyList (keys renameMap))
+       )
+  )
 ;;General NEO4J functions start here
 
 (defn- generateUUID []
@@ -152,10 +177,10 @@
 
 (defn createNewNode
   "Create a new node in the graph. Without any relationships.
-	Node properties should be a clojure map.
-	Map keys will be used as neo4j node keys.
-	Map keys should be Strings only.
-	Map values must be neo4j compatible Objects"
+  Node properties should be a clojure map.
+  Map keys will be used as neo4j node keys.
+  Map keys should be Strings only.
+  Map values must be neo4j compatible Objects"
   [& {:keys [label parameters execute? unique?] :or {execute? true unique? false parameters {}}}]
   (let [queryType 
  	(if unique?
@@ -269,6 +294,23 @@
     )
   )
 
+(defn removeNodeProperties
+  "Remove Properties of Node(s).
+  :propList should be a list of properties to be deleted."
+  [& {:keys [:label :parameters :propList :execute?] :or {:propList {} :execute? true :parameters {}}}]
+  {:pre [(string? label)
+         (map? parameters)
+         (coll? propList)
+         (every? string? propList)]}
+  (let [builtQuery {:query (str "MATCH (node:"label" "(createParameterPropertyString parameters)" ) "(createRemString :varName "node" :remPropertyList propList)) :parameters parameters}]
+    (if
+        execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery
+      )
+    )
+  )
+
 (defn editNodeProperties
   "Edit Properties of Node(s)"
   [& {:keys [label parameters changeMap execute?] :or {changeMap {} execute? true parameters {}}}]
@@ -280,10 +322,17 @@
     )
   )
 
-(defn removeNodeProperties
-  "Remove properties from Node"
-  [& {:keys [label parameters removeProperties execute?] :or {execute? true parameters {}}}]
-  (let [builtQuery {:query (str "MATCH (node1:"label" "(createParameterPropertyString parameters)" ) "(createRemString :varName "node1" :remPropertyList removeProperties)) :parameters parameters}]
+(defn renameNodeProperties
+  "Rename node(s) properties."
+  [& {:keys [:label :parameters :renameMap :execute?] :or {:execute? true :parameters {}}}]
+  {:pre [(string? label)
+         (map? parameters)
+         (map renameMap)]}
+  (let [builtQuery
+        {:query (str "MATCH (node:" label " "
+             (createParameterPropertyString parameters) " ) "
+             (createRenameString :varName "node" :renameMap renameMap))
+         :parameters {}}]
     (if
         execute?
       (gdriver/runQuery builtQuery)

@@ -102,11 +102,11 @@
   [& {:keys [:varName :editPropertyList :characteristicString] :or {:characteristicString ""}}]
   {:pre [(string? varName)
          (coll? editPropertyList)
-         (every? string? editPropertyList)]}
+         (every? string? (flatten (seq editPropertyList)))]}
   (str " SET "
        (clojure.string/join " ,"
-                            (map #(str varName"."%1" = {"%2"}")
-                                 (removeVectorStringSuffixes editPropertyList characteristicString)
+                            (map #(str varName "." %1 " = {" (%2 0) "}")
+                                 (removeVectorStringSuffixes (keys editPropertyList) characteristicString)
                                  editPropertyList)
                             )
        )
@@ -255,6 +255,51 @@
 
 (defn getRelations
   "Get relations matched by inNode/outNode/type and properties"
+  [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters execute? nodeInfo?] :or {execute? true toNodeParameters {} fromNodeParameters {} relationshipParameters {} fromNodeLabel "" toNodeLabel "" relationshipType "" nodeInfo? false}}]
+  (let [combinedProperties
+        (combinePropertyMap
+         {"1" fromNodeParameters
+          "2" toNodeParameters
+          "R" relationshipParameters
+          }
+         )
+        fromNodeLabel
+        (if (= fromNodeLabel "")
+          ""
+          (reduce #(str %1 ":" %2) "" fromNodeLabel)
+          )
+        toNodeLabel
+        (if (= toNodeLabel "")
+          ""
+          (reduce #(str %1 ":" %2) "" toNodeLabel)
+          )
+        relationshipType
+        (if (= relationshipType "")
+          ""
+          (str ":" relationshipType)
+          )
+        builtQuery
+        {:query
+          (if nodeInfo?
+            (str "MATCH path=(n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN path")
+            (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN p")
+          )
+         :parameters
+         (combinedProperties :combinedPropertyMap)
+         }
+        ]
+    (if execute?
+      (if nodeInfo?
+        (map #(first ((% "path") :segments)) (first ((gdriver/runQuery builtQuery) :results))) 
+        (map #(% "p") (first ((gdriver/runQuery builtQuery) :results)))
+      )
+      builtQuery
+      )
+    )
+  )
+
+(defn deleteRelations
+"Get relations matched by inNode/outNode/type and properties"
   [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters execute?] :or {execute? true toNodeParameters {} fromNodeParameters {} relationshipParameters {} fromNodeLabel "" toNodeLabel "" relationshipType ""}}]
   (let [combinedProperties
         (combinePropertyMap
@@ -278,19 +323,19 @@
           ""
           (str ":" relationshipType)
           )
-        builtQuery  
+        builtQuery
         {:query
-         (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN p")
+          (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") delete p")
          :parameters
          (combinedProperties :combinedPropertyMap)
          }
         ]
     (if execute?
-      (map #(% "p") (first ((gdriver/runQuery builtQuery) :results)))
+      ((gdriver/runQuery builtQuery) :summary)
       builtQuery
-      )
     )
   )
+)
 
 (defn getNeighborhood
   "Get the neighborhood of a particular node"
@@ -1207,10 +1252,11 @@
        (reduce
         (fn [x y]
           (let [property (y 0) datatype (.getName (type (y 1)))]
-            (concat (if (not= 1 (count (filter #(= % {"_name" property
-                                                      "_datatype" datatype}
+            (concat (if (not= 1 (count (filter #(= (select-keys % ["_name" "_datatype"])
+                                                      { "_name" property
+                                                        "_datatype" datatype}
                                                    )
-                                               classAttributeTypes)
+                                              classAttributeTypes)
                                        )
                               )
                       (conj x

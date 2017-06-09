@@ -875,7 +875,7 @@
   :subTypeOf should be a vector containing the name of the superType if any
   :_name should be a string
   :_datatype should be a string of one of the following: 'java.lang.Boolean', 'java.lang.Byte', 'java.lang.Short', 'java.lang.Integer', 'java.lang.Long', 'java.lang.Float', 'java.lang.Double', 'java.lang.Character', 'java.lang.String', 'java.util.ArrayList'"
-  [& {:keys [:_name :_datatype :subTypeOf :execute?] :or {:execute? true} :as keyArgs}]
+  [& {:keys [:_name :_datatype :subTypeOf :execute?] :or {:execute? true :subTypeOf []} :as keyArgs}]
   {:pre [
          (string? _name)
          (contains? validATDatatypes _datatype)
@@ -886,7 +886,8 @@
 			(createNewNode :label "AttributeType"
                  :parameters {	"_name" _name 
                  				"_datatype" _datatype}
-                 :execute? false)]
+                 :execute? false
+                 :unique? true)]
   		(if (not (empty? subTypeOf))
 			;"Adds the attributes,NeoConstraints and CustomConstraints of the superclass to the subclass"
 			(let
@@ -903,7 +904,7 @@
 						((apply gdriver/runQuery completeQueryVec) :summary)
 						completeQueryVec	
 					)
-					(println "SuperType doesn't exist!")
+					(gdriver/runQuery)
 				)
 			)
   			(
@@ -1122,6 +1123,7 @@
 	                                "isAbstract" isAbstract?
 	        	                    )
 							:execute? false
+							:unique? true
 			)
 		]
 		(if (not (empty? subClassOf))
@@ -1143,7 +1145,7 @@
 						((apply gdriver/runTransactions completeQueryVec NCQueryVec) :summary)
 						completeQueryVec	
 					)
-					(println "Superclass doesn't exist!")
+					(gdriver/runQuery)
 				)
 			)
   			(
@@ -1207,7 +1209,8 @@
        (reduce
         (fn [x y]
           (let [property (y 0) datatype (.getName (type (y 1)))]
-            (concat (if (not= 1 (count (filter #(= % {"_name" property
+            (concat (if (not= 1 (count (filter #(= (select-keys % ["_name" "_datatype"]) 
+            								{"_name" property
                                                       "_datatype" datatype}
                                                    )
                                                classAttributeTypes)

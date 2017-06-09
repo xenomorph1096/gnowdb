@@ -43,10 +43,10 @@
   (gneo/createClass :className "GDB_MemberOfGroup" :classType "RELATION" :isAbstract? false :properties {})
   (gneo/addRelApplicableType :className "GDB_MemberOfGroup" :applicationType "Source" :applicableClassName "GDB_PersonalWorkspace")
   (gneo/createClass :className "GDB_AdminOfGroup" :classType "RELATION" :isAbstract? false :properties {})
-  (gneo/addRelApplicableType :className "GDB_AdminOfGroup" :applicationType "Target" :applicableClassName "GDB_PersonalWorkspace")
+  (gneo/addRelApplicableType :className "GDB_AdminOfGroup" :applicationType "Source" :applicableClassName "GDB_PersonalWorkspace")
   (gneo/createClass :className "GDB_GroupWorkspace" :classType "NODE" :isAbstract? false :properties {} :subClassOf ["GDB_Workspace"])
   (gneo/addRelApplicableType :className "GDB_MemberOfGroup" :applicationType "Target" :applicableClassName "GDB_GroupWorkspace")
-  (gneo/addRelApplicableType :className "GDB_AdminOfGroup" :applicationType "Source" :applicableClassName "GDB_GroupWorkspace")
+  (gneo/addRelApplicableType :className "GDB_AdminOfGroup" :applicationType "Target" :applicableClassName "GDB_GroupWorkspace")
 )
 
 (defn instantiateGroupWorkspace
@@ -117,7 +117,7 @@
     :createdBy should be the name of the user who created this one, default is ADMIN
     :memberOfGroup should be the name of the Group the user is a member of, default is HOME
   "
-	[& {:keys [:displayName :alternateName :createdBy :memberOfGroup :description :relationshipsOnly?] :or {:alternateName [] :createdBy "ADMIN" :memberOfGroup "HOME" :description "" :relationshipsOnly? false}}]
+	[& {:keys [:displayName :alternateName :createdBy :memberOfGroup :description :relationshipsOnly?] :or {:alternateName "[]" :createdBy "ADMIN" :memberOfGroup "HOME" :description "" :relationshipsOnly? false}}]
 	(if (false? relationshipsOnly?)
 		(gneo/createNodeClassInstances :className "GDB_PersonalWorkspace" :nodeList 	[{
 																							"GDB_DisplayName" displayName
@@ -190,6 +190,87 @@
   (instantiateGroupWorkspace :displayName "HOME" :relationshipsOnly? true)
   (instantiatePersonalWorkspace :displayName "ADMIN" :relationshipsOnly? true)
 )
+
+(defn- editLastModified
+  [& {:keys [:editor :groupName]}]
+  (gneo/deleteRelations
+              :fromNodeLabel ["GDB_GroupWorkspace"]
+              :fromNodeProperties {"GDB_DisplayName" groupName}
+              :relationshipType "GDB_LastModifiedBy"
+            )
+  (gneo/createRelationClassInstances :className "GDB_LastModifiedBy" :relList    [{
+                                    :fromClassName "GDB_GroupWorkspace"
+                                    :fromPropertyMap {"GDB_DisplayName" groupName}
+                                    :toClassName "GDB_PersonalWorkspace"
+                                    :toPropertyMap {"GDB_DisplayName" editor}
+                                    :propertyMap {}
+                                  }]
+  )
+  (gneo/editNodeProperties :label "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_ModifiedAt" (.toString (new java.util.Date))})
+)
+
+(defn addMemberToGroupWorkspace
+  "Adds member to group workspace"
+  [& {:keys [:newMemberName :groupName :adminName]}]
+    (let [workspace (first (gneo/getNodes 
+                        :label "GDB_GroupWorkspace" 
+                        :parameters  {
+                                      "GDB_DisplayName" groupName
+                                      }
+                    ))
+          admins (map #(((% :start) :properties) "GDB_DisplayName")
+                    (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
+                                      :toNodeParameters {"GDB_DisplayName" groupName}
+                                      :relationshipType "GDB_AdminOfGroup"
+                                      :nodeInfo? true
+                    )
+                  )
+        ]
+      (if (or (= ((workspace :properties) "GDB_GroupType") "Public") (and (= ((workspace :properties) "GDB_GroupType") "Private") (some #{adminName} admins)))
+        (do
+          (gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList    [{
+                                            :fromClassName "GDB_PersonalWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" newMemberName}
+                                            :toClassName "GDB_GroupWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" groupName}
+                                            :propertyMap {}
+                                          }]
+          )
+          (editLastModified :groupName groupName :editor adminName)
+        )
+        {:results [] :summary {:summaryMap {} :summaryString "Membership could not be created, either the group is Anonymous or the user does not have admin permissions"}}
+      )
+    )
+)
+
+(defn addAdminToGroup
+  [& {:keys [:newAdminName :groupName :adminName]}]
+  (let [
+          admins (map #(((% :start) :properties) "GDB_DisplayName")
+                    (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
+                                      :toNodeParameters {"GDB_DisplayName" groupName}
+                                      :relationshipType "GDB_AdminOfGroup"
+                                      :nodeInfo? true
+                    )
+                  )
+        ]
+        (if (some #{adminName} admins)
+          (do
+            (gneo/createRelationClassInstances :className "GDB_AdminOfGroup" :relList    [{
+                                              :fromClassName "GDB_PersonalWorkspace"
+                                              :fromPropertyMap {"GDB_DisplayName" newAdminName}
+                                              :toClassName "GDB_GroupWorkspace"
+                                              :toPropertyMap {"GDB_DisplayName" groupName}
+                                              :propertyMap {}
+                                            }]
+            )
+            (editLastModified :groupName groupName :editor adminName)
+          )
+          {:results [] :summary {:summaryMap {} :summaryString "The user could not be granted Administrator permissions as it is not authorized by valid admin."}}
+        )
+
+  )
+) 
 
 (defn init
   []

@@ -2,7 +2,7 @@
   (:gen-class)
   (:require [gnowdb.neo4j.gneo :as gneo]
             [gnowdb.spec.workspaces :as workspaces]
-            [gnowdb.spec.files :as files]
+            ;[gnowdb.spec.files :as files]
   )
 )
 

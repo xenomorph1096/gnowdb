@@ -452,7 +452,7 @@
    :relationshipsDeleted 4},
   :summaryString
   "ContainsUpdates :true ;NodesDeleted :17 ;RelationshipsDeleted :4 ;"}} [:results]) 
-  (select-keys (runQuery {:query "match (n) detach delete n" :parameters {}}) [:results]) 
+  (select-keys (runQuery {:query "match (n:test) detach delete n" :parameters {}}) [:results]) 
             )
         )
 

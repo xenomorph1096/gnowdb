@@ -2,26 +2,27 @@
   (:gen-class)
   (:require [gnowdb.neo4j.gneo :as gneo]
             [gnowdb.spec.workspaces :as workspaces]
+            ;[gnowdb.spec.files :as files]
   )
 )
 
 (defn- createAbstractNodeClass
+  "Creates GDB_Node class, it is the only class that has no superclasses"
   []
   (gneo/createClass :className "GDB_Node" :classType "NODE" :isAbstract? true :subClassOf [] :properties {})
-  (gneo/createAttributeType :_name "GDB_UUID" :_datatype "java.lang.String")
-  (gneo/createAttributeType :_name "GDB_Display_Name" :_datatype "java.lang.String")
-  (gneo/createAttributeType :_name "GDB_Alternate_Name" :_datatype "java.lang.String")
-  (gneo/createAttributeType :_name "GDB_Created_At" :_datatype "java.lang.String")
-  (gneo/createAttributeType :_name "GDB_Modified_At" :_datatype "java.lang.String")
+  (gneo/createAttributeType :_name "GDB_DisplayName" :_datatype "java.lang.String")
+  (gneo/createAttributeType :_name "GDB_AlternateName" :_datatype "java.lang.String")
+  (gneo/createAttributeType :_name "GDB_CreatedAt" :_datatype "java.lang.String")
+  (gneo/createAttributeType :_name "GDB_ModifiedAt" :_datatype "java.lang.String")
   (gneo/createAttributeType :_name "GDB_Description" :_datatype "java.lang.String")
-  (gneo/createAttributeType :_name "GDB_SnapshotID" :_datatype "java.lang.String")
-  (gneo/addClassAT :_atname "GDB_UUID" :className "GDB_Node")
-  (gneo/addClassAT :_atname "GDB_Display_Name" :className "GDB_Node")
-  (gneo/addClassAT :_atname "GDB_Alternate_Name" :className "GDB_Node")
-  (gneo/addClassAT :_atname "GDB_Created_At" :className "GDB_Node")
-  (gneo/addClassAT :_atname "GDB_Modified_At" :className "GDB_Node")
+  (gneo/addClassAT :_atname "GDB_DisplayName" :className "GDB_Node")
+  (gneo/addClassAT :_atname "GDB_AlternateName" :className "GDB_Node")
+  (gneo/addClassAT :_atname "GDB_CreatedAt" :className "GDB_Node")
+  (gneo/addClassAT :_atname "GDB_ModifiedAt" :className "GDB_Node")
   (gneo/addClassAT :_atname "GDB_Description" :className "GDB_Node")
-  (gneo/addClassAT :_atname "GDB_SnapshotID" :className "GDB_Node")
+  (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_DisplayName" :className "GDB_Node") 
+  (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_CreatedAt" :className "GDB_Node") 
+  (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_ModifiedAt" :className "GDB_Node")
 )
 
 (defn- addCustomFunctionality
@@ -43,4 +44,5 @@
   (createAbstractNodeClass)
   (addCustomFunctionality)
   (workspaces/init)
+  ;(files/init)
 )

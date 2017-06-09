@@ -102,11 +102,11 @@
   [& {:keys [:varName :editPropertyList :characteristicString] :or {:characteristicString ""}}]
   {:pre [(string? varName)
          (coll? editPropertyList)
-         (every? string? editPropertyList)]}
+         (every? string? (flatten (seq editPropertyList)))]}
   (str " SET "
        (clojure.string/join " ,"
-                            (map #(str varName"."%1" = {"%2"}")
-                                 (removeVectorStringSuffixes editPropertyList characteristicString)
+                            (map #(str varName "." %1 " = {" (%2 0) "}")
+                                 (removeVectorStringSuffixes (keys editPropertyList) characteristicString)
                                  editPropertyList)
                             )
        )
@@ -132,6 +132,10 @@
   )
 
 ;;General NEO4J functions start here
+
+(defn- generateUUID []
+	(str (java.util.UUID/randomUUID))
+)
 
 (defn getAllLabels
   "Get all the Labels from the graph, parsed."
@@ -159,7 +163,7 @@
   		"CREATE"
   	)
   	builtQuery
-  	{:query (str queryType " (node:" label " " (createParameterPropertyString parameters) " )") :parameters parameters}
+  	{:query (str queryType " (node:" label " " (createParameterPropertyString (merge parameters {"UUID" (generateUUID)})) " )") :parameters (merge parameters {"UUID" (generateUUID)})}
   	]
   	(if execute?
     	((gdriver/runQuery builtQuery) :summary)
@@ -299,6 +303,51 @@
 
 (defn getRelations
   "Get relations matched by inNode/outNode/type and properties"
+  [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters execute? nodeInfo?] :or {execute? true toNodeParameters {} fromNodeParameters {} relationshipParameters {} fromNodeLabel "" toNodeLabel "" relationshipType "" nodeInfo? false}}]
+  (let [combinedProperties
+        (combinePropertyMap
+         {"1" fromNodeParameters
+          "2" toNodeParameters
+          "R" relationshipParameters
+          }
+         )
+        fromNodeLabel
+        (if (= fromNodeLabel "")
+          ""
+          (reduce #(str %1 ":" %2) "" fromNodeLabel)
+          )
+        toNodeLabel
+        (if (= toNodeLabel "")
+          ""
+          (reduce #(str %1 ":" %2) "" toNodeLabel)
+          )
+        relationshipType
+        (if (= relationshipType "")
+          ""
+          (str ":" relationshipType)
+          )
+        builtQuery
+        {:query
+          (if nodeInfo?
+            (str "MATCH path=(n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN path")
+            (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN p")
+          )
+         :parameters
+         (combinedProperties :combinedPropertyMap)
+         }
+        ]
+    (if execute?
+      (if nodeInfo?
+        (map #(first ((% "path") :segments)) (first ((gdriver/runQuery builtQuery) :results))) 
+        (map #(% "p") (first ((gdriver/runQuery builtQuery) :results)))
+      )
+      builtQuery
+      )
+    )
+  )
+
+(defn deleteRelations
+"Get relations matched by inNode/outNode/type and properties"
   [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters execute?] :or {execute? true toNodeParameters {} fromNodeParameters {} relationshipParameters {} fromNodeLabel "" toNodeLabel "" relationshipType ""}}]
   (let [combinedProperties
         (combinePropertyMap
@@ -322,19 +371,19 @@
           ""
           (str ":" relationshipType)
           )
-        builtQuery  
+        builtQuery
         {:query
-         (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") RETURN p")
+          (str "MATCH (n" fromNodeLabel " " ((combinedProperties :propertyStringMap) "1") ")-[p" relationshipType " " ((combinedProperties :propertyStringMap) "R") "]->(m" toNodeLabel " " ((combinedProperties :propertyStringMap) "2") ") delete p")
          :parameters
          (combinedProperties :combinedPropertyMap)
          }
         ]
     (if execute?
-      (map #(% "p") (first ((gdriver/runQuery builtQuery) :results)))
+      ((gdriver/runQuery builtQuery) :summary)
       builtQuery
-      )
     )
   )
+)
 
 (defn getNeighborhood
   "Get the neighborhood of a particular node"
@@ -616,9 +665,9 @@
   {:pre [(gcust/stringIsCustFunction? fnString)
          (string? fnName)]}
   (createNewNode :label "CustomFunction"
-                 :parameters {"fnName" fnName
-                              "fnString" fnString
-                              "fnIntegrity" (gcust/hashCustomFunction fnString)}
+                 :parameters {	"fnName" fnName
+                              	"fnString" fnString
+                              	"fnIntegrity" (gcust/hashCustomFunction fnString)}
                  :execute? execute?))
 
 (defn getClassAttributeTypes
@@ -978,17 +1027,34 @@
                                :parameters {"className" className "classType" constraintTarget}
                                )
                      )
-            )
+         )
          ]
    }
-  (createRelation :fromNodeLabel "NeoConstraint"
-                  :fromNodeParameters {"constraintType" constraintType
-                                       "constraintTarget" constraintTarget}
-                  :relationshipType "NeoConstraintAppliesTo"
-                  :relationshipParameters {"constraintValue" constraintValue}
-                  :toNodeLabel "Class"
-                  :toNodeParameters {"className" className}
-                  :execute? execute?)
+	  (let 	[createRelationQuery
+		  	(createRelation 	:fromNodeLabel "NeoConstraint"
+		    	              	:fromNodeParameters {"constraintType" constraintType
+		        	            	                "constraintTarget" constraintTarget}
+		            	      	:relationshipType "NeoConstraintAppliesTo"
+		               		   	:relationshipParameters {"constraintValue" constraintValue}
+		                  		:toNodeLabel "Class"
+		                  		:toNodeParameters {"className" className}
+		                  		:execute? false)
+		  	applyClassNeoConstraintQuery 
+		  	(applyClassNeoConstraint 	:className className 
+		  								:constraintType constraintType 
+		  								:constraintTarget constraintTarget 
+		  								:constraintValue constraintValue 
+		  								:execute? false)
+		  	combinedQuery
+		  		(vec (conj applyClassNeoConstraintQuery createRelationQuery))
+		  	]
+		  	(
+	  			if execute?
+				((gdriver/runTransactions (conj [] createRelationQuery) (vec applyClassNeoConstraintQuery)) :summary)
+				combinedQuery
+			)
+		  	
+	  )
   )
 
 (defn addClassCC
@@ -1073,48 +1139,48 @@
   :subjectQualifier should be a list of strings.
   :attributeQualifier should be a list of strings.
   :valueQualifier should be a list of strings"
-  [& {:keys [:_name :_datatype :subTypeOf :subjectQualifier :attributeQualifier :valueQualifier :execute?] :or {:execute? true :subjectQualifier [] :attributeQualifier [] :valueQualifier []} :as keyArgs}]
+  [& {:keys [:_name :_datatype :subTypeOf :subjectQualifier :attributeQualifier :valueQualifier :execute? :subTypeOf] :or {:execute? true :subjectQualifier [] :attributeQualifier [] :valueQualifier [] :subTypeOf []} :as keyArgs}]
   {:pre [
          (string? _name)
          (contains? validATDatatypes _datatype)
          ]
    }
 
-   (let [createNewNodeQuery 
-			(createNewNode :label "AttributeType"
-                                       :parameters {"_name" _name
-                                                    "_datatype" _datatype
-                                                    "subjectQualifier" subjectQualifier
-                                                    "attributeQualifier" attributeQualifier
-                                                    "valueQualifier" valueQualifier}
-                 :execute? false)]
-  		(if (not (empty? subTypeOf))
-			;"Adds the attributes,NeoConstraints and CustomConstraints of the superclass to the subclass"
-			(let
-				[completeQueryVec
-				(vec
-					(concat [createNewNodeQuery]
-							(addSubTypeVRQueryVec :_name _name :_datatype _datatype :subTypeOf subTypeOf)
-					)		
-				)
-				[superTypeName] subTypeOf]
-				(if (not (empty? (getNodes :label "AttributeType" :parameters {"_name" (str superTypeName)} :execute? true)))
-					(
-						if execute?
-						((apply gdriver/runQuery completeQueryVec) :summary)
-						completeQueryVec	
-					)
-					(println "SuperType doesn't exist!")
-				)
-			)
-  			(
-  				if execute?
-				((gdriver/runQuery createNewNodeQuery) :summary)
-				createNewNodeQuery
-			)
- 		)
-  	)
-)
+  (let [createNewNodeQuery 
+        (createNewNode :label "AttributeType"
+                       :parameters {"_name" _name
+                                    "_datatype" _datatype
+                                    "subjectQualifier" subjectQualifier
+                                    "attributeQualifier" attributeQualifier
+                                    "valueQualifier" valueQualifier}
+                       :execute? false)]
+    (if (not (empty? subTypeOf))
+                                        ;"Adds the attributes,NeoConstraints and CustomConstraints of the superclass to the subclass"
+      (let
+          [completeQueryVec
+           (vec
+            (concat [createNewNodeQuery]
+                    (addSubTypeVRQueryVec :_name _name :_datatype _datatype :subTypeOf subTypeOf)
+                    )		
+            )
+           [superTypeName] subTypeOf]
+        (if (not (empty? (getNodes :label "AttributeType" :parameters {"_name" (str superTypeName)} :execute? true)))
+          (
+           if execute?
+           ((apply gdriver/runQuery completeQueryVec) :summary)
+           completeQueryVec	
+           )
+          (gdriver/runQuery)
+          )
+        )
+      (
+       if execute?
+       ((gdriver/runQuery createNewNodeQuery) :summary)
+       createNewNodeQuery
+       )
+      )
+    )
+  )
 
 (defn getATClasses
   "Get classes that have a particular attributeType.
@@ -1197,36 +1263,63 @@
   	:constraintTarget should be either of NODE,RELATION.
   	:constraintValue should be _name of an  AttributeType or collection of _names, in case of NODEKEY"
   	[& {:keys [:constraintType :constraintTarget :constraintValue :className]}]
-  	(createRelation 
-  		:fromNodeLabel "NeoConstraint"
-	  	:fromNodeParameters {"constraintType" constraintType
-	                       "constraintTarget" constraintTarget}
-	  	:relationshipType "NeoConstraintAppliesTo"
-	  	:relationshipParameters {"constraintValue" constraintValue}
-	  	:toNodeLabel "Class"
-	  	:toNodeParameters {"className" className}
-	  	:execute? false
-	)
+  	(let 	[createRelationQuery
+		  	(createRelation 	:fromNodeLabel "NeoConstraint"
+		    	              	:fromNodeParameters {"constraintType" constraintType
+		        	            	                "constraintTarget" constraintTarget}
+		            	      	:relationshipType "NeoConstraintAppliesTo"
+		               		   	:relationshipParameters {"constraintValue" constraintValue}
+		                  		:toNodeLabel "Class"
+		                  		:toNodeParameters {"className" className}
+		                  		:execute? false)
+		  	applyClassNeoConstraintQuery 
+		  	(applyClassNeoConstraint 	:className className 
+		  								:constraintType constraintType 
+		  								:constraintTarget constraintTarget 
+		  								:constraintValue constraintValue 
+		  								:execute? false)
+		  	combinedQuery
+		  		(conj (conj [] (vec applyClassNeoConstraintQuery)) (conj [] createRelationQuery))
+		  	]
+		  	combinedQuery
+	  )
 )
 
+;;;;;;Try to improve efficiency
 (defn addSubClassNCQueryVec
 	"Returns a vector of queries consisting of the queries 
 	for adding superclass NeoConstraints to the subclass"
 	[& {:keys [:className :subClassOf :classType]}]
 	(let
 		[[superClassName] subClassOf superClassNCVec (vec (((getClassNeoConstraints (str superClassName)) :results) 0))
-			NCQueriesVec
-				(into []
-					(
-						map (fn
-								[SingleNCMap]
-								(addClassNCQuery :constraintType (((SingleNCMap "neo") :properties) "constraintType") :constraintTarget classType :constraintValue (((SingleNCMap "ncat") :properties) "constraintValue") :className className :execute? false)
-							)
-						superClassNCVec
-					)
+			addClassNCQueryVec
+				(vec 	(into []
+						(
+							map (fn
+									[SingleNCMap]
+									(let [[Query1Vec Query2Vec] (addClassNCQuery :constraintType (((SingleNCMap "neo") :properties) "constraintType") :constraintTarget classType :constraintValue (((SingleNCMap "ncat") :properties) "constraintValue") :className className :execute? false)]
+									Query1Vec
+									)
+								)
+							superClassNCVec
+						)
+						)	
 				)
+			completeNCQueryVec
+				(vec 	(into addClassNCQueryVec 
+						(
+							map (fn
+									[SingleNCMap]
+									(let [[Query1Vec Query2Vec] (addClassNCQuery :constraintType (((SingleNCMap "neo") :properties) "constraintType") :constraintTarget classType :constraintValue (((SingleNCMap "ncat") :properties) "constraintValue") :className className :execute? false)]
+									Query2Vec
+									)
+								)
+							superClassNCVec
+						)
+						)	
+				)	
 		]
-		NCQueriesVec	
+		completeNCQueryVec	
 	)
 )
 
@@ -1337,11 +1430,12 @@
    (let [createNewNodeQuery 
 			(createNewNode 	:label "Class"
 							:parameters (assoc properties
-	    							"className" className
+									"className" className
 	                                "classType" classType
 	                                "isAbstract" isAbstract?
 	        	                    )
 							:execute? false
+							:unique? true
 			)
 		]
 		(if (not (empty? subClassOf))
@@ -1351,19 +1445,19 @@
 				(vec
 					(concat [createNewNodeQuery]
 							(addSubClassATQueryVec :className className :subClassOf subClassOf)
-							(addSubClassNCQueryVec :className className :subClassOf subClassOf :classType classType)
 							(addSubClassCCQueryVec :className className :subClassOf subClassOf)
 							(addSubClassAppTypeQueryVec :className className :subClassOf subClassOf)
 					)		
 				)
+				NCQueryVec (addSubClassNCQueryVec :className className :subClassOf subClassOf :classType classType)
 				[superClassName] subClassOf]
 				(if (not (empty? (getNodes :label "Class" :parameters {"className" (str superClassName)} :execute? true)))
 					(
 						if execute?
-						((apply gdriver/runQuery completeQueryVec) :summary)
+						((apply gdriver/runTransactions completeQueryVec NCQueryVec) :summary)
 						completeQueryVec	
 					)
-					(println "Superclass doesn't exist!")
+					(gdriver/runQuery)
 				)
 			)
   			(
@@ -1427,10 +1521,11 @@
        (reduce
         (fn [x y]
           (let [property (y 0) datatype (.getName (type (y 1)))]
-            (concat (if (not= 1 (count (filter #(= % {"_name" property
-                                                      "_datatype" datatype}
+            (concat (if (not= 1 (count (filter #(= (select-keys % ["_name" "_datatype"])
+                                                      { "_name" property
+                                                        "_datatype" datatype}
                                                    )
-                                               classAttributeTypes)
+                                              classAttributeTypes)
                                        )
                               )
                       (conj x
@@ -1517,7 +1612,7 @@
   (try
     (validateClassInstances :className className :classType "NODE" :instList nodeList)
     (let [builtQueries (map #(createNewNode :label className
-                                            :parameters %
+                                            :parameters % 
                                             :execute? false
                                             ) nodeList
                             )
@@ -1532,7 +1627,7 @@
     )
   )
 
-(defn createRelationClassInstance
+(defn createRelationClassInstances
   "Creates a relation between two nodes, as an instance of a class with classType:RELATION.
   :className : relation className
   :relList : list of maps with the following keys
@@ -1569,7 +1664,8 @@
                               :relationshipParameters (% :propertyMap)
                               :toNodeLabel (% :toClassName)
                               :toNodeParameters (% :toPropertyMap)
-                              :execute? false) relList)]
+                              :execute? false
+                              :unique? true) relList)]
       (if
           execute?
         (apply gdriver/runQuery builtQueries)

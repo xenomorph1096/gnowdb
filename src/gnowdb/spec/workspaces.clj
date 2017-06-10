@@ -12,6 +12,8 @@
   (gneo/addRelApplicableType :className "GDB_CreatedBy" :applicationType "Source" :applicableClassName "GDB_Node")
   (gneo/createClass :className "GDB_LastModifiedBy" :classType "RELATION" :isAbstract? false :properties {})
   (gneo/addRelApplicableType :className "GDB_LastModifiedBy" :applicationType "Source" :applicableClassName "GDB_Node")
+  (gneo/createClass :className "GDB_PendingReview" :classType "RELATION" :isAbstract? false :properties {})
+  (gneo/addRelApplicableType :className "GDB_PendingReview" :applicationType "Source" :applicableClassName "GDB_Node")
 )
 
 (defn- createAbstractWorkspaceClass
@@ -47,6 +49,7 @@
   (gneo/createClass :className "GDB_GroupWorkspace" :classType "NODE" :isAbstract? false :properties {} :subClassOf ["GDB_Workspace"])
   (gneo/addRelApplicableType :className "GDB_MemberOfGroup" :applicationType "Target" :applicableClassName "GDB_GroupWorkspace")
   (gneo/addRelApplicableType :className "GDB_AdminOfGroup" :applicationType "Target" :applicableClassName "GDB_GroupWorkspace")
+  (gneo/addRelApplicableType :className "GDB_PendingReview" :applicationType "Target" :applicableClassName "GDB_GroupWorkspace")
 )
 
 (defn instantiateGroupWorkspace
@@ -209,6 +212,17 @@
   (gneo/editNodeProperties :label "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_ModifiedAt" (.toString (new java.util.Date))})
 )
 
+(defn getAdminList
+  [groupName]
+  (map #(((% :start) :properties) "GDB_DisplayName")
+      (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
+                        :toNodeParameters {"GDB_DisplayName" groupName}
+                        :relationshipType "GDB_AdminOfGroup"
+                        :nodeInfo? true
+      )
+    )
+)
+
 (defn addMemberToGroupWorkspace
   "Adds member to group workspace"
   [& {:keys [:newMemberName :groupName :adminName]}]
@@ -218,13 +232,7 @@
                                       "GDB_DisplayName" groupName
                                       }
                     ))
-          admins (map #(((% :start) :properties) "GDB_DisplayName")
-                    (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
-                                      :toNodeParameters {"GDB_DisplayName" groupName}
-                                      :relationshipType "GDB_AdminOfGroup"
-                                      :nodeInfo? true
-                    )
-                  )
+          admins (getAdminList groupName)
         ]
       (if (or (= ((workspace :properties) "GDB_GroupType") "Public") (and (= ((workspace :properties) "GDB_GroupType") "Private") (some #{adminName} admins)))
         (do
@@ -246,13 +254,7 @@
 (defn addAdminToGroup
   [& {:keys [:newAdminName :groupName :adminName]}]
   (let [
-          admins (map #(((% :start) :properties) "GDB_DisplayName")
-                    (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
-                                      :toNodeParameters {"GDB_DisplayName" groupName}
-                                      :relationshipType "GDB_AdminOfGroup"
-                                      :nodeInfo? true
-                    )
-                  )
+          admins (getAdminList groupName)
         ]
         (if (some #{adminName} admins)
           (do

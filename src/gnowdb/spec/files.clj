@@ -24,24 +24,24 @@
 	(gneo/addClassAT :_atname "GDB_MimeType" :className "GDB_File" :execute? true)
 )
 
-(defn mkdir
+(defn- mkdir
 	"filePath e.g. 1/2/3"
 	[filePath]
 	(sh "mkdir -p" filePath)
 )
 
-(defn copyFile
+(defn- copyFile
 	[srcPath destPath]
 	(sh "cp" srcPath destPath)
 )
 
-(defn copyFileToDir
+(defn- copyFileToDir
 	[srcPath filePath]
 	(mkdir filePath)
 	(copyFile srcPath filePath)
 	)
 
-(defn derivePath
+(defn- derivePath
 	[GDB_MD5]
 	(let [last3DigitString (subs GDB_MD5 (- (count GDB_MD5) 3)) 
 		  filePath (str (subs last3DigitString 2 3) "/" (subs last3DigitString 1 2) "/" (subs last3DigitString 0 1))]
@@ -49,106 +49,67 @@
 	)
 )
 
-(defn getMetaData 
+(defn- getMetaData 
 	[filePath]
 	(extract/parse filePath)
 )
 
-(defn createFileInstance 
-	[& {:keys[:fileName :filePath :author :memberOfWorkspace] :or {:author "ADMIN" :memberOfWorkspace []}}]
-	(println (gneo/createNodeClassInstances :className "GDB_File" :nodeList 	[{
-																		"GDB_DisplayName" fileName
-																		"GDB_Extension" (subs fileName (inc (clojure.string/last-index-of fileName ".")))
-																		"GDB_Size" (.length (java.io.File. filePath))
-																		"GDB_Path" filePath
-																		"GDB_FileID" (digest/md5 fileName)
-																		"GDB_MimeType" (mime-type-of (str fileName))
-																		"GDB_ModifiedAt" (.toString (new java.util.Date (.lastModified (java.io.File. filePath))))
-																		"GDB_CreatedAt" (.toString (new java.util.Date))
-																	}]
-	)
-	(gneo/createRelationClassInstances :className "GDB_CreatedBy" :relList 	[{
-																				:fromClassName "GDB_File"
-																				:fromPropertyMap {"GDB_DisplayName" fileName}
-																				:toClassName "GDB_PersonalWorkspace"
-																				:toPropertyMap {"GDB_DisplayName" author}
-																				:propertyMap {}
-																			}]
-	))
-	(gneo/createRelationClassInstances :className "GDB_LastModifiedBy" :relList [{
+(defn- deriveFileName
+	[filePath]
+	(subs filePath (inc (clojure.string/last-index-of filePath "/")))
+)
+
+(defn- createFileInstance 
+	":fileSrcPath should include the filename as well e.g. src/gnowdb/core.clj
+	 :author is the name of the user uploading file 
+	 :memberOfWorkspace is a vector containing names of groupworkspaces which will
+	  contain the file."
+	[& {:keys[:fileSrcPath :author :memberOfWorkspace] :or {:author "ADMIN" :memberOfWorkspace []}}]
+	(let [fileName (deriveFileName fileSrcPath)]
+		(gneo/createNodeClassInstances :className "GDB_File" :nodeList 	[{
+																			"GDB_DisplayName" fileName 
+																			"GDB_Extension" (subs fileName (inc (clojure.string/last-index-of fileName ".")))
+																			"GDB_Size" (.length (java.io.File. filePath))
+																			"GDB_Path" filePath
+																			"GDB_FileID" (digest/md5 fileName)
+																			"GDB_MimeType" (mime-type-of (str fileName))
+																			"GDB_ModifiedAt" (.toString (new java.util.Date (.lastModified (java.io.File. filePath))))
+																			"GDB_CreatedAt" (.toString (new java.util.Date))
+																		}]
+		)
+		(gneo/createRelationClassInstances :className "GDB_CreatedBy" :relList 	[{
 																					:fromClassName "GDB_File"
 																					:fromPropertyMap {"GDB_DisplayName" fileName}
 																					:toClassName "GDB_PersonalWorkspace"
 																					:toPropertyMap {"GDB_DisplayName" author}
 																					:propertyMap {}
 																				}]
-	)
-	(gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList 	[{
-																							:fromClassName "GDB_File"
-																							:fromPropertyMap {"GDB_DisplayName" fileName}
-																							:toClassName "GDB_PersonalWorkspace"
-																							:toPropertyMap {"GDB_DisplayName" author}
-																							:propertyMap {}
+		)
+		(gneo/createRelationClassInstances :className "GDB_LastModifiedBy" :relList [{
+																						:fromClassName "GDB_File"
+																						:fromPropertyMap {"GDB_DisplayName" fileName}
+																						:toClassName "GDB_PersonalWorkspace"
+																						:toPropertyMap {"GDB_DisplayName" author}
+																						:propertyMap {}
 																					}]
-	)
-	(if (not (empty? memberOfWorkspace))	
-		(do
-			(map 
-				(fn [groupName]
-					(do
-						(gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList 	[{
-																											:fromClassName "GDB_File"
-																											:fromPropertyMap {"GDB_DisplayName" fileName}
-																											:toClassName "GDB_GroupWorkspace"
-																											:toPropertyMap {"GDB_DisplayName" groupName}
-																											:propertyMap {}
-																										}]
-						)
-						(let [workspace (first (gneo/getNodes 
-	                        	:label "GDB_GroupWorkspace" 
-	                        	:parameters {
-	                            	       		"GDB_DisplayName" groupName
-	                                	    }
-	                    		))
-							editingPolicy ((workspace :properties) "GDB_EditingPolicy")
-							]	
-							(if (= editingPolicy "Editable_Moderated")
-								(
-									let [admins (workspaces/getAdminList groupName)]
-									(if (not (.contains admins author))
-										(gneo/createRelationClassInstances 	:className "GDB_PendingReview" 	
-																			:relList 	[{
-																							:fromClassName "GDB_File"
-																							:fromPropertyMap {"GDB_DisplayName" fileName}
-																							:toClassName "GDB_GroupWorkspace"
-																							:toPropertyMap {"GDB_DisplayName" groupName}
-																							:propertyMap {}
+		)
+		(gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList 	[{
+																								:fromClassName "GDB_File"
+																								:fromPropertyMap {"GDB_DisplayName" fileName}
+																								:toClassName "GDB_PersonalWorkspace"
+																								:toPropertyMap {"GDB_DisplayName" author}
+																								:propertyMap {}
 																						}]
-										)		
-									)
-								)
-							)			
-						)
-					)
-				)
+		)
+		(if (not (empty? memberOfWorkspace))
+			(
+				map (fn [groupName]
+					(publishToGroup :username author :groupName groupName :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File")
+				 	)
 				memberOfWorkspace
 			)
 		)
 	)
 )
 
-(defn addFile
-	[& {:keys[:fileName :srcFilePath :author :memberOfWorkspace]}]
-	(let [
-			filePath (derivePath (digest/md5 fileName))
-		]
-		(createFileInstance :fileName fileName :filePath filePath :author author :memberOfWorkspace memberOfWorkspace)
-		(copyFileToDir srcFilePath filePath)
-	)
-)
-
-(defn init 
-	[]
-	(createFileClass)
-)
 

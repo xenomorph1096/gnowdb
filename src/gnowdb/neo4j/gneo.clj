@@ -6,17 +6,22 @@
             [gnowdb.neo4j.gdriver :as gdriver]
             [gnowdb.neo4j.gcust :as gcust]))
 
-(defn- addStringToMapKeys
+(defn addStringToMapKeys
   [stringMap string]
-  (apply conj
-         (map
-          (fn
-            [[stringKey value]]
-            {(str stringKey string) value}
+  {:pre [(string? string)
+         (map? stringMap)]}
+  (if (empty? stringMap)
+    {}
+    (apply conj
+           (map
+            (fn
+              [[stringKey value]]
+              {(str stringKey string) value}
+              )
+            stringMap
             )
-          stringMap
-          )
-         )
+           )
+    )
   )
 
 (defn- removeVectorStringSuffixes
@@ -101,7 +106,7 @@
   [& {:keys [:varName :editPropertyList :characteristicString] :or {:characteristicString ""}}]
   {:pre [(string? varName)
          (coll? editPropertyList)
-         (every? string? (flatten (seq editPropertyList)))]}
+         (every? string? (keys editPropertyList))]}
   (str " SET "
        (clojure.string/join " ,"
                             (map #(str varName "." %1 " = {" (%2 0) "}")
@@ -156,10 +161,36 @@
                            :remPropertyList (keys renameMap))
        )
   )
+
+(defn createPropListEditString
+  "Creates a string that edits a property that is a list, by append/delete/replace an element.
+  :varName should be string.
+  :propName should be string, representing the propertyName.
+  :editType should be one of APPEND,DELETE,REPLACE.
+  :editVal should be parameter representing value for APPEND/DELETE/REPLACE.
+  :replaceVal should be parameter representing intended value, if :editVal is REPLACE"
+  [& {:keys [:varName :propName :editType :editVal :replaceVal] :or [:replaceVal ""]}]
+  {:pre [(string? varName)
+         (string? propName)
+         (contains? #{"APPEND" "DELETE" "REPLACE"} editType)
+         (string? editVal)
+         (or (string? replaceVal) (not= "REPLACE" editType))
+         ]
+   }
+  (str 
+       (case editType
+         "APPEND" (str " SET "varName"."propName" = " varName"."propName" + {"editVal"}")
+         "DELETE" (str "WHERE {"editVal"} IN "varName"."propName" SET "varName"."propName" = FILTER(x IN "varName"."propName" WHERE x <> {"editVal"})")
+         "REPLACE" (str "WHERE {"editVal"} IN "varName"."propName" SET "varName"."propName" = FILTER(x IN "varName"."propName" WHERE x <> {"editVal"}) + {"replaceVal"}")
+         )
+       )
+  )
+
 ;;General NEO4J functions start here
 
-(defn- generateUUID []
-	(str (java.util.UUID/randomUUID))
+(defn- generateUUID
+  []
+  (str (java.util.UUID/randomUUID))
 )
 
 (defn getAllLabels
@@ -237,7 +268,34 @@
          )
         builtQuery
         {:query
-         (str "MATCH (node1:"fromNodeLabel" "((combinedProperties :propertyStringMap) "1")" )-[rel:"relationshipType" "((combinedProperties :propertyStringMap) "R")" ]->(node2:"toNodeLabel" "((combinedProperties :propertyStringMap) "2")" ) "(createEditString :varName "rel" :editPropertyList (keys newRelationshipParameters) :characteristicString "RE")) :parameters (combinedProperties :combinedPropertyMap)}]
+         (str "MATCH (node1:"fromNodeLabel" "((combinedProperties :propertyStringMap) "1")" )-[rel:"relationshipType" "((combinedProperties :propertyStringMap) "R")" ]->(node2:"toNodeLabel" "((combinedProperties :propertyStringMap) "2")" ) "(createEditString :varName "rel" :editPropertyList newRelationshipParameters :characteristicString "RE")) :parameters (combinedProperties :combinedPropertyMap)}]
+    (if execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery
+      )
+    )
+  )
+
+(defn editRelationPropList
+  "Edit Parameter of a relation that is a List
+  :propName should be string, representing the propertyName.
+  :editType should be one of APPEND,DELETE,REPLACE.
+  :editVal should represent value for APPEND/DELETE/REPLACE.
+  :replaceVal should be intended value, if :editVal is REPLACE"
+  [& {:keys [fromNodeLabel fromNodeParameters relationshipType relationshipParameters toNodeLabel toNodeParameters :propName :editType :editVal :replaceVal execute?] :or {execute? true  toNodeParameters {} fromNodeParameters {} relationshipParameters {}}}]
+  {:pre [
+         (every? string? [fromNodeLabel relationshipType toNodeLabel])
+         (every? map? [fromNodeParameters relationshipParameters toNodeParameters])]}
+  (let [combinedProperties
+        (combinePropertyMap
+         {"1" fromNodeParameters
+          "2" toNodeParameters
+          "R" relationshipParameters
+          }
+         )
+        builtQuery
+        {:query
+         (str "MATCH (node1:"fromNodeLabel" "((combinedProperties :propertyStringMap) "1")" )-[rel:"relationshipType" "((combinedProperties :propertyStringMap) "R")" ]->(node2:"toNodeLabel" "((combinedProperties :propertyStringMap) "2")" ) "(createPropListEditString :varName "rel" :propName propName :editType editType :editVal "ATT" :replaceVal "att")) :parameters (merge {"ATT" editVal "att" replaceVal} (combinedProperties :combinedPropertyMap))}]
     (if execute?
       (gdriver/runQuery builtQuery)
       builtQuery
@@ -314,7 +372,7 @@
 (defn editNodeProperties
   "Edit Properties of Node(s)"
   [& {:keys [label parameters changeMap execute?] :or {changeMap {} execute? true parameters {}}}]
-  (let [mPM (addStringToMapKeys parameters "M") tPME (addStringToMapKeys changeMap "E") builtQuery {:query (str "MATCH (node1:" label " " (createParameterPropertyString mPM "M") " ) " (createEditString :varName "node1" :editPropertyList (keys tPME) :characteristicString "E")) :parameters (merge mPM tPME)}]
+  (let [mPM (addStringToMapKeys parameters "M") tPME (addStringToMapKeys changeMap "E") builtQuery {:query (str "MATCH (node1:" label " " (createParameterPropertyString mPM "M") " ) " (createEditString :varName "node1" :editPropertyList tPME :characteristicString "E")) :parameters (merge mPM tPME)}]
     (if
         execute?
       (gdriver/runQuery builtQuery)
@@ -337,6 +395,31 @@
         execute?
       (gdriver/runQuery builtQuery)
       builtQuery)
+    )
+  )
+
+(defn editNodePropList
+  "Edits a property of a node with a list as a value.
+  :label should be string.
+  :parameters should be a map.
+  :propName should be string, representing the propertyName.
+  :editType should be one of APPEND,DELETE,REPLACE.
+  :editVal should represent value for APPEND/DELETE/REPLACE.
+  :replaceVal should be intended value, if :editVal is REPLACE"
+  [& {:keys [:label :parameters :propName :editType :editVal :replaceVal :execute?] :or [:replaceVal nil :parameters {} :execute? true]}]
+  {:pre [(string? label)
+         (map? parameters)]}
+  (let [combinedPropertyMap (combinePropertyMap {"NP" parameters})
+        builtQuery {:query (str "MATCH (node:"label" "((combinedPropertyMap :propertyStringMap) "NP")") "(createPropListEditString :varName "node" :propName propName :editType editType :editVal "ATT" :replaceVal "att"))
+                    :parameters (merge {"ATT" editVal "att" replaceVal}
+                                       (combinedPropertyMap :combinedPropertyMap)
+                                       )
+                    }
+        ]
+    (if execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery
+      )
     )
   )
 
@@ -1101,8 +1184,7 @@
 	  			if execute?
 				((gdriver/runTransactions (conj [] createRelationQuery) (vec applyClassNeoConstraintQuery)) :summary)
 				combinedQuery
-			)
-		  	
+			)		  	
 	  )
   )
 

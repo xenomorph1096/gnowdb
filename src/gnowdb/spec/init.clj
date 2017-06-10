@@ -23,6 +23,7 @@
   (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_DisplayName" :className "GDB_Node") 
   (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_CreatedAt" :className "GDB_Node") 
   (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_ModifiedAt" :className "GDB_Node")
+  (gneo/addClassNC :constraintType "NODEKEY" :constraintTarget "NODE" :constraintValue ["GDB_DisplayName"] :className "GDB_Node")
 )
 
 (defn- addCustomFunctionality

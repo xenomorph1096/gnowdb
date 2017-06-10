@@ -101,15 +101,15 @@
   [& {:keys [:varName :editPropertyList :characteristicString] :or {:characteristicString ""}}]
   {:pre [(string? varName)
          (coll? editPropertyList)
-         (every? string? (flatten (seq editPropertyList)))]}
+         (every? string? editPropertyList)]}
   (str " SET "
        (clojure.string/join " ,"
-                            (map #(str varName "." %1 " = {" (%2 0) "}")
-                                 (removeVectorStringSuffixes (keys editPropertyList) characteristicString)
+                            (map #(str varName "." %1 " = {" %2 "}")
+                                 (removeVectorStringSuffixes editPropertyList characteristicString)
                                  editPropertyList)
                             )
-       )
   )
+)
 
 (defn- createRemString
   "Creates a property removal string.

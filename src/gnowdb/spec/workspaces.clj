@@ -173,7 +173,7 @@
   (gneo/createNodeClassInstances :className "GDB_GroupWorkspace" :nodeList    [{
                                             "GDB_DisplayName" "HOME"
                                             "GDB_GroupType" "Public"
-                                            "GDB_EditingPolicy" "Non-Editable"
+                                            "GDB_EditingPolicy" "Editable_Non-Moderated"
                                             "GDB_AlternateName" "[]"
                                             "GDB_ModifiedAt" (.toString (new java.util.Date))
                                             "GDB_CreatedAt" (.toString (new java.util.Date))
@@ -223,7 +223,7 @@
     )
 )
 
-(defn addMemberToGroupWorkspace
+(defn addMemberToGroup
   "Adds member to group workspace"
   [& {:keys [:newMemberName :groupName :adminName]}]
     (let [workspace (first (gneo/getNodes 
@@ -234,7 +234,7 @@
                     ))
           admins (getAdminList groupName)
         ]
-      (if (or (= ((workspace :properties) "GDB_GroupType") "Public") (and (= ((workspace :properties) "GDB_GroupType") "Private") (some #{adminName} admins)))
+      (if (or (= ((workspace :properties) "GDB_GroupType") "Public") (and (= ((workspace :properties) "GDB_GroupType") "Private") (.contains admins adminName)))
         (do
           (gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList    [{
                                             :fromClassName "GDB_PersonalWorkspace"

@@ -59,7 +59,7 @@
     :displayName should be the displayName of the group
     :createdBy should be the name of the user who created the workspace
   "
-	[& {:keys [:groupType :editingPolicy :displayName :alternateName :description :createdBy :relationshipsOnly?] :or {:groupType "Public" :editingPolicy "Non-Editable" :alternateName "[]" :createdBy "ADMIN" :description "" :relationshipsOnly? false}}]
+	[& {:keys [:groupType :editingPolicy :displayName :alternateName :description :createdBy :relationshipsOnly?] :or {:groupType "Public" :editingPolicy "Editable_Non-Moderated" :alternateName "[]" :createdBy "ADMIN" :description "" :relationshipsOnly? false}}]
 	(if (false? relationshipsOnly?)
 		(gneo/createNodeClassInstances :className "GDB_GroupWorkspace" :nodeList 		[{
 																							"GDB_DisplayName" displayName
@@ -194,6 +194,48 @@
   (instantiatePersonalWorkspace :displayName "ADMIN" :relationshipsOnly? true)
 )
 
+(defn getAdminList
+  [groupName]
+  (map #(((% :start) :properties) "GDB_DisplayName")
+      (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
+                        :toNodeParameters {"GDB_DisplayName" groupName}
+                        :relationshipType "GDB_AdminOfGroup"
+                        :nodeInfo? true
+      )
+  )
+)
+
+(defn getMemberList
+  [groupName]
+  (map #(((% :start) :properties) "GDB_DisplayName")
+      (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
+                        :toNodeParameters {"GDB_DisplayName" groupName}
+                        :relationshipType "GDB_MemberOfGroup"
+                        :nodeInfo? true
+      )
+  )
+)
+
+(defn getGroupType
+  [groupName]
+    (((first (gneo/getNodes 
+                        :label "GDB_GroupWorkspace" 
+                        :parameters  {
+                                      "GDB_DisplayName" groupName
+                                      }
+    )) :properties) "GDB_GroupType")
+)
+
+(defn getEditingPolicy
+  [groupName]
+    (((first (gneo/getNodes 
+                        :label "GDB_GroupWorkspace" 
+                        :parameters  {
+                                      "GDB_DisplayName" groupName
+                                      }
+    )) :properties) "GDB_EditingPolicy")
+)
+
 (defn- editLastModified
   [& {:keys [:editor :groupName]}]
   (gneo/deleteRelations
@@ -212,29 +254,67 @@
   (gneo/editNodeProperties :label "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_ModifiedAt" (.toString (new java.util.Date))})
 )
 
-(defn getAdminList
-  [groupName]
-  (map #(((% :start) :properties) "GDB_DisplayName")
-      (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
-                        :toNodeParameters {"GDB_DisplayName" groupName}
-                        :relationshipType "GDB_AdminOfGroup"
-                        :nodeInfo? true
+(defn- getTypeOfWorkspaces
+  "Determines types of workspaces the resource is published to"
+  [& {:keys [:resourceIDMap :resourceClass]}]
+  (into #{} 
+    (map #(((% :end) :properties) "GDB_GroupType")
+      (gneo/getRelations  :fromNodeLabel [resourceClass]
+                          :fromNodeParameters resourceIDMap
+                          :relationshipType "GDB_MemberOfWorkspace"
+                          :nodeInfo? true
       )
     )
+  )
+)
+
+
+(defn- publishToUnmoderatedGroup
+  [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
+  (gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList  [{
+                                                      :fromClassName resourceClass
+                                                      :fromPropertyMap resourceIDMap
+                                                      :toClassName "GDB_GroupWorkspace"
+                                                      :toPropertyMap {"GDB_DisplayName" groupName}
+                                                      :propertyMap {}
+                                                    }]
+  )
+)
+
+(defn- publishToModeratedGroup
+  [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
+  (if (.contains (getAdminList groupName) username)
+    (publishToUnmoderatedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+  )
+  (gneo/createRelationClassInstances  :className "GDB_PendingReview"  
+                                      :relList  [{
+                                              :fromClassName resourceClass
+                                              :fromPropertyMap resourceIDMap
+                                              :toClassName "GDB_GroupWorkspace"
+                                              :toPropertyMap {"GDB_DisplayName" groupName}
+                                              :propertyMap {}
+                                            }]
+  ) 
+)
+
+(defn crossPublishAllowed?
+  "Determines whether cross-publication is allowed for a particular resource"
+  [& {:keys [:resourceIDMap :resourceClass]}]
+  (let [workspaceTypes (getTypeOfWorkspaces resourceIDMap resourceClass)]
+    (if (= workspaceTypes #{"Private"})
+      false
+      true
+    )
+  )
 )
 
 (defn addMemberToGroup
   "Adds member to group workspace"
   [& {:keys [:newMemberName :groupName :adminName]}]
-    (let [workspace (first (gneo/getNodes 
-                        :label "GDB_GroupWorkspace" 
-                        :parameters  {
-                                      "GDB_DisplayName" groupName
-                                      }
-                    ))
+    (let [workspaceType (getGroupType groupName)
           admins (getAdminList groupName)
         ]
-      (if (or (= ((workspace :properties) "GDB_GroupType") "Public") (and (= ((workspace :properties) "GDB_GroupType") "Private") (.contains admins adminName)))
+      (if (or (= workspaceType "Public") (and (= workspaceType "Private") (.contains admins adminName)))
         (do
           (gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList    [{
                                             :fromClassName "GDB_PersonalWorkspace"
@@ -272,7 +352,43 @@
         )
 
   )
-) 
+)
+
+(defn publishToGroup
+  [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
+  (let [groupType (getGroupType groupName)
+        editingPolicy (getEditingPolicy groupName)
+    ]
+    (if (and (not= editingPolicy "Non-Editable") (crossPublishAllowed? :resourceIDMap resourceIDMap :resourceClass resourceClass))
+      (if (.contains (getMemberList groupName) username)
+        (if (= editingPolicy "Editable_Moderated")
+          (publishToModeratedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+          (publishToUnmoderatedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+        )
+        (if (= groupType "Anonymous")
+          (if (= editingPolicy "Editable_Moderated")
+            (publishToModeratedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+            (publishToUnmoderatedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+          )
+          "Publish Unsuccessful: User is not a member of the group"
+        )
+      )
+      "Publish Unsuccessful: The group is either non-editable or you're trying to cross-publish in a private group"
+    )
+  )
+)
+
+(defn publishToPersonalWorkspace
+  [& {:keys [:username :resourceIDMap :resourceClass]}]
+  (gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList  [{
+                                              :fromClassName resourceClass
+                                              :fromPropertyMap resourceIDMap
+                                              :toClassName "GDB_PersonalWorkspace"
+                                              :toPropertyMap {"GDB_DisplayName" username}
+                                              :propertyMap {}
+                                          }]
+  )
+)
 
 (defn init
   []

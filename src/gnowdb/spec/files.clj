@@ -65,7 +65,7 @@
 	 :memberOfWorkspace is a vector containing names of groupworkspaces which will
 	  contain the file."
 	[& {:keys[:fileSrcPath :author :memberOfWorkspace] :or {:author "ADMIN" :memberOfWorkspace []}}]
-	(let [fileName (deriveFileName fileSrcPath)]
+	(let [fileName (deriveFileName fileSrcPath) filePath (derivePath (digest/md5 fileName))]
 		(gneo/createNodeClassInstances :className "GDB_File" :nodeList 	[{
 																			"GDB_DisplayName" fileName 
 																			"GDB_Extension" (subs fileName (inc (clojure.string/last-index-of fileName ".")))
@@ -93,23 +93,21 @@
 																						:propertyMap {}
 																					}]
 		)
-		(gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList 	[{
-																								:fromClassName "GDB_File"
-																								:fromPropertyMap {"GDB_DisplayName" fileName}
-																								:toClassName "GDB_PersonalWorkspace"
-																								:toPropertyMap {"GDB_DisplayName" author}
-																								:propertyMap {}
-																						}]
-		)
+		(workspaces/publishToPersonalWorkspace :username author :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File")
 		(if (not (empty? memberOfWorkspace))
 			(
 				map (fn [groupName]
-					(publishToGroup :username author :groupName groupName :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File")
+					(workspaces/publishToGroup :username author :groupName groupName :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File")
 				 	)
 				memberOfWorkspace
 			)
 		)
 	)
+)
+
+(defn init
+	[]
+	(createFileClass)
 )
 
 

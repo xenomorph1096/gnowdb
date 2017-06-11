@@ -12,7 +12,11 @@
 		             [async-watch "0.1.1"]
                  [digest "1.4.5"] ;;for hashing
                  [org.clojure/math.combinatorics "0.1.4"] ;;for nth permutation
-                 [clj-fuzzy "0.4.0"]] ;;for levenshtein distance
+                 [clj-fuzzy "0.4.0"] ;;for levenshtein distance
+                 [com.novemberain/pantomime "2.9.0"];;to extract mime types
+                 [progrock "0.1.2"] ;;For progress bars
+                ] 
+
                  
   
   :main ^:skip-aot gnowdb.core

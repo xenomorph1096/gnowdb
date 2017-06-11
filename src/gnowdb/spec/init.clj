@@ -2,7 +2,23 @@
   (:gen-class)
   (:require [gnowdb.neo4j.gneo :as gneo]
             [gnowdb.spec.workspaces :as workspaces]
-            ;[gnowdb.spec.files :as files]
+            [gnowdb.spec.files :as files]
+            [progrock.core :as pr]
+  )
+)
+
+(def progressBar (pr/progress-bar 100))
+
+(defn tickProgressBar
+  [amountToAdvance]
+  (def progressBar (pr/tick progressBar amountToAdvance))
+  (if (= (:progress progressBar) (:total progressBar))
+    (do
+      (pr/print (pr/done progressBar))
+      (def progressBar (pr/progress-bar 100))
+      nil
+    )
+    (pr/print progressBar)
   )
 )
 
@@ -23,6 +39,7 @@
   (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_DisplayName" :className "GDB_Node") 
   (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_CreatedAt" :className "GDB_Node") 
   (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_ModifiedAt" :className "GDB_Node")
+  (gneo/addClassNC :constraintType "NODEKEY" :constraintTarget "NODE" :constraintValue ["GDB_DisplayName"] :className "GDB_Node")
 )
 
 (defn- addCustomFunctionality
@@ -40,9 +57,15 @@
 
 (defn init
   []
+  (pr/print progressBar)
   (gneo/defineInitialConstraints)
+  (tickProgressBar 10)
   (createAbstractNodeClass)
+  (tickProgressBar 10)
   (addCustomFunctionality)
-  (workspaces/init)
-  ;(files/init)
+  (tickProgressBar 10)
+  (workspaces/init) 
+  (tickProgressBar 40)
+  (files/init)
+  (tickProgressBar 30)
 )

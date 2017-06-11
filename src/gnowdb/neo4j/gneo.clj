@@ -98,7 +98,7 @@
    }
   )
 
-(defn- createEditString
+(defn createEditString
   "Creates an edit string.
   eg.., SET varName.prop1={prop1} , varName.prop2={prop2}
   :varName should be name of the node/relation variable.
@@ -166,6 +166,29 @@
        )
   )
 
+(defn editCollection
+  "Edits a collection of strings to represent edited property from createPropListEditString.
+  :coll should be a collection of strings
+  :editType should be one of APPEND,DELETE,REPLACE.
+  :editVal should be parameter representing value for APPEND/DELETE/REPLACE.
+  :replaceVal should be parameter representing intended value, if :editVal is REPLACE"
+  [& {:keys [:coll
+             :editType
+             :editVal
+             :replaceVal]
+      :or [:replaceVal ""]}]
+  {:pre [(coll? coll)
+         (every? string? coll)
+         (contains? #{"APPEND" "DELETE" "REPLACE"} editType)
+         (string? editVal)
+         (or (string? replaceVal) (not= "REPLACE" editType))]}
+  (case editType
+    "APPEND" (conj coll editVal)
+    "DELETE" (remove #(= editVal %) coll)
+    "REPLACE" (conj (remove #(= editVal %) coll) replaceVal)
+    )
+  )
+
 (defn createPropListEditString
   "Creates a string that edits a property that is a list, by append/delete/replace an element.
   :varName should be string.
@@ -231,14 +254,16 @@
       :or {:execute? true
            :unique? false
            :parameters {}}
+      :as keyArgs
       }
    ]
+  (println keyArgs)
   (let [queryType 
  	(if unique?
           "MERGE"
           "CREATE"
           )
-        mergedParams {"UUID" (merge parameters (generateUUID))}
+        mergedParams (merge parameters {"UUID" (generateUUID)})
   	builtQuery  	{:query (str queryType " (node:" label " "
                                      (createParameterPropertyString
                                       mergedParams) " )")
@@ -328,7 +353,7 @@
               " ]->(node2:"toNodeLabel" "
               ((combinedProperties :propertyStringMap) "2")
               " ) "(createEditString :varName "rel"
-                                     :editPropertyList newRelationshipParameters
+                                     :editPropertyList (addStringToMapKeys newRelationshipParameters "RE")
                                      :characteristicString "RE")
               )
          :parameters (combinedProperties :combinedPropertyMap)}]
@@ -1575,6 +1600,65 @@
                   :execute? execute?)
   )
 
+(defn editClassNC
+  "Edits relation NeoConstraintAppliesTo from a NeoConstraint to a Class.
+  :className should be a string.
+  :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY
+  :constraintTarget should be either of NODE,RELATION.
+  :constraintValue should be _name of an  AttributeType or collection of _names, in case of NODEKEY.
+  :newConstraintValue"
+  [& {:keys [:constraintType
+             :constraintTarget
+             :constraintValue
+             :newConstraintValue
+             :className
+             :editType
+             :editVal
+             :replaceVal
+             :execute?]
+      :or {:execute? true}}
+   ]
+  {:pre [(string? className)
+         (= 1 (count (getNodes :label "Class"
+                               :parameters {"className" className
+                                            "classType" constraintTarget}
+                               )
+                     )
+            )
+         ]
+   }
+  (let [builtQueries [[(editRelation :fromNodeLabel "NeoConstraint"
+                                     :fromNodeParameters {"constraintType" constraintType
+                                                          "constraintTarget" constraintTarget}
+                                     :relationshipType "NeoConstraintAppliesTo"
+                                     :relationshipParameters {"constraintValue" constraintValue}
+                                     :toNodeLabel "Class"
+                                     :toNodeParameters {"className" className
+                                                        "classType" constraintTarget}
+                                     :newRelationshipParameters {"constraintValue" newConstraintValue}
+                                     :execute? false)
+                       ]
+                      (reduceQueryColl [(exemptClassNeoConstraint :className className
+                                                                  :constraintType constraintType
+                                                                  :constraintTarget constraintTarget
+                                                                  :constraintValue constraintValue
+                                                                  :execute? false)
+                                        (applyClassNeoConstraint :className className
+                                                                 :constraintType constraintType
+                                                                 :constraintTarget constraintTarget
+                                                                 :constraintValue newConstraintValue
+                                                                 :execute? false
+                                                                 )
+                                        ]
+                                       )
+                      ]
+        ]
+    (if
+        execute?
+      (apply gdriver/runTransactions builtQueries)
+      builtQueries))
+  )
+
 (defn remClassNC
   "Removes relation NeoConstraintAppliesTo from a NeoConstraint to a Class.
   :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
@@ -1597,14 +1681,26 @@
             )
          ]
    }
-  (deleteRelation :fromNodeLabel "NeoConstraint"
-                  :fromNodeParameters {"constraintType" constraintType
-                                       "constraintTarget" constraintTarget}
-                  :relationshipType "NeoConstraintAppliesTo"
-                  :relationshipParameters {"constraintValue" constraintValue}
-                  :toNodeLabel "Class"
-                  :toNodeParameters {"className" className}
-                  :execute? execute?)
+  (let [builtQueries [[(deleteRelation :fromNodeLabel "NeoConstraint"
+                                      :fromNodeParameters {"constraintType" constraintType
+                                                           "constraintTarget" constraintTarget}
+                                      :relationshipType "NeoConstraintAppliesTo"
+                                      :relationshipParameters {"constraintValue" constraintValue}
+                                      :toNodeLabel "Class"
+                                      :toNodeParameters {"className" className}
+                                      :execute? false)]
+                      (exemptClassNeoConstraint :className className
+                                                :constraintType constraintType
+                                                :constraintTarget constraintTarget
+                                                :constraintValue constraintValue
+                                                :execute? false)
+                      ]
+        ]
+    (if
+        execute?
+      (apply gdriver/runTransactions builtQueries)
+      builtQueries)
+    )
   )
 
 (defn addClassNC
@@ -1619,8 +1715,7 @@
              :execute?]
       :or {:execute? true}}
    ]
-  {:pre [
-         (string? className)
+  {:pre [(string? className)
          (= 1 (count (getNodes :label "Class"
                                :parameters {"className" className
                                             "classType" constraintTarget}
@@ -1639,7 +1734,6 @@
                          :toNodeParameters {"className" className}
                          :execute? false)
          applyClassNeoConstraintQuery (applyClassNeoConstraint 	:className className
-                                                                
                                                                 :constraintType constraintType 
                                                                 :constraintTarget constraintTarget 
                                                                 :constraintValue constraintValue 

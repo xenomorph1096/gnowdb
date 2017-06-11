@@ -195,13 +195,16 @@
   :propName should be string, representing the propertyName.
   :editType should be one of APPEND,DELETE,REPLACE.
   :editVal should be parameter representing value for APPEND/DELETE/REPLACE.
-  :replaceVal should be parameter representing intended value, if :editVal is REPLACE"
+  :replaceVal should be parameter representing intended value, if :editVal is REPLACE.
+  :withWhere? should be true if Where condition should be included."
   [& {:keys [:varName
              :propName
              :editType
              :editVal
-             :replaceVal]
-      :or [:replaceVal ""]}]
+             :replaceVal
+             :withWhere?]
+      :or [:replaceVal ""
+           :withWhere? true]}]
   {:pre [(string? varName)
          (string? propName)
          (contains? #{"APPEND" "DELETE" "REPLACE"} editType)
@@ -213,9 +216,9 @@
    (case editType
      "APPEND" (str " SET "varName"."propName
                    " = " varName"."propName" + {"editVal"}")
-     "DELETE" (str "WHERE {"editVal"} IN "varName"."propName" SET "varName"."propName
+     "DELETE" (str (if withWhere? (str "WHERE {"editVal"} IN "varName"."propName) "")" SET "varName"."propName
                    " = FILTER(x IN "varName"."propName" WHERE x <> {"editVal"})")
-     "REPLACE" (str "WHERE {"editVal"} IN "varName"."propName" SET "varName"."propName
+     "REPLACE" (str (if withWhere? (str "WHERE {"editVal"} IN "varName"."propName) "")" SET "varName"."propName
                     " = FILTER(x IN "varName"."propName" WHERE x <> {"editVal"}) + {"replaceVal"}")
      )
    )
@@ -257,7 +260,6 @@
       :as keyArgs
       }
    ]
-  (println keyArgs)
   (let [queryType 
  	(if unique?
           "MERGE"
@@ -1380,7 +1382,7 @@
     )
   )
 
-(defn relRelApplicableType
+(defn remRelApplicableType
   "Remove an applicable Source/Target type to a Relation Class, by removing a relation: ApplicableSourceNT/ApplicableTargetNT.
   :className should be className of relation class.
   :applicationType should be either SOURCE or TARGET as string.
@@ -1612,9 +1614,6 @@
              :constraintValue
              :newConstraintValue
              :className
-             :editType
-             :editVal
-             :replaceVal
              :execute?]
       :or {:execute? true}}
    ]
@@ -1625,6 +1624,8 @@
                                )
                      )
             )
+         (or (and (contains? #{"UNIQUE" "EXISTANCE"} constraintType) (string? newConstraintValue))
+             (and (= constraintType "NODEKEY") (coll? newConstraintValue) (every? string? newConstraintValue)))
          ]
    }
   (let [builtQueries [[(editRelation :fromNodeLabel "NeoConstraint"
@@ -1657,6 +1658,52 @@
         execute?
       (apply gdriver/runTransactions builtQueries)
       builtQueries))
+  )
+
+(defn createDelATNC
+  "Creates a query to remove an AttributeType in all relations with label NeoConstraintAppliesTo.
+  :atName should be a string, _name of an AttributeType."
+  [& {:keys [:atName]}
+   ]
+  {:pre [string? atName]}
+  (let [propertyMap {"ATT" atName}]
+    {:query (str "MATCH (neo1:NeoConstraint {constraintType:\"NODEKEY\"})-[rel1:NeoConstraintAppliesTo]->(cl1:Class),"
+                 " (neo2:NeoConstraint)-[rel2:NeoConstraintAppliesTo]->(cl2:Class)"
+                 " WHERE neo2.constraintType IN [\"UNIQUE\",\"EXISTANCE\"]"
+                 " AND {ATT} IN rel1.constraintValue"
+                 " AND {ATT} IN rel2.constraintValue"
+                 " "(createPropListEditString :varName "rel1"
+                                              :propName "constraintValue"
+                                              :editType "DELETE"
+                                              :editVal "ATT"
+                                              :withWhere? false)
+                 " DELETE rel2")
+     :parameters propertyMap})
+  )
+
+(defn createReplaceATNC
+  "Creates a query to replace an AttributeType in all relations with label NeoConstraintAppliesTo.
+  :atName should be a string, _name of an AttributeType.
+  :renameName should be a string, replacement _name"
+  [& {:keys [:atName
+             :renameName]}]
+  {:pre [(string? atName)
+         (string? renameName)]}
+  (let [propertyMap {"ATT" atName "att" renameName}]
+    {:query (str "MATCH (neo1:NeoConstraint {constraintType:\"NODEKEY\"})-[rel1:NeoConstraintAppliesTo]->(cl1:Class),"
+                 " (neo2:NeoConstraint)-[rel2:NeoConstraintAppliesTo]->(cl2:Class)"
+                 " WHERE neo2.constraintType IN [\"UNIQUE\",\"EXISTANCE\"]"
+                 " AND {ATT} IN rel1.constraintValue"
+                 " AND {ATT} IN rel2.constraintValue"
+                 " "(createPropListEditString :varName "rel1"
+                                              :propName "constraintValue"
+                                              :editType "REPLACE"
+                                              :editVal "ATT"
+                                              :replaceVal "att"
+                                              :withWhere? false)","
+                 " rel2.constraintValue={att}"
+                 " RETURN rel1,rel2")
+     :parameters propertyMap})
   )
 
 (defn remClassNC
@@ -1722,6 +1769,8 @@
                                )
                      )
             )
+         (or (and (contains? #{"UNIQUE" "EXISTANCE"} constraintType) (string? constraintValue))
+             (and (= constraintType "NODEKEY") (coll? constraintValue) (every? string? constraintValue)))
          ]
    }
   (let 	[createRelationQuery
@@ -1876,7 +1925,6 @@
          (contains? validATDatatypes _datatype)
          ]
    }
-
   (let [createNewNodeQuery 
         (createNewNode :label "AttributeType"
                        :parameters {"_name" _name
@@ -1978,12 +2026,7 @@
                                 " have "_name", use :forceMigrate? true to make functional changes to the class and it's instances automatically.")
                            )
                )
-        (let
-            [builtQueries (reduce (fn [allQueries ATClass]
-                                    allQueries)
-                                  [editQuery]
-                                  ATClasses)
-             ]
+        (let []
           )
         )
       )

@@ -9,8 +9,8 @@
 
 (deftest getRelations-test
 
-	(testing "Creating nodes to run the tests"
-		(is (= (select-keys {:results [() () ()],
+  (testing "Creating nodes to run the tests"
+    (is (= (select-keys {:results [() () ()],
  :summary
  {:summaryMap
   {:relationshipsCreated 1,
@@ -29,12 +29,12 @@
   "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :2 ;PropertiesSet :1 ;LabelsAdded :2 ;"}} [:results]) 
   (select-keys (runQuery {:query "create (n:test1 {name:{b}})-[:rel1]->(n1:test)" :parameters {"b" "t-db21"}} {:query "create (n2:test)-[:rel2]->(n3:test)" :parameters {}} 
    {:query "create (n:test3 {name:{a}})-[:rel3 {name:{b}}]->(n1:test)" :parameters {"a" "t-db-20" "b" "rel_name3"}}
-  	) [:results])
-			)
-		)
-	)
+    ) [:results])
+      )
+    )
+  )
 
-	(testing "Error in getting a relationship:"
+  (testing "Error in getting a relationship:"
 
      (testing "matching by to and from node labels-case1"
     (is (= (select-keys {:labels "rel1", :properties {}, :fromNode 41 , :toNode 42} [:labels :properties]) 
@@ -80,9 +80,9 @@
 
      
      )
-	
+  
 
-	(testing "Deleting all changes"
+  (testing "Deleting all changes"
         (is (= (select-keys {:results [()],
  :summary
  {:summaryMap
@@ -112,16 +112,16 @@
   
 
 
-	
-	  
+  
+    
 
-	)
+  )
 
 
  (deftest createClass-test
 
  (testing " Error in Creating Class"
-		(is (= {:results [()],
+    (is (= {:results [()],
  :summary
  {:summaryMap
   {:relationshipsCreated 0,
@@ -140,11 +140,11 @@
   "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
   (createClass :className "t-db22" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"tag" "test"} :execute? true)
  )
-		)
-		)
+    )
+    )
 
- 	(testing "Error in Creating a sub-class"
- 		(is (= {:results
+  (testing "Error in Creating a sub-class"
+    (is (= {:results
  `({:results [() ()],
    :summary
    {:summaryMap
@@ -180,23 +180,23 @@
   "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
 
  (createClass :className "t-db23" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true)
- 		    )
- 		)
+        )
+    )
 
- 	)
+  )
 
     (testing "Error in Returning a query (execute? false)"
-    	(is (= (select-keys {:query "MERGE (node:Class { className:{className}, classType:{classType}, isAbstract:{isAbstract}, UUID:{UUID} } )", :parameters {"className" "t-db24", "classType" "NODE", "isAbstract" true, "UUID" "8f1d44e1-a3c1-45aa-a428-4b3dd00f6eb3"}} [:query]) 
-    		(select-keys (createClass :className "t-db24" :classType "NODE" :isAbstract? true :subClassOf [] :properties {} :execute? false) [:query])
-    		)
-    	)
+      (is (= (select-keys {:query "MERGE (node:Class { className:{className}, classType:{classType}, isAbstract:{isAbstract}, UUID:{UUID} } )", :parameters {"className" "t-db24", "classType" "NODE", "isAbstract" true, "UUID" "8f1d44e1-a3c1-45aa-a428-4b3dd00f6eb3"}} [:query]) 
+        (select-keys (createClass :className "t-db24" :classType "NODE" :isAbstract? true :subClassOf [] :properties {} :execute? false) [:query])
+        )
+      )
 
 
     )
 
     
     (testing "Error in creating nodes with two properties"
-    	(is (= {:results [()],
+      (is (= {:results [()],
  :summary
  {:summaryMap
   {:relationshipsCreated 0,
@@ -214,12 +214,12 @@
   :summaryString
   "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}} 
  (createClass :className "t-db24" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"pr1" "val1" "pr2" "val2" "tag" "test"} :execute? true)
-    		)
-    	)
+        )
+      )
     )
 
     (testing "Error in creating a sub-class when super-class doesn`t exist"
-    	(is (= {:results [],
+      (is (= {:results [],
  :summary
  {:summaryMap
   {:relationshipsCreated 0,
@@ -235,13 +235,13 @@
    :indexesAdded 0,
    :relationshipsDeleted 0},
   :summaryString "ContainsUpdates :false ;"}} (createClass :className "t-db23" :classType "NODE" :isAbstract? false :subClassOf ["t-db25"] :properties {"pr1" "val1" "pr2" "val2"} :execute? true) 
-    		)
-    	)
+        )
+      )
 
     )
 
     (testing "Creating a sub class of a class which alredy has other sub-classes"
-    	(is (= {:results
+      (is (= {:results
  `({:results [() ()],
    :summary
    {:summaryMap
@@ -277,8 +277,8 @@
   "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
  
  (createClass :className "t-db26" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true)
-    		)
-    	)
+        )
+      )
 
     )
 
@@ -287,7 +287,7 @@
     
 
     (testing "Error in Creating a node with two parent nodes"
-    	(is (= {:results
+      (is (= {:results
  `({:results [() ()],
    :summary
    {:summaryMap
@@ -322,11 +322,12 @@
   :summaryString
   "RelationshipsCreated :2 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}} 
   (createClass :className "t-db23" :classType "NODE" :isAbstract? true :subClassOf ["t-db24"] :properties {"pr1" "val1" "pr2" "val2" "tag" "test"} :execute? true)
-    		)
-    	)
+        )
+      )
 
 
     )
+
     (testing "Deleting all changes2"
         (is (= (select-keys {:results [()],
  :summary
@@ -352,13 +353,58 @@
     )
 
 
+    
+
 
     
-	)
+  )
+(deftest getAllLabels-Test
+    (testing "Error in running the function"
+        (getAllLabels)
+    )
 
+
+
+
+)
+
+(deftest getAllNodes-Test
+    (testing "Error in running the function"
+        (getAllNodes)
+    )
+
+    (testing "Deleting all changes2"
+        (is (= (select-keys {:results [()],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates true,
+   :nodesCreated 0,
+   :nodesDeleted 2,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 0,
+   :labelsAdded 0,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 1},
+  :summaryString
+  "ContainsUpdates :true ;NodesDeleted :2 ;RelationshipsDeleted :1 ;"}} [:results])
+  (select-keys (runQuery {:query "match (n {tag:{a}}) detach delete n" :parameters {"a" "test"}}) [:results]) 
+            )
+        )
+
+    )
+
+
+)
 
 
 
 
 
 (run-tests)
+
+   
+

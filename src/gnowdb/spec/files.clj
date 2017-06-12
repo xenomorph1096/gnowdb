@@ -49,6 +49,11 @@
 	)
 )
 
+(defn- removeFilefromDirectory
+	[fileName]
+	(sh "rm" (str (derivePath (digest/md5 fileName)) "/" fileName))
+)
+
 (defn- getMetaData 
 	[filePath]
 	(extract/parse filePath)
@@ -59,7 +64,7 @@
 	(subs filePath (inc (clojure.string/last-index-of filePath "/")))
 )
 
-(defn- createFileInstance 
+(defn createFileInstance 
 	":fileSrcPath should include the filename as well e.g. src/gnowdb/core.clj
 	 :author is the name of the user uploading file 
 	 :memberOfWorkspace is a vector containing names of groupworkspaces which will
@@ -105,9 +110,49 @@
 	)
 )
 
+(defn deleteFileFromGroupWorkspace
+	"Delete a file from given workspace"
+	[& {:keys [:username :groupName :fileName]}]
+	(
+		workspaces/deleteFromGroup :username username :groupName groupName :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File"
+	)
+)
+
+(defn deleteFileFromPersonalWorkspace
+	"Delete a file from given workspace"
+	[& {:keys [:username :fileName]}]
+	(
+		workspaces/deleteFromPersonalWorkspace :username username :resourceClass "GDB_File" :resourceIDMap {"GDB_DisplayName" fileName}
+	)
+)
+
+(defn deleteFileInstance
+	"Delete a file instance"
+	[fileName]
+	(
+		gneo/deleteDetachNodes 	:label "GDB_File" 
+								:parameters {"GDB_DisplayName" fileName}
+	)
+)
+
+(defn addFileToDB
+	"Add a file to the database"
+	[& {:keys[:fileSrcPath :author :memberOfWorkspace]}]
+	(createFileInstance :fileSrcPath fileSrcPath :author author :memberOfWorkspace memberOfWorkspace)
+	(copyFileToDir fileSrcPath (derivePath (digest/md5 (deriveFileName fileSrcPath))))
+)
+
+(defn removeFileFromDB
+	"Delete a file from the database"
+	[fileName]
+	(deleteFileInstance fileName)
+	(removeFilefromDirectory fileName)
+)
+	
 (defn init
 	[]
 	(createFileClass)
 )
 
 
+;;;;Task left:determining the key for files

@@ -457,6 +457,70 @@
   (publishToGroup :username adminName :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
 )
 
+(defn deleteFromUnmoderatedGroup
+	[& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
+	(gneo/deleteRelations 	:fromNodeLabel [resourceClass]
+							:fromNodeParameters resourceIDMap 
+							:relationshipType "GDB_MemberOfWorkspace" 
+							:toNodeLabel ["GDB_GroupWorkspace"] 
+							:toNodeParameters {"GDB_DisplayName" groupName})
+	(editLastModified :editor username :groupName groupName) 
+)
+
+(defn- deleteFromModeratedGroup
+  "Delete nodes from moderated groups i.e. with admin check"
+  [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
+  (if (.contains (getAdminList groupName) username)
+    (deleteFromUnmoderatedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+	(editLastModified :editor username :groupName groupName) 
+  )
+)
+
+(defn deleteFromGroup
+  "Delete nodes from Group Workspace"
+  [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
+  (let [groupType (getGroupType groupName)
+        editingPolicy (getEditingPolicy groupName)
+    ]
+    (if (not= editingPolicy "Non-Editable")
+      (if (.contains (getMemberList groupName) username)
+        (if (= editingPolicy "Editable_Moderated")
+          (deleteFromModeratedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+          (deleteFromUnmoderatedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+        )
+        (if (= groupType "Anonymous")
+          (if (= editingPolicy "Editable_Moderated")
+            (deleteFromModeratedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+            (deleteFromUnmoderatedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+          )
+          "Delete Unsuccessful: User is not a member of the group"
+        )
+      )
+      "Delete Unsuccessful: The group is either non-editable or you're trying to cross-publish in a private group"
+    )
+  )
+)
+
+(defn deleteFromPersonalWorkspace
+	"Delete nodes from personal workspace"
+  	[& {:keys [:username :resourceIDMap :resourceClass]}]
+	(gneo/deleteRelations 	:fromNodeLabel [resourceClass] 
+							:fromNodeParameters resourceIDMap 
+							:relationshipType "GDB_MemberOfWorkspace" 
+							:toNodeLabel ["GDB_PersonalWorkspace"] 
+							:toNodeParameters {"GDB_DisplayName" username})
+	(gneo/deleteRelations 	:fromNodeLabel [resourceClass] 
+							:fromNodeParameters resourceIDMap 
+							:relationshipType "GDB_CreatedBy" 
+							:toNodeLabel ["GDB_PersonalWorkspace"] 
+							:toNodeParameters {"GDB_DisplayName" username})
+	(gneo/deleteRelations 	:fromNodeLabel [resourceClass] 
+							:fromNodeParameters resourceIDMap 
+							:relationshipType "GDB_LastModifiedBy" 
+							:toNodeLabel ["GDB_PersonalWorkspace"] 
+							:toNodeParameters {"GDB_DisplayName" username})
+)
+
 (defn init
   []
   (prepareNodeClass)

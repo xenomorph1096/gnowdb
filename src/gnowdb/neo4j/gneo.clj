@@ -102,22 +102,22 @@
   "Creates an edit string.
   eg.., SET varName.prop1={prop1} , varName.prop2={prop2}
   :varName should be name of the node/relation variable.
-  :editPropertyList should be a collection of properties."
+  :editPropertyMap should be a map of properties."
   [& {:keys [:varName
-             :editPropertyList
+             :editPropertyMap
              :characteristicString]
       :or {:characteristicString ""}}]
   {:pre [(string? varName)
-         (coll? editPropertyList)
-         (every? string? editPropertyList)]}
+         (map? editPropertyMap)
+         (every? string? (keys editPropertyMap))]}
   (str " SET "
        (clojure.string/join " ,"
-                            (map #(str varName "." %1 " = {" %2 "}")
-                                 (removeVectorStringSuffixes editPropertyList characteristicString)
-                                 editPropertyList)
+                            (map #(str varName "." %1 " = {" (%2 0) "}")
+                                 (removeVectorStringSuffixes (keys editPropertyMap) characteristicString)
+                                 editPropertyMap)
                             )
+       )
   )
-)
 
 (defn- createRemString
   "Creates a property removal string.
@@ -355,7 +355,7 @@
               " ]->(node2:"toNodeLabel" "
               ((combinedProperties :propertyStringMap) "2")
               " ) "(createEditString :varName "rel"
-                                     :editPropertyList (addStringToMapKeys newRelationshipParameters "RE")
+                                     :editPropertyMap (addStringToMapKeys newRelationshipParameters "RE")
                                      :characteristicString "RE")
               )
          :parameters (combinedProperties :combinedPropertyMap)}]
@@ -567,7 +567,7 @@
         builtQuery {:query (str "MATCH (node1:" label " "
                                 (createParameterPropertyString mPM "M")
                                 " ) "(createEditString :varName "node1"
-                                                       :editPropertyList tPME
+                                                       :editPropertyMap tPME
                                                        :characteristicString "E"
                                                        )
                                 )

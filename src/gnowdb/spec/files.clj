@@ -59,7 +59,7 @@
 	(subs filePath (inc (clojure.string/last-index-of filePath "/")))
 )
 
-(defn- createFileInstance 
+(defn createFileInstance 
 	":fileSrcPath should include the filename as well e.g. src/gnowdb/core.clj
 	 :author is the name of the user uploading file 
 	 :memberOfWorkspace is a vector containing names of groupworkspaces which will
@@ -102,6 +102,22 @@
 				memberOfWorkspace
 			)
 		)
+	)
+)
+
+(defn deleteFileFromGroupWorkspace
+	"Delete a file from given workspace"
+	[& {:keys [:username :groupName :fileName]}]
+	(
+		workspaces/deleteFromGroup :username username :groupName groupName :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File"
+	)
+)
+
+(defn deleteFileFromPersonalWorkspace
+	"Delete a file from given workspace"
+	[& {:keys [:username :fileName]}]
+	(
+		workspaces/deleteFromPersonalWorkspace :username username :resourceClass "GDB_File" :resourceIDMap {"GDB_DisplayName" fileName}
 	)
 )
 

@@ -238,7 +238,7 @@
           "MERGE"
           "CREATE"
           )
-        mergedParams {"UUID" (merge parameters (generateUUID))}
+        mergedParams (merge parameters {"UUID" (generateUUID)})
   	builtQuery  	{:query (str queryType " (node:" label " "
                                      (createParameterPropertyString
                                       mergedParams) " )")
@@ -328,7 +328,7 @@
               " ]->(node2:"toNodeLabel" "
               ((combinedProperties :propertyStringMap) "2")
               " ) "(createEditString :varName "rel"
-                                     :editPropertyList newRelationshipParameters
+                                     :editPropertyList (keys newRelationshipParameters)
                                      :characteristicString "RE")
               )
          :parameters (combinedProperties :combinedPropertyMap)}]
@@ -540,7 +540,7 @@
         builtQuery {:query (str "MATCH (node1:" label " "
                                 (createParameterPropertyString mPM "M")
                                 " ) "(createEditString :varName "node1"
-                                                       :editPropertyList tPME
+                                                       :editPropertyList (keys tPME)
                                                        :characteristicString "E"
                                                        )
                                 )
@@ -2161,7 +2161,7 @@
 			)
         ]
     (if (not (empty? subClassOf))
-                                        ;"Adds the attributes,NeoConstraints,CustomConstraints and ApplicableRelationNTs of the superclass to the subclass"
+    ;"Adds the attributes,NeoConstraints,CustomConstraints and ApplicableRelationNTs of the superclass to the subclass"
       (let
           [completeQueryVec (vec
                              (concat [createNewNodeQuery]
@@ -2216,9 +2216,10 @@
     (if
         execute?
       (apply gdriver/runTransactions builtQueries)
-      builtQueries)
+      builtQueries
     )
   )
+)
 
 (defn validatePropertyMaps
   "Validates propertyMaps for a class with className.

@@ -118,45 +118,67 @@
 	)
 
 
-(deftest createClass-test
+ (deftest createClass-test
 
  (testing " Error in Creating Class"
-		(is (= {:summaryMap
- {:relationshipsCreated 0,
-  :containsUpdates true,
-  :nodesCreated 1,
-  :nodesDeleted 0,
-  :indexesRemoved 0,
-  :labelsRemoved 0,
-  :constraintsAdded 0,
-  :propertiesSet 5,
-  :labelsAdded 1,
-  :constraintsRemoved 0,
-  :indexesAdded 0,
-  :relationshipsDeleted 0},
- :summaryString
- "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"} 
- (createClass :className "t-db22" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"tag" "test"} :execute? true)
+		(is (= {:results [()],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates true,
+   :nodesCreated 1,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 5,
+   :labelsAdded 1,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
+  (createClass :className "t-db22" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"tag" "test"} :execute? true)
  )
 		)
 		)
 
  	(testing "Error in Creating a sub-class"
- 		(is (= {:summaryMap
- {:relationshipsCreated 1,
-  :containsUpdates true,
-  :nodesCreated 1,
-  :nodesDeleted 0,
-  :indexesRemoved 0,
-  :labelsRemoved 0,
-  :constraintsAdded 0,
-  :propertiesSet 5,
-  :labelsAdded 1,
-  :constraintsRemoved 0,
-  :indexesAdded 0,
-  :relationshipsDeleted 0},
- :summaryString
- "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}
+ 		(is (= {:results
+ `({:results [() ()],
+   :summary
+   {:summaryMap
+    {:relationshipsCreated 1,
+     :containsUpdates true,
+     :nodesCreated 1,
+     :nodesDeleted 0,
+     :indexesRemoved 0,
+     :labelsRemoved 0,
+     :constraintsAdded 0,
+     :propertiesSet 5,
+     :labelsAdded 1,
+     :constraintsRemoved 0,
+     :indexesAdded 0,
+     :relationshipsDeleted 0},
+    :summaryString
+    "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}),
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 1,
+   :containsUpdates true,
+   :nodesCreated 1,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 5,
+   :labelsAdded 1,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString
+  "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
+
  (createClass :className "t-db23" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true)
  		    )
  		)
@@ -174,21 +196,23 @@
 
     
     (testing "Error in creating nodes with two properties"
-    	(is (= {:summaryMap
- {:relationshipsCreated 0,
-  :containsUpdates true,
-  :nodesCreated 1,
-  :nodesDeleted 0,
-  :indexesRemoved 0,
-  :labelsRemoved 0,
-  :constraintsAdded 0,
-  :propertiesSet 7,
-  :labelsAdded 1,
-  :constraintsRemoved 0,
-  :indexesAdded 0,
-  :relationshipsDeleted 0},
- :summaryString
- "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"} 
+    	(is (= {:results [()],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates true,
+   :nodesCreated 1,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 7,
+   :labelsAdded 1,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}} 
  (createClass :className "t-db24" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"pr1" "val1" "pr2" "val2" "tag" "test"} :execute? true)
     		)
     	)
@@ -217,21 +241,41 @@
     )
 
     (testing "Creating a sub class of a class which alredy has other sub-classes"
-    	(is (= {:summaryMap
- {:relationshipsCreated 1,
-  :containsUpdates true,
-  :nodesCreated 1,
-  :nodesDeleted 0,
-  :indexesRemoved 0,
-  :labelsRemoved 0,
-  :constraintsAdded 0,
-  :propertiesSet 5,
-  :labelsAdded 1,
-  :constraintsRemoved 0,
-  :indexesAdded 0,
-  :relationshipsDeleted 0},
- :summaryString
- "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"} 
+    	(is (= {:results
+ `({:results [() ()],
+   :summary
+   {:summaryMap
+    {:relationshipsCreated 1,
+     :containsUpdates true,
+     :nodesCreated 1,
+     :nodesDeleted 0,
+     :indexesRemoved 0,
+     :labelsRemoved 0,
+     :constraintsAdded 0,
+     :propertiesSet 5,
+     :labelsAdded 1,
+     :constraintsRemoved 0,
+     :indexesAdded 0,
+     :relationshipsDeleted 0},
+    :summaryString
+    "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}),
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 1,
+   :containsUpdates true,
+   :nodesCreated 1,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 5,
+   :labelsAdded 1,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString
+  "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
+ 
  (createClass :className "t-db26" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true)
     		)
     	)
@@ -243,30 +287,46 @@
     
 
     (testing "Error in Creating a node with two parent nodes"
-    	(is (= {:results [],
+    	(is (= {:results
+ `({:results [() ()],
+   :summary
+   {:summaryMap
+    {:relationshipsCreated 2,
+     :containsUpdates true,
+     :nodesCreated 1,
+     :nodesDeleted 0,
+     :indexesRemoved 0,
+     :labelsRemoved 0,
+     :constraintsAdded 0,
+     :propertiesSet 7,
+     :labelsAdded 1,
+     :constraintsRemoved 0,
+     :indexesAdded 0,
+     :relationshipsDeleted 0},
+    :summaryString
+    "RelationshipsCreated :2 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}}),
  :summary
  {:summaryMap
-  {:relationshipsCreated 0,
-   :containsUpdates false,
-   :nodesCreated 0,
+  {:relationshipsCreated 2,
+   :containsUpdates true,
+   :nodesCreated 1,
    :nodesDeleted 0,
    :indexesRemoved 0,
    :labelsRemoved 0,
    :constraintsAdded 0,
-   :propertiesSet 0,
-   :labelsAdded 0,
+   :propertiesSet 7,
+   :labelsAdded 1,
    :constraintsRemoved 0,
    :indexesAdded 0,
    :relationshipsDeleted 0},
-  :summaryString "ContainsUpdates :false ;"}} 
+  :summaryString
+  "RelationshipsCreated :2 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}} 
   (createClass :className "t-db23" :classType "NODE" :isAbstract? true :subClassOf ["t-db24"] :properties {"pr1" "val1" "pr2" "val2" "tag" "test"} :execute? true)
     		)
     	)
 
 
     )
-
-
     (testing "Deleting all changes2"
         (is (= (select-keys {:results [()],
  :summary
@@ -292,12 +352,13 @@
     )
 
 
+
     
-	
-
-
-
-
-	
 	)
+
+
+
+
+
+
 (run-tests)

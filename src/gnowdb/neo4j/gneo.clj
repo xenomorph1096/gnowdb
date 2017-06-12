@@ -1660,6 +1660,20 @@
       builtQueries))
   )
 
+(defn getNeoConstraintsWithAT
+  "Get NeoConstraint that are applied with a particulatar AttributeType"
+  [& {:keys [:atName]}]
+  {:pre [(string? atName)]}
+  (apply concat ((gdriver/runQuery {:query (str "MATCH (neo:NeoConstraint {constraintType:\"NODEKEY\"})-[rel:NeoConstraintAppliesTo]->(cl:Class)"
+                                 " WHERE {ATT} IN rel.constraintValue"
+                                 " RETURN cl.className,neo.constraintType,neo.constraintTarget,rel.constraintValue")
+                     :parameters {"ATT" atName}}
+                    {:query (str "MATCH (neo:NeoConstraint)-[rel:NeoConstraintAppliesTo]->(cl:Class)"
+                                 " WHERE {ATT} IN rel.constraintValue and"
+                                 " neo.constraintType IN [\"UNIQUE\",\"EXISTANCE\"]"
+                                 " RETURN cl.className,neo.constraintType,neo.constraintTarget,rel.constraintValue")
+                     :parameters {"ATT" atName}}) :results)))
+
 (defn createDelATNC
   "Creates a query to remove an AttributeType in all relations with label NeoConstraintAppliesTo.
   :atName should be a string, _name of an AttributeType."
@@ -1982,7 +1996,8 @@
   -_datatype should be a string of one of the following: 'java.lang.Boolean', 'java.lang.Byte', 'java.lang.Short', 'java.lang.Integer', 'java.lang.Long', 'java.lang.Float', 'java.lang.Double', 'java.lang.Character', 'java.lang.String', 'java.util.ArrayList'.
   -subjectQualifier should be a list of strings.
   -attributeQualifier should be a list of strings.
-  -valueQualifier should be a list of strings"
+  -valueQualifier should be a list of strings.
+  CAREFUL when using forceMigrate... it will edit ALL nodes/relations with this attributeType, and automatically DROP and re-CREATE all constraints with the particular AttributeType."
   [& {:keys [:_name
              :editChanges
              :forceMigrate?
@@ -2026,8 +2041,26 @@
                                 " have "_name", use :forceMigrate? true to make functional changes to the class and it's instances automatically.")
                            )
                )
-        (let []
-          )
+        (if (contains? editChanges "_name")
+          (let [neoConstraintsWithAT (getNeoConstraintsWithAT :atName _name)
+                constraintsQueries (concat
+                                    (reduceQueryColl (map #(exemptClassNeoConstraint :execute? false
+                                                                                     :className (% "cl.className")
+                                                                                     :constraintTarget (% "neo.constraintTarget")
+                                                                                     :constraintValue (% "rel.constraintValue")
+                                                                                     :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
+                                    (reduceQueryColl (map #(applyClassNeoConstraint :execute? false
+                                                                                    :className (% "cl.className")
+                                                                                    :constraintTarget (% "neo.constraintTarget")
+                                                                                    :constraintValue (if (= (type (% "rel.constraintValue")) java.util.Collections$UnmodifiableRandomAccessList)
+                                                                                                       (editCollection :coll (into [] (% "rel.constraintValue"))
+                                                                                                                       :editType "REPLACE"
+                                                                                                                       :editVal _name
+                                                                                                                       :replaceVal (editChanges "_name"))
+                                                                                                       (editChanges "_name"))
+                                                                                    :constraintType (% "neo.constraintType")) neoConstraintsWithAT)))
+                ]
+            constraintsQueries))
         )
       )
     )

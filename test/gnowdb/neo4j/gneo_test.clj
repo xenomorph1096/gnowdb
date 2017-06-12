@@ -368,7 +368,7 @@
 
 )
 
-(deftest getAllNodes-Test
+(deftest getAllNodes-test
     (testing "Error in running the function"
         (getAllNodes)
     )
@@ -396,7 +396,76 @@
         )
 
     )
+)
 
+(deftest createNewNode-test
+    (testing "Error in creating a new node"
+        (is (= {:summaryMap
+ {:relationshipsCreated 0,
+  :containsUpdates true,
+  :nodesCreated 1,
+  :nodesDeleted 0,
+  :indexesRemoved 0,
+  :labelsRemoved 0,
+  :constraintsAdded 0,
+  :propertiesSet 2,
+  :labelsAdded 1,
+  :constraintsRemoved 0,
+  :indexesAdded 0,
+  :relationshipsDeleted 0},
+ :summaryString
+ "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :2 ;LabelsAdded :1 ;"}
+(createNewNode :label "test" :parameters {"name" "t-db1"} :execute? true :unique? true)
+            )
+        )
+
+    )
+
+    (testing "Error in creating a node with fewer arguements"
+        (is (= {:summaryMap
+ {:relationshipsCreated 0,
+  :containsUpdates true,
+  :nodesCreated 1,
+  :nodesDeleted 0,
+  :indexesRemoved 0,
+  :labelsRemoved 0,
+  :constraintsAdded 0,
+  :propertiesSet 1,
+  :labelsAdded 1,
+  :constraintsRemoved 0,
+  :indexesAdded 0,
+  :relationshipsDeleted 0},
+ :summaryString
+ "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :1 ;LabelsAdded :1 ;"} 
+ (createNewNode :label "test")
+            )
+        )
+
+    )
+
+    (testing "Deleting all changes2"
+        (is (= (select-keys {:results [()],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates true,
+   :nodesCreated 0,
+   :nodesDeleted 2,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 0,
+   :labelsAdded 0,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 1},
+  :summaryString
+  "ContainsUpdates :true ;NodesDeleted :2 ;RelationshipsDeleted :1 ;"}} [:results])
+  (select-keys (runQuery {:query "match (n:test) detach delete n" :parameters {}}) [:results]) 
+            )
+        )
+
+    )
 
 )
 

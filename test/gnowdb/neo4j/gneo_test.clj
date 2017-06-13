@@ -422,19 +422,7 @@
 )
 
 
-(deftest deleteRelations-test
 
-    (testing "Creating nodes for testing"
-        (runQuery :query "create (n:test)-[r:rel1]->(n1:test1)")
-
-    )
-
-
-  
-
-    
-
-)
 
 
 

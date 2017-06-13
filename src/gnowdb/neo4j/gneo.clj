@@ -2185,7 +2185,7 @@
           (if
               execute?
             (apply gdriver/runTransactions completeQueryVec NCQueryVec)
-            completeQueryVec	
+            (into completeQueryVec NCQueryVec)	
             )
           (gdriver/runQuery)
           )

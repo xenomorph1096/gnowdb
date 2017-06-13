@@ -61,10 +61,10 @@
 
 (deftest getNeighborhood-test
   (testing "Error in returning neighbors using only label"
-    (is (= {:labels ["test3"],
+    (is (= (select-keys {:labels ["test3"],
  :properties {"name" "t-db1"},
  :outNodes `({:labels "rel2", :properties {}, :toNode 22}),
- :inNodes ()} (getNeighborhood :label "test3" :parameters {"name" "t-db1"})
+ :inNodes `()} [:labels :properties]) (select-keys (getNeighborhood :label "test3" :parameters {"name" "t-db1"}) [:labels :properties])
       )
     )
 

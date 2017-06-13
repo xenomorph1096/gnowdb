@@ -200,7 +200,7 @@
 
 ;;General NEO4J functions start here
 
-(defn- generateUUID
+(defn generateUUID
   []
   (str (java.util.UUID/randomUUID))
   )
@@ -623,6 +623,7 @@
       )
     )
   )
+
 
 (defn getNodes
   "Get Node(s) matched by label and propertyMap"

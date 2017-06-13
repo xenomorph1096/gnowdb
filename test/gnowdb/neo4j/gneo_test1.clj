@@ -70,13 +70,6 @@
 
 
   ) 
-
-  
-
-  
-
-  
-  
   (testing "Deleting all changes"
         (is (= (select-keys {:results [()],
  :summary
@@ -101,6 +94,15 @@
 
     )
 
+  
+
+  
+
+  
+  
+  
+
 
 
 )
+

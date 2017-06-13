@@ -2,6 +2,7 @@
   (:require [liberator.core 
             :refer [defresource resource request-method-in]]
             [cheshire.core :refer :all] 
+            [gnowdb.core :refer :all]
             [gnowdb.neo4j.gneo :refer :all])) 
 (use 'clojure.walk)
  

@@ -80,41 +80,11 @@
 
      
      )
-  
-
   (testing "Deleting all changes"
-        (is (= (select-keys {:results [()],
- :summary
- {:summaryMap
-  {:relationshipsCreated 0,
-   :containsUpdates true,
-   :nodesCreated 0,
-   :nodesDeleted 2,
-   :indexesRemoved 0,
-   :labelsRemoved 0,
-   :constraintsAdded 0,
-   :propertiesSet 0,
-   :labelsAdded 0,
-   :constraintsRemoved 0,
-   :indexesAdded 0,
-   :relationshipsDeleted 1},
-  :summaryString
-  "ContainsUpdates :true ;NodesDeleted :2 ;RelationshipsDeleted :1 ;"}} [:results])
-  (select-keys (runQuery {:query "match (n:test),(n1:test1),(n3:test3) detach delete n,n1,n3" :parameters {}}) [:results]) 
-            )
-        )
+        (runQuery {:query "match (n:test),(n1:test1),(n3:test3) detach delete n,n1,n3" :parameters {}})
 
     )
-
-
-
-
   
-
-
-  
-    
-
   )
 
 
@@ -443,31 +413,29 @@
 
     )
 
-    (testing "Deleting all changes2"
-        (is (= (select-keys {:results [()],
- :summary
- {:summaryMap
-  {:relationshipsCreated 0,
-   :containsUpdates true,
-   :nodesCreated 0,
-   :nodesDeleted 2,
-   :indexesRemoved 0,
-   :labelsRemoved 0,
-   :constraintsAdded 0,
-   :propertiesSet 0,
-   :labelsAdded 0,
-   :constraintsRemoved 0,
-   :indexesAdded 0,
-   :relationshipsDeleted 1},
-  :summaryString
-  "ContainsUpdates :true ;NodesDeleted :2 ;RelationshipsDeleted :1 ;"}} [:results])
-  (select-keys (runQuery {:query "match (n:test) detach delete n" :parameters {}}) [:results]) 
-            )
-        )
+
+
+
+
+
+
+)
+
+
+(deftest deleteRelations-test
+
+    (testing "Creating nodes for testing"
+        (runQuery :query "create (n:test)-[r:rel1]->(n1:test1)")
 
     )
 
+
+  
+
+    
+
 )
+
 
 
 

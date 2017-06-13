@@ -142,16 +142,19 @@
   "Creates a property rename string.
   eg.., WHERE varName.prop1R is null and varName.prop2R is null .. SET varName.prop1R=varName.prop1, varName.prop1R=varName.prop1 REMOVE varName.prop1 ,varName.prop2
   :varName should be a string representing node/relation variable.
-  :renameMap should be a map with keys as propertyNames and values as newNames"
+  :renameMap should be a map with keys as propertyNames and values as newNames.
+  :addWhere? boolean, whether the keyword WHERE is to be included"
   [& {:keys [:varName
-             :renameMap]}]
+             :renameMap
+             :addWhere?]
+      :or {:addWhere? true}}]
   {:pre [(string? varName)
          (not (empty? renameMap))
          (every? string? (keys renameMap))
          (every? string? (vals renameMap))
          ]
    }
-  (str "WHERE " (clojure.string/join " and "
+  (str (if addWhere? "WHERE ") (clojure.string/join " and "
                                      (map #(str varName"."%" is null")
                                           (vals renameMap)
                                           )
@@ -2019,7 +2022,8 @@
                                       :parameters {"_name" _name}
                                       :changeMap editChanges
                                       :execute? false)
-        ATClasses (getATClasses :_name _name)]
+        ATClasses (getATClasses :_name _name)
+        ATClassNames (map #(((% "n") :properties) "className") ATClasses)]
     (if (or (empty? ATClasses)
             (clojure.set/subset?
              (into #{} (keys editChanges))
@@ -2059,8 +2063,19 @@
                                                                                                                        :replaceVal (editChanges "_name"))
                                                                                                        (editChanges "_name"))
                                                                                     :constraintType (% "neo.constraintType")) neoConstraintsWithAT)))
+                 dataEditQueries   [(createReplaceATNC :atName _name
+                                                      :renameName (editChanges "_name"))
+                                   (createReplaceATCC :atName _name
+                                                      :renameName (editChanges "_name"))
+                                   {:query (str "MATCH (node) WHERE "
+                                                (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
+                                                " AND "(createRenameString :addWhere? false
+                                                                           :varName "node"
+                                                                           :renameMap {_name (editChanges "_name")}))
+                                    :parameters {}}]
                 ]
-            constraintsQueries))
+            {:constraintsQueries constraintsQueries
+             :dataEditQueries dataEditQueries}))
         )
       )
     )

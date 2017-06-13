@@ -63,8 +63,8 @@
   (testing "Error in returning neighbors using only label"
     (is (= {:labels ["test3"],
  :properties {"name" "t-db1"},
- :outNodes `({:labels "rel2", :properties {}, :toNode 13}),
- :inNodes `()} (getNeighborhood :label "test3" :parameters {"name" "t-db1"})
+ :outNodes `({:labels "rel2", :properties {}, :toNode 22}),
+ :inNodes ()} (getNeighborhood :label "test3" :parameters {"name" "t-db1"})
       )
     )
 
@@ -93,16 +93,6 @@
         )
 
     )
-
-  
-
-  
-
-  
-  
-  
-
-
 
 )
 

@@ -252,51 +252,12 @@
 
     )
 
+    
+
 
 
     
 
-    (testing "Error in Creating a node with two parent nodes"
-      (is (= {:results
- `({:results [() ()],
-   :summary
-   {:summaryMap
-    {:relationshipsCreated 2,
-     :containsUpdates true,
-     :nodesCreated 1,
-     :nodesDeleted 0,
-     :indexesRemoved 0,
-     :labelsRemoved 0,
-     :constraintsAdded 0,
-     :propertiesSet 7,
-     :labelsAdded 1,
-     :constraintsRemoved 0,
-     :indexesAdded 0,
-     :relationshipsDeleted 0},
-    :summaryString
-    "RelationshipsCreated :2 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}}),
- :summary
- {:summaryMap
-  {:relationshipsCreated 2,
-   :containsUpdates true,
-   :nodesCreated 1,
-   :nodesDeleted 0,
-   :indexesRemoved 0,
-   :labelsRemoved 0,
-   :constraintsAdded 0,
-   :propertiesSet 7,
-   :labelsAdded 1,
-   :constraintsRemoved 0,
-   :indexesAdded 0,
-   :relationshipsDeleted 0},
-  :summaryString
-  "RelationshipsCreated :2 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}} 
-  (createClass :className "t-db23" :classType "NODE" :isAbstract? true :subClassOf ["t-db24"] :properties {"pr1" "val1" "pr2" "val2" "tag" "test"} :execute? true)
-        )
-      )
-
-
-    )
 
     (testing "Deleting all changes2"
         (is (= (select-keys {:results [()],

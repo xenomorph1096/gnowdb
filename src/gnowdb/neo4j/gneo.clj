@@ -1166,6 +1166,16 @@
                         "java.lang.String",
                         "java.util.ArrayList"})
 
+(def defaultDatatypeValues {"java.lang.Boolean" false
+                            "java.lang.Byte" (byte 0)
+                            "java.lang.Short" (short 0)
+                            "java.lang.Integer" (int 0)
+                            "java.lang.Long" (long 0)
+                            "java.lang.Float" (float 0)
+                            "java.lang.Double" (double 0)
+                            "java.lang.Character" (char 0)
+                            "java.lang.String" ""
+                            "java.util.ArrayList" []})
 
 (defn createCustomFunction
   "Creates a customFunction.
@@ -1882,6 +1892,27 @@
                   :execute? execute?)
   )
 
+(defn createReplaceATCC
+  "Creates a query to replace an AttributeType in all relations with label CustomConstraintAppliesTo.
+  :atName should be a string, _name of an AttributeType.
+  :renameName should be a string, replacement _name"
+  [& {:keys [:atName
+             :renameName]}]
+  {:pre [(string? atName)
+         (string? renameName)]}
+  (let [propertyMap {"ATT" atName "att" renameName}]
+    {:query (str "MATCH (cc:CustomConstraint)-[rel:CustomConstraintAppliesTo]->(cl:Class)"
+                 " WHERE {ATT} IN cc.atList"
+                 " "(createPropListEditString :varName "rel"
+                                              :propName "atList"
+                                              :editType "REPLACE"
+                                              :editVal "ATT"
+                                              :replaceVal "att"
+                                              :withWhere? false)
+                 )
+     :parameters propertyMap})
+  )
+
 (defn addSubTypeVRQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass NeoConstraints to the subclass"
@@ -2000,7 +2031,9 @@
   -subjectQualifier should be a list of strings.
   -attributeQualifier should be a list of strings.
   -valueQualifier should be a list of strings.
-  CAREFUL when using forceMigrate... it will edit ALL nodes/relations with this attributeType, and automatically DROP and re-CREATE all constraints with the particular AttributeType."
+  CAREFUL when using forceMigrate... it will edit ALL nodes/relations with this attributeType, and automatically DROP and re-CREATE all constraints with the particular AttributeType.
+  Currently will not check if there is actually a change in the AttributeType.
+  If _datatype is a key in :editChanges, it will change the corresponding value in class instances to the default value, even though _datatype is the same."
   [& {:keys [:_name
              :editChanges
              :forceMigrate?
@@ -2016,6 +2049,8 @@
                                 "subjectQualifier"
                                 "attributeQualifier"
                                 "valueQualifier"})
+         (or (not (contains? editChanges "_name")) (and (contains? editChanges "_name") (string? (editChanges "_name"))))
+         (or (not (contains? editChanges "_datatype")) (and (contains? editChanges "_datatype") (contains? validATDatatypes (editChanges "_datatype"))))
          ]
    }
   (let [editQuery (editNodeProperties :label "AttributeType"
@@ -2045,37 +2080,69 @@
                                 " have "_name", use :forceMigrate? true to make functional changes to the class and it's instances automatically.")
                            )
                )
-        (if (contains? editChanges "_name")
-          (let [neoConstraintsWithAT (getNeoConstraintsWithAT :atName _name)
-                constraintsQueries (concat
-                                    (reduceQueryColl (map #(exemptClassNeoConstraint :execute? false
-                                                                                     :className (% "cl.className")
-                                                                                     :constraintTarget (% "neo.constraintTarget")
-                                                                                     :constraintValue (% "rel.constraintValue")
-                                                                                     :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
-                                    (reduceQueryColl (map #(applyClassNeoConstraint :execute? false
-                                                                                    :className (% "cl.className")
-                                                                                    :constraintTarget (% "neo.constraintTarget")
-                                                                                    :constraintValue (if (= (type (% "rel.constraintValue")) java.util.Collections$UnmodifiableRandomAccessList)
-                                                                                                       (editCollection :coll (into [] (% "rel.constraintValue"))
-                                                                                                                       :editType "REPLACE"
-                                                                                                                       :editVal _name
-                                                                                                                       :replaceVal (editChanges "_name"))
-                                                                                                       (editChanges "_name"))
-                                                                                    :constraintType (% "neo.constraintType")) neoConstraintsWithAT)))
-                 dataEditQueries   [(createReplaceATNC :atName _name
-                                                      :renameName (editChanges "_name"))
-                                   (createReplaceATCC :atName _name
-                                                      :renameName (editChanges "_name"))
-                                   {:query (str "MATCH (node) WHERE "
-                                                (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
-                                                " AND "(createRenameString :addWhere? false
-                                                                           :varName "node"
-                                                                           :renameMap {_name (editChanges "_name")}))
-                                    :parameters {}}]
-                ]
-            {:constraintsQueries constraintsQueries
-             :dataEditQueries dataEditQueries}))
+        (let [nameChangeQueries (if (contains? editChanges "_name")
+                                  (let [neoConstraintsWithAT (getNeoConstraintsWithAT :atName _name)
+                                        constraintDropQueries 
+                                                            (reduceQueryColl (map #(exemptClassNeoConstraint :execute? false
+                                                                                                             :className (% "cl.className")
+                                                                                                             :constraintTarget (% "neo.constraintTarget")
+                                                                                                             :constraintValue (% "rel.constraintValue")
+                                                                                                             :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
+                                        constraintCreateQueries (reduceQueryColl (map #(applyClassNeoConstraint :execute? false
+                                                                                                            :className (% "cl.className")
+                                                                                                            :constraintTarget (% "neo.constraintTarget")
+                                                                                                            :constraintValue (if (= (type (% "rel.constraintValue")) java.util.Collections$UnmodifiableRandomAccessList)
+                                                                                                                               (editCollection :coll (into [] (% "rel.constraintValue"))
+                                                                                                                                               :editType "REPLACE"
+                                                                                                                                               :editVal _name
+                                                                                                                                               :replaceVal (editChanges "_name"))
+                                                                                                                               (editChanges "_name"))
+                                                                                                            :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
+                                        dataEditQueries   [(createReplaceATNC :atName _name
+                                                                              :renameName (editChanges "_name"))
+                                                           (createReplaceATCC :atName _name
+                                                                              :renameName (editChanges "_name"))
+                                                           {:query (str "MATCH (node) WHERE "
+                                                                        (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
+                                                                        " AND "(createRenameString :addWhere? false
+                                                                                                   :varName "node"
+                                                                                                   :renameMap {_name (editChanges "_name")}))
+                                                            :parameters {}}]
+                                        ]
+                                    {:constraintDropQueries constraintDropQueries
+                                     :constraintCreateQueries constraintCreateQueries
+                                     :dataEditQueries dataEditQueries})
+                                  {:constraintDropQueries []
+                                   :constraintCreateQueries []
+                                   :dataEditQueries []}
+                                  )
+              datatypeChangeQueries (if (contains? editChanges "_datatype")
+                                      (let [dataEditQueries [{:query (str "MATCH (node) WHERE "
+                                                                          (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
+                                                                          " SET node."(or (editChanges "_name") _name)" = {defVal}")
+                                                              :parameters {"defVal" (defaultDatatypeValues (editChanges "_datatype"))}}]]
+                                        {:constraintDropQueries []
+                                         :constraintCreateQueries []
+                                         :dataEditQueries dataEditQueries})
+                                      {:constraintDropQueries []
+                                       :constraintCreateQueries []
+                                       :dataEditQueries []})]
+          (let [constraintDropQueries (concat (nameChangeQueries :constraintDropQueries)
+                                              (datatypeChangeQueries :constraintDropQueries))
+                dataEditQueries (conj (concat (nameChangeQueries :dataEditQueries)
+                                              (datatypeChangeQueries :dataEditQueries))
+                                      editQuery)
+                constraintCreateQueries (concat (nameChangeQueries :constraintCreateQueries)
+                                                (datatypeChangeQueries :constraintCreateQueries))]
+            (if
+                execute?
+              (do
+                (gdriver/runTransactions constraintDropQueries dataEditQueries constraintCreateQueries)
+                )
+              {:constraintDropQueries constraintDropQueries
+               :dataEditQueries dataEditQueries
+               :constraintCreateQueries constraintCreateQueries}))
+          )
         )
       )
     )

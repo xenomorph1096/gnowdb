@@ -521,6 +521,28 @@
 							:toNodeParameters {"GDB_DisplayName" username})
 )
 
+(defn resourceExists
+	"Returns true if given workspace contains the given resource else false"
+	[& {:keys [:resourceIDMap :resourceClass :workspaceName :workspaceClass]}]
+	(let [workspaces
+		(map #(((% :end) :properties) "GDB_DisplayName")
+			(gneo/getRelations 	:fromNodeLabel [resourceClass]
+								:fromNodeParameters resourceIDMap
+								:relationshipType "GDB_MemberOfWorkspace"
+								:toNodeLabel [workspaceClass]
+								:nodeInfo? true
+			)
+		)]
+		(if (empty? workspaces)
+			false 
+			(if (.contains workspaces workspaceName)
+				true
+				false
+			)
+		)
+	)
+)
+
 (defn init
   []
   (prepareNodeClass)

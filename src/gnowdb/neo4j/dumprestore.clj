@@ -13,8 +13,13 @@
                                               }
             }
   )
-  (map #(spit (str filePath ".cypher") (str "CREATE " (% "description") "\n") :append true) (first ((gdriver/runQuery {:query "CALL db.constraints()" :parameters {}}) :results)))
-  ; nil
+  ;This takes db.constraints() and converts it into runnable cypher script!
+  (map #(spit (str filePath ".cypher") (if (clojure.string/includes? (% "description") "IS NODE KEY")
+                                          (str "CREATE " (clojure.string/replace (% "description") #"\b([\w:()\s]+)ASSERT\s([\w:.\s]+) IS NODE KEY"  "$1ASSERT ($2) IS NODE KEY") "\n") 
+                                          (str "CREATE " (% "description") "\n")
+                                        ) 
+          :append true) 
+    (first ((gdriver/runQuery {:query "CALL db.constraints()" :parameters {}}) :results)))
 )
 
 (defn restore

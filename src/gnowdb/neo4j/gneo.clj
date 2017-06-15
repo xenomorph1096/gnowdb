@@ -188,7 +188,7 @@
   (case editType
     "APPEND" (conj coll editVal)
     "DELETE" (remove #(= editVal %) coll)
-    "REPLACE" (conj (remove #(= editVal %) coll) replaceVal)
+    "REPLACE" (concat (remove #(= editVal %) coll) [replaceVal])
     )
   )
 
@@ -1674,7 +1674,7 @@
   )
 
 (defn getNeoConstraintsWithAT
-  "Get NeoConstraint that are applied with a particulatar AttributeType"
+  "Get NeoConstraint that are applied with a particular AttributeType"
   [& {:keys [:atName]}]
   {:pre [(string? atName)]}
   (apply concat ((gdriver/runQuery {:query (str "MATCH (neo:NeoConstraint {constraintType:\"NODEKEY\"})-[rel:NeoConstraintAppliesTo]->(cl:Class)"
@@ -2025,15 +2025,19 @@
 
 (defn editAttributeType
   "Edit an attributeType.
-  :editChanges should be a map with at least one of the following keys :
-  -_name should be a string
-  -_datatype should be a string of one of the following: 'java.lang.Boolean', 'java.lang.Byte', 'java.lang.Short', 'java.lang.Integer', 'java.lang.Long', 'java.lang.Float', 'java.lang.Double', 'java.lang.Character', 'java.lang.String', 'java.util.ArrayList'.
-  -subjectQualifier should be a list of strings.
-  -attributeQualifier should be a list of strings.
-  -valueQualifier should be a list of strings.
+  `:editChanges` should be a map with at least one of the following keys :
+  -`_name` should be a string
+  -`_datatype` should be a string of one of the following: 'java.lang.Boolean', 'java.lang.Byte', 'java.lang.Short', 'java.lang.Integer', 'java.lang.Long', 'java.lang.Float', 'java.lang.Double', 'java.lang.Character', 'java.lang.String', 'java.util.ArrayList'.
+  -`subjectQualifier` should be a list of strings.
+  -`attributeQualifier` should be a list of strings.
+  -`valueQualifier` should be a list of strings.
   CAREFUL when using forceMigrate... it will edit ALL nodes/relations with this attributeType, and automatically DROP and re-CREATE all constraints with the particular AttributeType.
   Currently will not check if there is actually a change in the AttributeType.
-  If _datatype is a key in :editChanges, it will change the corresponding value in class instances to the default value, even though _datatype is the same."
+  If _datatype is a key in `:editChanges`, it will change the corresponding value in class instances to the default value, even though _datatype is the same.
+Using `:forceMigrate?` in editAttributeType is not advised when there are too many instances and constraints with the attributeType ... It would take WAYYY too much time.
+Also, when changing _datatype, if the AttributeType has some unique/nodekey constraint, the instances of the AT will not be edited, as the default values are non-unique.
+But, if _name and _datatype is being changed together, the instances will be updated, but the new constraints will not be created.
+One must manually edit all the instances to fit the constraints and then call `applyClassNeoConstraints` with the approproate `:className`"
   [& {:keys [:_name
              :editChanges
              :forceMigrate?
@@ -2077,7 +2081,7 @@
                                                     "className")
                                                   ATClasses)
                                              )
-                                " have "_name", use :forceMigrate? true to make functional changes to the class and it's instances automatically.")
+                                " have `"_name"`, use `:forceMigrate?` true to make functional changes to the class and it's instances automatically.")
                            )
                )
         (let [nameChangeQueries (if (contains? editChanges "_name")
@@ -2136,9 +2140,8 @@
                                                 (datatypeChangeQueries :constraintCreateQueries))]
             (if
                 execute?
-              (do
-                (gdriver/runTransactions constraintDropQueries dataEditQueries constraintCreateQueries)
-                )
+              ;; (apply gdriver/runQuery constraintDropQueries)
+              (gdriver/runTransactions constraintDropQueries dataEditQueries constraintCreateQueries)
               {:constraintDropQueries constraintDropQueries
                :dataEditQueries dataEditQueries
                :constraintCreateQueries constraintCreateQueries}))

@@ -229,7 +229,7 @@
 
 ;;General NEO4J functions start here
 
-(defn- generateUUID
+(defn generateUUID
   []
   (str (java.util.UUID/randomUUID))
   )
@@ -653,6 +653,7 @@
       )
     )
   )
+
 
 (defn getNodes
   "Get Node(s) matched by label and propertyMap"
@@ -2416,7 +2417,7 @@ One must manually edit all the instances to fit the constraints and then call `a
 			)
         ]
     (if (not (empty? subClassOf))
-                                        ;"Adds the attributes,NeoConstraints,CustomConstraints and ApplicableRelationNTs of the superclass to the subclass"
+    ;"Adds the attributes,NeoConstraints,CustomConstraints and ApplicableRelationNTs of the superclass to the subclass"
       (let
           [completeQueryVec (vec
                              (concat [createNewNodeQuery]
@@ -2440,7 +2441,7 @@ One must manually edit all the instances to fit the constraints and then call `a
           (if
               execute?
             (apply gdriver/runTransactions completeQueryVec NCQueryVec)
-            completeQueryVec	
+            (into completeQueryVec NCQueryVec)	
             )
           (gdriver/runQuery)
           )
@@ -2471,9 +2472,10 @@ One must manually edit all the instances to fit the constraints and then call `a
     (if
         execute?
       (apply gdriver/runTransactions builtQueries)
-      builtQueries)
+      builtQueries
     )
   )
+)
 
 (defn validatePropertyMaps
   "Validates propertyMaps for a class with className.

@@ -4,6 +4,8 @@
   			[gnowdb.neo4j.gneo :as gneo]
             [gnowdb.neo4j.gdriver :as gdriver]
             [gnowdb.neo4j.gcust :as gcust]
+            [gnowdb.neo4j.dumprestore :as dumprestore]
+            [gnowdb.spec.files :as files]
             [gnowdb.spec.init :as init]
             [async-watch.core :refer [changes-in cancel-changes]]))
 
@@ -29,6 +31,8 @@
 		 ;Add readbackfunctions here with the desired data
 		(gdriver/getNeo4jDBDetails details)
 		(gcust/getCustomPassword details)
+		(dumprestore/getBackupDirectory details)
+		(files/getDataDirectory details)
 	)
 )
 
@@ -40,6 +44,7 @@
                  :username "neo4j"
                  :password "neo"
                  :customFunctionPassword "password"
+                 :backup-directory "backups"
                  }
         ]
 	  	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))

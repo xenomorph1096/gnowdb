@@ -6,6 +6,8 @@ pom.xml.asc
 /target/
 /checkouts/
 /src/gnowdb/neo4j/gconf.clj
+/neo4j/data/
+backups/
 .lein-deps-sum
 .lein-repl-history
 .lein-plugins/

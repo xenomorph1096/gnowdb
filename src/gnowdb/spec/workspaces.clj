@@ -57,6 +57,16 @@
   nil
 )
 
+(defn- generateUHRID
+	[& {:keys [resourceUHRID workspaceName]}]
+	(str workspaceName "/" resourceUHRID)
+)
+
+(defn- deleteWorkspaceFromUHRID
+	[& {:keys [resourceUHRID workspaceName]}]
+	(clojure.string/replace resourceUHRID (str workspaceName "/") "")
+)
+
 (defn instantiateGroupWorkspace
   "Creates Group Workspaces
     :groupType can be Public, Private or Anonymous
@@ -74,6 +84,7 @@
 																							"GDB_ModifiedAt" (.toString (new java.util.Date))
 																							"GDB_CreatedAt" (.toString (new java.util.Date))
 																							"GDB_Description" description
+																		;					"GDB_UHRID" (generateUHRID :resourceUHRID displayName :workspaceName displayName)
 																						}]
 		)
 	)
@@ -136,6 +147,7 @@
 																							"GDB_ModifiedAt" (.toString (new java.util.Date))
 																							"GDB_CreatedAt" (.toString (new java.util.Date))
 																							"GDB_Description" description
+																			;				"GDB_UHRID" (generateUHRID :resourceUHRID displayName :workspaceName displayName)
 																						}]
 		)
 	)
@@ -185,6 +197,7 @@
                                             "GDB_ModifiedAt" (.toString (new java.util.Date))
                                             "GDB_CreatedAt" (.toString (new java.util.Date))
                                             "GDB_Description" ""
+                                        ;    "GDB_UHRID" (generateUHRID :resourceUHRID "HOME" :workspaceName "HOME")
                                           }]
   )
   (gneo/createNodeClassInstances :className "GDB_PersonalWorkspace" :nodeList   [{
@@ -195,6 +208,7 @@
                                             "GDB_ModifiedAt" (.toString (new java.util.Date))
                                             "GDB_CreatedAt" (.toString (new java.util.Date))
                                             "GDB_Description" ""
+                                         ;   "GDB_UHRID" (generateUHRID :resourceUHRID "ADMIN" :workspaceName "ADMIN")
                                           }]
   )
   (instantiateGroupWorkspace :displayName "HOME" :relationshipsOnly? true)
@@ -326,6 +340,14 @@
                                                       :propertyMap {}
                                                     }]
   )
+
+  ; (let [resourceUHRID
+	 ;  	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
+	 ;  (gneo/editNodeProperties 	:label resourceClass 
+	 ;  							:parameters resourceIDMap 
+	 ;  							:changeMap {"GDB_UHRID" (generateUHRID 	:resourceUHRID resourceUHRID 
+	 ;  																	:workspaceName groupName)})
+  ; )
   (editLastModified :editor username :groupName groupName)
 )
 
@@ -345,6 +367,10 @@
                                             }]
   )
   (editLastModified :editor username :groupName groupName) 
+)
+
+(defn publishAllowed?
+	[& {:keys [:resourceIDMap :resourceClass :groupName]}]
 )
 
 (defn crossPublishAllowed?
@@ -442,6 +468,13 @@
                                               :propertyMap {}
                                           }]
   )
+  ; (let [resourceUHRID
+	 ;  	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
+	 ;  (gneo/editNodeProperties 	:label resourceClass 
+	 ;  							:parameters resourceIDMap 
+	 ;  							:changeMap {"GDB_UHRID" (generateUHRID 	:resourceUHRID resourceUHRID 
+	 ;  																	:workspaceName username)})
+  ; )
 )
 
 (defn publishPendingResource
@@ -464,6 +497,12 @@
 							:relationshipType "GDB_MemberOfWorkspace" 
 							:toNodeLabel ["GDB_GroupWorkspace"] 
 							:toNodeParameters {"GDB_DisplayName" groupName})
+	; (let [resourceUHRID
+	;   	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
+	;   	(gneo/editNodeProperties 	:label resourceClass 
+	; 	  							:parameters resourceIDMap 
+	; 	  							:changeMap {"GDB_UHRID" (deleteWorkspaceFromUHRID :resourceUHRID resourceUHRID :workspaceName groupName)})
+ ;  	)
 	(editLastModified :editor username :groupName groupName) 
 )
 
@@ -519,6 +558,12 @@
 							:relationshipType "GDB_LastModifiedBy" 
 							:toNodeLabel ["GDB_PersonalWorkspace"] 
 							:toNodeParameters {"GDB_DisplayName" username})
+	; (let [resourceUHRID
+	;   	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
+	;   	(gneo/editNodeProperties 	:label resourceClass 
+	; 	  							:parameters resourceIDMap 
+	; 	  							:changeMap {"GDB_UHRID" (deleteWorkspaceFromUHRID :resourceUHRID resourceUHRID :workspaceName username)})
+ ;  	)
 )
 
 (defn resourceExists

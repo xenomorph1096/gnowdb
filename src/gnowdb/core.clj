@@ -5,6 +5,7 @@
             [gnowdb.neo4j.gdriver :as gdriver]
             [gnowdb.neo4j.gcust :as gcust]
             [gnowdb.neo4j.dumprestore :as dumprestore]
+            [gnowdb.spec.files :as files]
             [gnowdb.spec.init :as init]
             [async-watch.core :refer [changes-in cancel-changes]]))
 
@@ -31,6 +32,7 @@
 		(gdriver/getNeo4jDBDetails details)
 		(gcust/getCustomPassword details)
 		(dumprestore/getBackupDirectory details)
+		(files/getDataDirectory details)
 	)
 )
 

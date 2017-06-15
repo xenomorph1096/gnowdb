@@ -10,6 +10,13 @@
   )
 )
 
+(defn getDataDirectory
+	[details]
+	(def ^{:private true} dataDir 
+		(details :data-directory)
+	)
+)
+
 (defn- createFileClass
 	[] 
 	(gneo/createClass :className "GDB_File" :classType "NODE" :isAbstract? false :subClassOf ["GDB_Node"] :properties {} :execute? true)
@@ -27,50 +34,44 @@
 	;(gneo/addClassAT :_atname "GDB_FileID" :className "GDB_File" :execute? true)
 )
 
-(defn- mkdir
-	"filePath e.g. 1/2/3"
-	[filePath]
-	(sh "mkdir -p" filePath)
-)
-
-(defn- copyFile
-	[srcPath destPath]
-	(sh "cp" srcPath destPath)
-)
-
-(defn- copyFileToDir
-	[srcPath filePath]
-	(mkdir filePath)
-	(copyFile srcPath filePath)
-	)
-
 (defn- derivePath
-	[GDB_MD5]
+	"Derives the file path(e.g.1/2/3) where the file is to be stored inside the data directory"
+	[& {:keys [:GDB_MD5]}]
 	(let [last3DigitString (subs GDB_MD5 (- (count GDB_MD5) 3)) 
 		  filePath (str (subs last3DigitString 2 3) "/" (subs last3DigitString 1 2) "/" (subs last3DigitString 0 1))]
-		  filePath
+		  (str dataDir "/" filePath)
 	)
 )
 
-(defn- removeFilefromDirectory
-	[fileName]
-	(sh "rm" (str (derivePath (digest/md5 fileName)) "/" fileName))
+(defn- copyFileToDataDir
+	"Copies a file from the source folder to data folder."
+	[& {:keys [:filePath :srcPath]}]
+	(sh "mkdir" "-p" filePath)
+	(sh "cp" srcPath filePath)
 )
 
-(defn- getMetaData 
-	[filePath]
-	(extract/parse filePath)
+(defn- removeFilefromDataDir
+	"Removes a file from the data directory."
+	[& {:keys [:GDB_MD5 :fileName]}]
+	(sh "rm" (str (derivePath :GDB_MD5 GDB_MD5) "/" fileName))
+)
+
+(defn generateMD5 
+	"Generates MD5 hash using the source path of the file."
+	[& {:keys [:filePath]}]
+	(digest/md5 ((extract/parse filePath) :text))
 )
 
 (defn- deriveFileName
-	[filePath]
+	"Derives the filename from the given path of the file."
+	[& {:keys [:filePath]}]
 	(subs filePath (inc (clojure.string/last-index-of filePath "/")))
 )
 
 (defn fileExists
 	"Returns true if the given workspace contains the file else false"
-	[& {:keys [:fileName :workspaceName :workspaceClass]}]
-	(workspaces/resourceExists :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File" :workspaceClass workspaceClass :workspaceName workspaceName)
+	[& {:keys [:GDB_MD5 :workspaceName :workspaceClass]}]
+	(workspaces/resourceExists :resourceIDMap {"GDB_MD5" GDB_MD5} :resourceClass "GDB_File" :workspaceClass workspaceClass :workspaceName workspaceName)
 )
 
 (defn createFileInstance 
@@ -81,15 +82,18 @@
 	  if PersonalWorkspace of author already contains the file then the file instance is not created.
 	  if GroupWorkspace already contains the file then the file is not published to that group."
 	[& {:keys[:fileSrcPath :author :memberOfWorkspace] :or {:author "ADMIN" :memberOfWorkspace []}}]
-	(let [fileName (deriveFileName fileSrcPath) filePath (derivePath (digest/md5 fileName))]
-		(if (not (fileExists :fileName fileName :workspaceName author :workspaceClass "GDB_PersonalWorkspace"))
+	(let [	fileName (deriveFileName :filePath fileSrcPath) 
+			GDB_MD5 (generateMD5 :filePath fileSrcPath)
+			filePath (derivePath :GDB_MD5 GDB_MD5)]
+		(if (not (fileExists :GDB_MD5 GDB_MD5 :workspaceName author :workspaceClass "GDB_PersonalWorkspace"))
 			(do
+				(println filePath)
 				(gneo/createNodeClassInstances :className "GDB_File" :nodeList 	[{
 																					"GDB_DisplayName" fileName 
 																					"GDB_Extension" (subs fileName (inc (clojure.string/last-index-of fileName ".")))
-																					"GDB_Size" (.length (java.io.File. filePath))
+																					"GDB_Size" (.length (java.io.File. fileSrcPath))
 																					"GDB_Path" filePath
-																					"GDB_MD5" (digest/md5 fileName)
+																					"GDB_MD5" GDB_MD5
 																				;	"GDB_FileID" 
 																					"GDB_MimeType" (mime-type-of (str fileName))
 																					"GDB_ModifiedAt" (.toString (new java.util.Date (.lastModified (java.io.File. filePath))))
@@ -98,7 +102,7 @@
 				)
 				(gneo/createRelationClassInstances :className "GDB_CreatedBy" :relList 	[{
 																							:fromClassName "GDB_File"
-																							:fromPropertyMap {"GDB_DisplayName" fileName}
+																							:fromPropertyMap {"GDB_MD5" GDB_MD5}
 																							:toClassName "GDB_PersonalWorkspace"
 																							:toPropertyMap {"GDB_DisplayName" author}
 																							:propertyMap {}
@@ -106,18 +110,18 @@
 				)
 				(gneo/createRelationClassInstances :className "GDB_LastModifiedBy" :relList [{
 																								:fromClassName "GDB_File"
-																								:fromPropertyMap {"GDB_DisplayName" fileName}
+																								:fromPropertyMap {"GDB_MD5" GDB_MD5}
 																								:toClassName "GDB_PersonalWorkspace"
 																								:toPropertyMap {"GDB_DisplayName" author}
 																								:propertyMap {}
 																							}]
 				)
-				(workspaces/publishToPersonalWorkspace :username author :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File")
+				(workspaces/publishToPersonalWorkspace :username author :resourceIDMap {"GDB_MD5" GDB_MD5} :resourceClass "GDB_File")
 				(if (not (empty? memberOfWorkspace))
 					(
 						map (fn [groupName]
 								(if (not (fileExists :fileName fileName :workspaceName groupName :workspaceClass "GDB_GroupWorkspace"))
-									(workspaces/publishToGroup :username author :groupName groupName :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File")
+									(workspaces/publishToGroup :username author :groupName groupName :resourceIDMap {"GDB_MD5" GDB_MD5} :resourceClass "GDB_File")
 							 	)
 						 	)
 						memberOfWorkspace
@@ -130,42 +134,49 @@
 )
 
 (defn deleteFileFromGroupWorkspace
-	"Delete a file from given workspace"
-	[& {:keys [:username :groupName :fileName]}]
+	"Deletes a file from given group workspace"
+	[& {:keys [:username :groupName :GDB_MD5]}]
 	(
-		workspaces/deleteFromGroup :username username :groupName groupName :resourceIDMap {"GDB_DisplayName" fileName} :resourceClass "GDB_File"
+		workspaces/deleteFromGroup 	:username username 
+									:groupName groupName 
+									:resourceIDMap {"GDB_MD5" GDB_MD5} 
+									:resourceClass "GDB_File"
 	)
 )
 
 (defn deleteFileFromPersonalWorkspace
-	"Delete a file from given workspace"
-	[& {:keys [:username :fileName]}]
+	"Deletes a file from given personal workspace"
+	[& {:keys [:username :GDB_MD5]}]
 	(
-		workspaces/deleteFromPersonalWorkspace :username username :resourceClass "GDB_File" :resourceIDMap {"GDB_DisplayName" fileName}
+		workspaces/deleteFromPersonalWorkspace 	:username username 
+												:resourceClass "GDB_File" 
+												:resourceIDMap {"GDB_MD5" GDB_MD5}
 	)
 )
 
 (defn deleteFileInstance
-	"Delete a file instance"
-	[fileName]
+	"Deletes a file instance"
+	[& {:keys[:GDB_MD5]}]
 	(
 		gneo/deleteDetachNodes 	:label "GDB_File" 
-								:parameters {"GDB_DisplayName" fileName}
+								:parameters {"GDB_MD5" GDB_MD5}
 	)
 )
 
 (defn addFileToDB
-	"Add a file to the database"
-	[& {:keys[:fileSrcPath :author :memberOfWorkspace]}]
+	"Adds a file to the database"
+	[& {:keys[:fileSrcPath :author :memberOfWorkspace]:or {:memberOfWorkspace []}}]
 	(createFileInstance :fileSrcPath fileSrcPath :author author :memberOfWorkspace memberOfWorkspace)
-	(copyFileToDir fileSrcPath (derivePath (digest/md5 (deriveFileName fileSrcPath))))
+	(copyFileToDataDir :srcPath fileSrcPath :filePath (derivePath :GDB_MD5 (generateMD5 :filePath fileSrcPath)))
 )
 
 (defn removeFileFromDB
-	"Delete a file from the database"
-	[fileName]
-	(deleteFileInstance fileName)
-	(removeFilefromDirectory fileName)
+	"Deletes a file from the database"
+	[& {:keys[:GDB_MD5]}]
+	(let [fileName (((first (gneo/getNodes :label "GDB_File" :parameters {"GDB_MD5" GDB_MD5})) :properties) "GDB_DisplayName")]
+		(deleteFileInstance :GDB_MD5 GDB_MD5)
+		(removeFilefromDataDir :GDB_MD5 GDB_MD5 :fileName fileName)
+	)
 )
 	
 (defn init
@@ -174,4 +185,3 @@
 )
 
 
-;;;;Task left:determining the key(GDB_FileID) for files

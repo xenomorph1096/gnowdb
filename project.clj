@@ -9,12 +9,27 @@
   :dependencies [
                  [org.clojure/clojure "1.8.0"]
                  [org.neo4j.driver/neo4j-java-driver "1.3.0"]
+		 [compojure "1.3.4"]
+                 [ring-server "0.3.1"]
+                 [ring/ring-defaults "0.3.0"]
+                 [ring/ring-json "0.4.0"]
+                 [liberator "0.13"]
+                 [cheshire "5.2.0"]
 		 [async-watch "0.1.1"]
                  [digest "1.4.5"] ;;for hashing
                  [org.clojure/math.combinatorics "0.1.4"] ;;for nth permutation
-                 [clj-fuzzy "0.4.0"]] ;;for levenshtein distance
+                 [clj-fuzzy "0.4.0"] ;;for levenshtein distance
+                 [com.novemberain/pantomime "2.9.0"];;to extract mime types
+                 [progrock "0.1.2"] ;;For progress bars
+                ] 
+
+                 
+  
   :main ^:skip-aot gnowdb.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}
-  :plugins [[lein-codox "0.10.3"] [cider/cider-nrepl "0.15.0-SNAPSHOT"]])
+  :plugins [[lein-codox "0.10.3"] [cider/cider-nrepl "0.15.0-SNAPSHOT"] [lein-ring "0.8.12"]]
+	:ring {	:handler gnowdb.handler/app
+         	:init gnowdb.handler/init
+         	:destroy gnowdb.handler/destroy} )
 

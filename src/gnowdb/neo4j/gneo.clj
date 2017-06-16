@@ -659,14 +659,20 @@
   "Get Node(s) matched by label and propertyMap"
   [& {:keys [:label
              :parameters
+             :count?
              :execute?]
-      :or {:parameters {}}}]
+      :or {:parameters {}
+           :count? false}}]
   {:pre [(string? label)]}
-  (map #(% "node") (((gdriver/runQuery {:query (str "MATCH (node:" label " "
-                                                    (createParameterPropertyString parameters)
-                                                    ") RETURN node")
-                                        :parameters parameters})
-                     :results) 0)
+  (map #(% (if count?
+             "count(node)"
+             "node")) (((gdriver/runQuery {:query (str "MATCH (node:" label " "
+                                                       (createParameterPropertyString parameters)
+                                                       ") RETURN " (if count?
+                                                                     "count(node)"
+                                                                     "node"))
+                                           :parameters parameters})
+                        :results) 0)
        )
   )
 
@@ -678,6 +684,7 @@
              :relationshipParameters
              :toNodeLabel
              :toNodeParameters
+             :count?
              :execute?
              :nodeInfo?]
       :or {:execute? true
@@ -719,14 +726,18 @@
                 ((combinedProperties :propertyStringMap) "R")
                 "]->(m" toNodeLabel " "
                 ((combinedProperties :propertyStringMap) "2")
-                ") RETURN path")
+                ") RETURN " (if count?
+                              "count(path)"
+                              "path"))
            (str "MATCH (n" fromNodeLabel " "
                 ((combinedProperties :propertyStringMap) "1")
                 ")-[p" relationshipType " "
                 ((combinedProperties :propertyStringMap) "R")
                 "]->(m" toNodeLabel " "
                 ((combinedProperties :propertyStringMap) "2")
-                ") RETURN p")
+                ") RETURN " (if count?
+                              "count(p)"
+                              "p"))
            )
          :parameters
          (combinedProperties :combinedPropertyMap)
@@ -734,9 +745,13 @@
         ]
     (if execute?
       (if nodeInfo?
-        (map #(first ((% "path") :segments))
+        (map #(first ((% (if count?
+                           "count(path)"
+                           "path")) :segments))
              (first ((gdriver/runQuery builtQuery) :results))) 
-        (map #(% "p")
+        (map #(% (if count?
+                   "count(p)"
+                   "p"))
              (first ((gdriver/runQuery builtQuery) :results)))
         )
       builtQuery
@@ -1197,9 +1212,16 @@
 
 (defn getClassAttributeTypes
   "Get all AttributeTypes 'attributed' to a class"
-  [className]
-  (map #((% "att") :properties) (((gdriver/runQuery
-                                   {:query "MATCH (class:Class {className:{className}})-[rel:HasAttributeType]->(att:AttributeType) RETURN att"
+  [& {:keys [:className
+             :count?]
+      :or {:count? false}}]
+  {:pre [(string? className)]}
+  (map #((% (if count?
+              "count(att)"
+              "att")) :properties) (((gdriver/runQuery
+                                   {:query (str "MATCH (class:Class {className:{className}})-[rel:HasAttributeType]->(att:AttributeType) RETURN "(if count?
+                                                                                                                                                   "count(att)"
+                                                                                                                                                   "att"))
                                     :parameters {"className" className}
                                     }
                                    ) :results) 0))
@@ -1207,9 +1229,16 @@
 
 (defn getClassApplicableSourceNT
   "Get all AttributeTypes 'attributed' to a class"
-  [className]
-  (map #((% "rl") :properties) (((gdriver/runQuery
-                                  {:query "MATCH (class:Class {className:{className}})<-[rel:ApplicableSourceNT]-(rl:Class) RETURN rl"
+  [& {:keys [:className
+             :count?]
+      :or {:count? false}}]
+  {:pre [(string? className)]}
+  (map #((% (if count?
+              "count(rl)"
+              "rl")) :properties) (((gdriver/runQuery
+                                     {:query (str "MATCH (class:Class {className:{className}})<-[rel:ApplicableSourceNT]-(rl:Class) RETURN "(if count?
+                                                                                                                                      "count(rl)"
+                                                                                                                                      "rl"))
                                    :parameters {"className" className}
                                    }
                                   ) :results) 0))
@@ -1217,9 +1246,16 @@
 
 (defn getClassApplicableTargetNT
   "Get all AttributeTypes 'attributed' to a class"
-  [className]
-  (map #((% "rl") :properties) (((gdriver/runQuery
-                                  {:query "MATCH (class:Class {className:{className}})<-[rel:ApplicableTargetNT]-(rl:Class) RETURN rl"
+  [& {:keys [:className
+             :count?]
+      :or {:count? false}}]
+  {:pre [(string? className)]}
+  (map #((% (if count?
+              "count(rl)"
+              "rl")) :properties) (((gdriver/runQuery
+                                  {:query (str "MATCH (class:Class {className:{className}})<-[rel:ApplicableTargetNT]-(rl:Class) RETURN "(if count?
+                                                                                                                                      "count(rl)"
+                                                                                                                                      "rl"))
                                    :parameters {"className" className}
                                    }
                                   ) :results) 0))
@@ -1227,9 +1263,14 @@
 
 (defn getClassNeoConstraints
   "Get all NeoConstraints attributed to a class"
-  [className]
+  [& {:keys [:className
+             :count?]
+      :or {:count? false}}]
+  {:pre [(string? className)]}
   (gdriver/runQuery
-   {:query "MATCH (class:Class {className:{className}})<-[ncat:NeoConstraintAppliesTo]-(neo:NeoConstraint) RETURN ncat,neo"
+   {:query (str "MATCH (class:Class {className:{className}})<-[ncat:NeoConstraintAppliesTo]-(neo:NeoConstraint) RETURN " (if count?
+                                                                                                                           "count(ncat)"
+                                                                                                                           "ncat,neo"))
     :parameters {"className" className}
     }
    )
@@ -1237,9 +1278,14 @@
 
 (defn getClassCustomConstraints
   "Get all CustomConstraints applicable to a class"
-  [className]
+  [& {:keys [:className
+             :count?]
+      :or {:count? false}}]
+  {:pre [(string? className)]}
   (gdriver/runQuery
-   {:query "MATCH (class:Class {className:{className}})<-[ccat:CustomConstraintAppliesTo]-(cf:CustomFunction) RETURN ccat,cf"
+   {:query (str "MATCH (class:Class {className:{className}})<-[ccat:CustomConstraintAppliesTo]-(cf:CustomFunction) RETURN "(if count?
+                                                                                                                             "count(ccat)"
+                                                                                                                             "ccat,cf"))
     :parameters {"className" className}
     }
    )
@@ -1247,10 +1293,15 @@
 
 (defn getATValueRestrictions
   "Get all ValueRestriction applicable to an AttributeType with _name atname"
-  [atname]
+  [& {:keys [:atName
+             :count?]
+      :or {:count? false}}]
+  {:pre [(string? atName)]}
   (gdriver/runQuery
-   {:query "MATCH (at:AttributeType {_name:{atname}})<-[vr:ValueRestrictionAppliesTo]-(cf:CustomFunction) RETURN cf,vr"
-    :parameters {"atname" atname}
+   {:query (str "MATCH (at:AttributeType {_name:{atname}})<-[vr:ValueRestrictionAppliesTo]-(cf:CustomFunction) RETURN cf,vr"(if count?
+                                                                                                                              "count(vr)"
+                                                                                                                              "cf,vr"))
+    :parameters {"atname" atName}
     }
    )
   )
@@ -1348,7 +1399,7 @@
                     )
                    )
                   )
-          (((getClassNeoConstraints className) :results) 0)
+          (((getClassNeoConstraints :className className) :results) 0)
           )
          )
         ]
@@ -1385,7 +1436,7 @@
                     )
                    )
                   )
-          (((getClassNeoConstraints className) :results) 0)
+          (((getClassNeoConstraints :className className) :results) 0)
           )
          )
         ]
@@ -1491,7 +1542,9 @@
 (defn getRelApplicableNTs
   "Get a relation class' ApplicableNTs.
   :className should be of a Class of classType 'RELATION'."
-  [& {:keys [:className]}]
+  [& {:keys [:className
+             :count?]
+      :or {:count? false}}]
   {:pre [(string? className)]}
   (let [combinedPropertyMap (combinePropertyMap {"RT" {"className" className
                                                        "classType" "RELATION"}
@@ -1501,13 +1554,17 @@
                                  ((combinedPropertyMap :propertyStringMap) "RT")
                                  ")-[:ApplicableSourceNT]->(nt:Class "
                                  ((combinedPropertyMap :propertyStringMap) "NT")
-                                 ") RETURN nt")
+                                 ") RETURN "(if count?
+                                              "count(nt)"
+                                              "nt"))
                      :parameters (combinedPropertyMap :combinedPropertyMap)}
         builtQuery2 {:query (str "MATCH (rt:Class "
                                  ((combinedPropertyMap :propertyStringMap) "RT")
                                  ")-[:ApplicableTargetNT]->(nt:Class "
                                  ((combinedPropertyMap :propertyStringMap) "NT")
-                                 ") RETURN nt")
+                                 ") RETURN "(if count?
+                                              "count(nt)"
+                                              "nt"))
                      :parameters (combinedPropertyMap :combinedPropertyMap)}
         ]
     ((gdriver/runQuery builtQuery1 builtQuery2) :results)
@@ -1702,17 +1759,26 @@
 
 (defn getNeoConstraintsWithAT
   "Get NeoConstraint that are applied with a particular AttributeType"
-  [& {:keys [:atName]}]
+  [& {:keys [:atName
+             :count?]
+      :or {:count? false}}]
   {:pre [(string? atName)]}
   (apply concat ((gdriver/runQuery {:query (str "MATCH (neo:NeoConstraint {constraintType:\"NODEKEY\"})-[rel:NeoConstraintAppliesTo]->(cl:Class)"
                                  " WHERE {ATT} IN rel.constraintValue"
-                                 " RETURN cl.className,neo.constraintType,neo.constraintTarget,rel.constraintValue")
-                     :parameters {"ATT" atName}}
-                    {:query (str "MATCH (neo:NeoConstraint)-[rel:NeoConstraintAppliesTo]->(cl:Class)"
-                                 " WHERE {ATT} IN rel.constraintValue and"
-                                 " neo.constraintType IN [\"UNIQUE\",\"EXISTANCE\"]"
-                                 " RETURN cl.className,neo.constraintType,neo.constraintTarget,rel.constraintValue")
-                     :parameters {"ATT" atName}}) :results)))
+                                 " RETURN "
+                                 (if count?
+                                   "count(neo)"
+                                   "cl.className,neo.constraintType,neo.constraintTarget,rel.constraintValue")
+                                 )
+                                    :parameters {"ATT" atName}}
+                                   {:query (str "MATCH (neo:NeoConstraint)-[rel:NeoConstraintAppliesTo]->(cl:Class)"
+                                                " WHERE {ATT} IN rel.constraintValue and"
+                                                " neo.constraintType IN [\"UNIQUE\",\"EXISTANCE\"]"
+                                                " RETURN "
+                                                (if count?
+                                                  "count(neo)"
+                                                  "cl.className,neo.constraintType,neo.constraintTarget,rel.constraintValue"))
+                                    :parameters {"ATT" atName}}) :results)))
 
 (defn createDelATNC
   "Creates a query to remove an AttributeType in all relations with label NeoConstraintAppliesTo.
@@ -1871,7 +1937,7 @@
          (string? fnName)
          (coll? atList)
          (every? string? atList)]}
-  (let [classAttributeTypes (getClassAttributeTypes className)]
+  (let [classAttributeTypes (getClassAttributeTypes :className className)]
     (if (not (every? #(= 1 (count (filter
                                    (fn
                                      [at]
@@ -1961,8 +2027,8 @@
   {:pre [(string? atName)
          (string? renameName)]}
   (let [propertyMap {"ATT" atName "att" renameName}]
-    {:query (str "MATCH (cc:CustomConstraint)-[rel:CustomConstraintAppliesTo]->(cl:Class)"
-                 " WHERE {ATT} IN cc.atList"
+    {:query (str "MATCH (cc:CustomFunction)-[rel:CustomConstraintAppliesTo]->(cl:Class)"
+                 " WHERE {ATT} IN rel.atList"
                  " "(createPropListEditString :varName "rel"
                                               :propName "atList"
                                               :editType "REPLACE"
@@ -1981,7 +2047,7 @@
              :subTypeOf]}]
   (let
       [[superTypeName] subTypeOf
-       superTypeVRVec (vec (((getATValueRestrictions (str superTypeName)) :results) 0))
+       superTypeVRVec (vec (((getATValueRestrictions :atName (str superTypeName)) :results) 0))
        is_aRelationQuery (createRelation 	
                           :fromNodeLabel "AttributeType"
                           :fromNodeParameters {"_name" _name}
@@ -2077,16 +2143,21 @@
 (defn getATClasses
   "Get classes that have a particular attributeType.
   :_name should be a string, name of an AttributeType."
-  [& {:keys [:_name]}]
+  [& {:keys [:_name
+             :count?]
+      :or {:count? false}}]
   {:pre [(string? _name)]}
-  (((gdriver/runQuery {:query "MATCH (att:AttributeType {_name:{_name}})<-[:HasAttributeType]-(n:Class) RETURN n"
+  (((gdriver/runQuery {:query (str "MATCH (att:AttributeType {_name:{_name}})<-[:HasAttributeType]-(n:Class) RETURN "(if count?
+                                                                                                                       "count(n)"
+                                                                                                                       "n"))
                        :parameters {"_name" _name}}) :results) 0)
   )
 
 (defn getAttributeTypes
   "Fetches all AttributeTypes from db"
-  []
-  (getNodes :label "AttributeType"))
+  [& {:keys [:count?]
+      :or {:count? false}}]
+  (getNodes :label "AttributeType" :count? count?))
 
 (defn editAttributeType
   "Edit an attributeType.
@@ -2222,7 +2293,7 @@ One must manually edit all the instances to fit the constraints and then call `a
   [& {:keys [:className
              :subClassOf]}] 
   (let [[superClassName] subClassOf
-        superClassATVec (vec (getClassAttributeTypes (str superClassName))) 
+        superClassATVec (vec (getClassAttributeTypes :className (str superClassName))) 
         is_aRelationQuery 	
         (createRelation 	
          :fromNodeLabel "Class"
@@ -2290,7 +2361,7 @@ One must manually edit all the instances to fit the constraints and then call `a
    ]
   (let
       [[superClassName] subClassOf
-       superClassNCVec (vec (((getClassNeoConstraints (str superClassName)) :results) 0))
+       superClassNCVec (vec (((getClassNeoConstraints :className (str superClassName)) :results) 0))
        addClassNCQueryVec (vec (into []
                                      (map (fn
                                             [SingleNCMap]
@@ -2360,7 +2431,7 @@ One must manually edit all the instances to fit the constraints and then call `a
    ]
   (let
       [[superClassName] subClassOf
-       superClassCCVec (vec (((getClassCustomConstraints (str superClassName)) :results) 0))
+       superClassCCVec (vec (((getClassCustomConstraints :className (str superClassName)) :results) 0))
        CCQueriesVec (into []
                           (map (fn
                                  [SingleCCMap]
@@ -2418,7 +2489,7 @@ One must manually edit all the instances to fit the constraints and then call `a
   [& {:keys [:className :subClassOf]}]
   (let
       [[superClassName] subClassOf
-       superClassAppSourceNTVec (vec (getClassApplicableSourceNT (str superClassName)))
+       superClassAppSourceNTVec (vec (getClassApplicableSourceNT :className (str superClassName)))
        AppSourceNTQueriesVec (into []
                                    (map (fn
                                           [SingleMap]
@@ -2429,7 +2500,7 @@ One must manually edit all the instances to fit the constraints and then call `a
                                         superClassAppSourceNTVec
                                         )
                                    )
-       superClassAppTargetNTVec (vec (getClassApplicableTargetNT (str superClassName)))
+       superClassAppTargetNTVec (vec (getClassApplicableTargetNT :className (str superClassName)))
        AppNTQueriesVec (into AppSourceNTQueriesVec
                              (map (fn
                                     [SingleMap]
@@ -2553,11 +2624,11 @@ One must manually edit all the instances to fit the constraints and then call `a
   {:pre [(string? className)
          (coll? propertyMapList)
          (every? map? propertyMapList)]}
-  (let [classAttributeTypes (getClassAttributeTypes className)
+  (let [classAttributeTypes (getClassAttributeTypes :className className)
         classATValueRestrictions (reduce (fn
                                            [fullMap classAttributeType]
                                            (let [atname ((into {} classAttributeType) "_name")
-                                                 atValueRestrictions (first ((getATValueRestrictions atname) :results))]
+                                                 atValueRestrictions (first ((getATValueRestrictions :atName atname) :results))]
                                              (if
                                                  (= 0 (count atValueRestrictions))
                                                (assoc fullMap atname nil)
@@ -2574,7 +2645,7 @@ One must manually edit all the instances to fit the constraints and then call `a
                                                              )
                                            ]
                                        (assoc customConstraint "atList" (into [] (customConstraint "atList")))
-                                       ) (first ((getClassCustomConstraints className) :results)))]
+                                       ) (first ((getClassCustomConstraints :className className) :results)))]
     (reduce
      (fn [errors propertyMap]
        (reduce

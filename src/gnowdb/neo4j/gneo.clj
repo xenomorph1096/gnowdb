@@ -119,7 +119,7 @@
   )
 )
 
-(defn- createRemString
+(defn createRemString
   "Creates a property removal string.
   eg.., REMOVE  varName.prop1 ,varName.prop2.
   :varName should be a string representing node/relation variable.
@@ -522,6 +522,8 @@
     )
   )
 
+
+
 (defn removeNodeProperties
   "Remove Properties of Node(s).
   :propList should be a list of properties to be deleted."
@@ -866,7 +868,9 @@
    #(if
         (some map? %2)
       (concat %1 %2)
-      (reduceQueryColl %1)
+      (if (map? %2)
+        (concat %1 [%2])
+        (reduceQueryColl %1))
       )
    []
    queryCollection
@@ -1787,18 +1791,20 @@
    ]
   {:pre [string? atName]}
   (let [propertyMap {"ATT" atName}]
-    {:query (str "MATCH (neo1:NeoConstraint {constraintType:\"NODEKEY\"})-[rel1:NeoConstraintAppliesTo]->(cl1:Class),"
-                 " (neo2:NeoConstraint)-[rel2:NeoConstraintAppliesTo]->(cl2:Class)"
-                 " WHERE neo2.constraintType IN [\"UNIQUE\",\"EXISTANCE\"]"
-                 " AND {ATT} IN rel1.constraintValue"
-                 " AND {ATT} IN rel2.constraintValue"
-                 " "(createPropListEditString :varName "rel1"
-                                              :propName "constraintValue"
-                                              :editType "DELETE"
-                                              :editVal "ATT"
-                                              :withWhere? false)
-                 " DELETE rel2")
-     :parameters propertyMap})
+    [{:query (str "MATCH (neo1:NeoConstraint {constraintType:\"NODEKEY\"})-[rel1:NeoConstraintAppliesTo]->(cl1:Class)"
+                  " "(createPropListEditString :varName "rel1"
+                                               :propName "constraintValue"
+                                               :editType "DELETE"
+                                               :editVal "ATT"
+                                               :withWhere? false)
+                  " DELETE rel1")
+      :parameters propertyMap}
+     {:query (str "MATCH"
+                  " (neo2:NeoConstraint)-[rel2:NeoConstraintAppliesTo]->(cl2:Class)"
+                  " WHERE neo2.constraintType IN [\"UNIQUE\",\"EXISTANCE\"]"
+                  " AND {ATT} IN rel2.constraintValue"
+                  " DELETE rel2")
+      :parameters propertyMap}])
   )
 
 (defn createReplaceATNC
@@ -2016,6 +2022,25 @@
                 :toNodeParameters {"className" className}
                 :newRelationshipParameters editMap
                 :execute? execute?)
+  )
+
+(defn createDelATCC
+  "Creates a query to remove an AttributeType in all relations with label CustomConstraintAppliesTo.
+  :atName should be a string, _name of an AttributeType."
+  [& {:keys [:atName]}
+   ]
+  {:pre [string? atName]}
+  (let [propertyMap {"ATT" atName}]
+    {:query (str "MATCH (cc:CustomFunction)-[rel:CustomConstraintAppliesTo]->(cl:Class)"
+                 " WHERE {ATT} IN rel.atList"
+                 " "(createPropListEditString :varName "rel"
+                                              :propName "atList"
+                                              :editType "DELETE"
+                                              :editVal "ATT"
+                                              :replaceVal "att"
+                                              :withWhere? false)
+                 )
+     :parameters propertyMap})
   )
 
 (defn createReplaceATCC
@@ -2238,16 +2263,16 @@ One must manually edit all the instances to fit the constraints and then call `a
                                                                                                                                                :replaceVal (editChanges "_name"))
                                                                                                                                (editChanges "_name"))
                                                                                                             :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
-                                        dataEditQueries   [(createReplaceATNC :atName _name
-                                                                              :renameName (editChanges "_name"))
-                                                           (createReplaceATCC :atName _name
-                                                                              :renameName (editChanges "_name"))
-                                                           {:query (str "MATCH (node) WHERE "
-                                                                        (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
-                                                                        " AND "(createRenameString :addWhere? false
-                                                                                                   :varName "node"
-                                                                                                   :renameMap {_name (editChanges "_name")}))
-                                                            :parameters {}}]
+                                        dataEditQueries   (reduceQueryColl [(createReplaceATNC :atName _name
+                                                                                               :renameName (editChanges "_name"))
+                                                                            (createReplaceATCC :atName _name
+                                                                                               :renameName (editChanges "_name"))
+                                                                            {:query (str "MATCH (node) WHERE "
+                                                                                         (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
+                                                                                         " AND "(createRenameString :addWhere? false
+                                                                                                                    :varName "node"
+                                                                                                                    :renameMap {_name (editChanges "_name")}))
+                                                                             :parameters {}}])
                                         ]
                                     {:constraintDropQueries constraintDropQueries
                                      :constraintCreateQueries constraintCreateQueries
@@ -2281,6 +2306,67 @@ One must manually edit all the instances to fit the constraints and then call `a
               {:constraintDropQueries constraintDropQueries
                :dataEditQueries dataEditQueries
                :constraintCreateQueries constraintCreateQueries}))
+          )
+        )
+      )
+    )
+  )
+(defn deleteAttributeType
+  "Delete an AttributeType.
+  :forceMigrate?"
+  [&{:keys [:_name
+            :forceMigrate?
+            :execute?]
+     :or {:execute? false}}]
+  {:pre [(string? _name)]}
+  (let [deleteQuery (deleteDetachNodes :label "AttributeType"
+                                       :parameters {"_name" _name}
+                                       :execute? false)
+        ATClasses (getATClasses :_name _name)
+        ATClassNames (map #(((% "n") :properties) "className") ATClasses)]
+    (if (empty? ATClasses)
+      (if execute?
+        (gdriver/runQuery deleteQuery)
+        deleteQuery)
+      (if
+          (not forceMigrate?)
+        (throw (Exception. (str "Class(es) "(seq
+                                             (map #((into {} ((% "n") :properties))
+                                                    "className")
+                                                  ATClasses)
+                                             )
+                                " have `"_name"`, use `:forceMigrate?` true to make functional changes to the class and it's instances automatically.")
+                           )
+               )
+        (let [neoConstraintsWithAT (getNeoConstraintsWithAT :atName _name)
+              constraintDropQueries (reduceQueryColl (map #(exemptClassNeoConstraint :execute? false
+                                                                                     :className (% "cl.className")
+                                                                                     :constraintTarget (% "neo.constraintTarget")
+                                                                                     :constraintValue (% "rel.constraintValue")
+                                                                                     :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
+              constraintCreateQueries (reduceQueryColl (map #(if (= "NODEKEY" (% "neo.constraintType"))
+                                                               (applyClassNeoConstraint :execute? false
+                                                                                        :className (% "cl.className")
+                                                                                        :constraintTarget (% "neo.constraintTarget")
+                                                                                        :constraintValue (editCollection :coll (into [] (% "rel.constraintValue"))
+                                                                                                                         :editType "DELETE"
+                                                                                                                         :editVal _name)
+                                                                                        :constraintType (% "neo.constraintType"))) neoConstraintsWithAT))
+              dataEditQueries (reduceQueryColl [deleteQuery
+                                                (createDelATNC :atName _name)
+                                                (createDelATCC :atName _name)
+                                                {:query (str "MATCH (node) WHERE "
+                                                             (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
+                                                             " "(createRemString :varName "node"
+                                                                                 :remPropertyList [_name]))
+                                                 :parameters {}}])]
+          (if
+              execute?
+            (gdriver/runTransactions constraintDropQueries dataEditQueries constraintCreateQueries)
+            {:constraintDropQueries constraintDropQueries
+             :dataEditQueries dataEditQueries
+             :constraintCreateQueries constraintCreateQueries}
+            )
           )
         )
       )

@@ -54,6 +54,9 @@
   (gneo/addRelApplicableType :className "GDB_MemberOfGroup" :applicationType "Target" :applicableClassName "GDB_GroupWorkspace")
   (gneo/addRelApplicableType :className "GDB_AdminOfGroup" :applicationType "Target" :applicableClassName "GDB_GroupWorkspace")
   (gneo/addRelApplicableType :className "GDB_PendingReview" :applicationType "Target" :applicableClassName "GDB_GroupWorkspace")
+  (gneo/createClass :className "GDB_SubGroupOf" :classType "RELATION" :isAbstract? false :properties {})
+  (gneo/addRelApplicableType :className "GDB_SubGroupOf" :applicationType "Source" :applicableClassName "GDB_GroupWorkspace")
+  (gneo/addRelApplicableType :className "GDB_SubGroupOf" :applicationType "Target" :applicableClassName "GDB_GroupWorkspace")
   nil
 )
 
@@ -69,12 +72,13 @@
 
 (defn instantiateGroupWorkspace
   "Creates Group Workspaces
-    :groupType can be Public, Private or Anonymous
-    :editingPolicy can be Editable_Admin-Only, Editable_Moderated, Editable_Non-Moderated or Archive
-    :displayName should be the displayName of the group
-    :createdBy should be the name of the user who created the workspace
+    :groupType can be Public, Private or Anonymous.
+    :editingPolicy can be Editable_Admin-Only, Editable_Moderated, Editable_Non-Moderated or Archive.
+    :displayName should be the displayName of the group.
+    :createdBy should be the name of the user who created the workspace.
+    :subGroupOf should be a vector containing the names of the parent groups.
   "
-	[& {:keys [:groupType :editingPolicy :displayName :alternateName :description :createdBy :relationshipsOnly?] :or {:groupType "Public" :editingPolicy "Editable_Non-Moderated" :alternateName "[]" :createdBy "admin" :description "" :relationshipsOnly? false}}]
+	[& {:keys [:groupType :editingPolicy :displayName :alternateName :description :createdBy :subGroupOf :relationshipsOnly?] :or {:groupType "Public" :editingPolicy "Editable_Non-Moderated" :alternateName "[]" :createdBy "admin" :description "" :subGroupOf [] :relationshipsOnly? false}}]
 	(if (false? relationshipsOnly?)
 		(gneo/createNodeClassInstances :className "GDB_GroupWorkspace" :nodeList 		[{
 																							"GDB_DisplayName" displayName
@@ -128,6 +132,21 @@
 																						:propertyMap {}
 																					}]
 	)
+  (doall
+  	(map 
+  		(fn [parentGroupName] 
+  			(println (gneo/createRelationClassInstances :className "GDB_SubGroupOf" :relList 		[{
+  																								:fromClassName "GDB_GroupWorkspace"
+  																								:fromPropertyMap {"GDB_DisplayName" displayName}
+  																								:toClassName "GDB_GroupWorkspace"
+  																								:toPropertyMap {"GDB_DisplayName" parentGroupName}
+  																								:propertyMap {}
+  																							}]
+  			)) 
+      )
+  	 subGroupOf
+   	)
+  )
   nil
 )
 
@@ -328,6 +347,13 @@
   )
 )
 
+(defn deleteWorkspace
+	"Deletes a given workspace."
+	[& {:keys [:workspaceName :workspaceClass]}]
+	(gneo/deleteDetachNodes :label workspaceClass
+							:parameters {"GDB_DisplayName" workspaceName}
+	)
+)
 
 (defn- publishToUnmoderatedGroup
   "Publish nodes to unmoderated groups i.e. without admin check"
@@ -584,6 +610,7 @@
 								:fromNodeParameters resourceIDMap
 								:relationshipType "GDB_MemberOfWorkspace"
 								:toNodeLabel [workspaceClass]
+								:toNodeParameters {"GDB_DisplayName" workspaceName}
 								:nodeInfo? true
 			)
 		)]

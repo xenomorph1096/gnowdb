@@ -1607,13 +1607,38 @@
    ]
   {:pre [(string? _atname)
          (string? fnName)]}
-  (createRelation :fromNodeLabel "CustomFunction"
+  (deleteRelation :fromNodeLabel "CustomFunction"
                   :fromNodeParameters {"fnName" fnName}
                   :relationshipType "ValueRestrictionAppliesTo"
                   :relationshipParameters {"constraintValue" constraintValue}
                   :toNodeLabel "AttributeType"
                   :toNodeParameters {"_name" _atname}
                   :execute? execute?)
+  )
+
+(defn editATVR
+  "Edits a ValueRestriction to an AttributeType.
+  Creates a relation ValueRestrictionAppliesTo from CustomFunction to AttributeType.
+  :_atname should be _name of an AttributeType.
+  :fnName should be fnName of a CustomFunction.
+  :constraintValue should be value to be passed as CustomFunction's second argument of existing ValueRestriction
+  :newConstraintValue"
+  [& {:keys [:_atname
+             :fnName
+             :constraintValue
+             :execute?]
+      :or {:execute? true}}
+   ]
+  {:pre [(string? _atname)
+         (string? fnName)]}
+  (editRelation :fromNodeLabel "CustomFunction"
+                :fromNodeParameters {"fnName" fnName}
+                :relationshipType "ValueRestrictionAppliesTo"
+                :relationshipParameters {"constraintValue" constraintValue}
+                :toNodeLabel "AttributeType"
+                :toNodeParameters {"_name" _atname}
+                :newRelationshipParameters {"constraintValue" newConstraintValue}
+                :execute? execute?)
   )
 
 (defn editClassNC
@@ -1893,6 +1918,39 @@
                   :execute? execute?)
   )
 
+(defn editClassCC
+  "Edit relation CustomConstraintAppliesTo from CustomFunction to Class.
+  :fnName of a CustomFunction.
+  :className of Class
+  :atList should be list of AttributeTypes' _name of existing CCAT relation.
+  :constraintValue should be value to be passed as CustomFunction's second argument of existing CCAT relation.
+  :editMap map with keys 'atList' and 'constraintValue' and appropriate values"
+  [& {:keys [:fnName
+             :atList
+             :constraintValue
+             :className
+             :editMap
+             :execute?]
+      :or {:execute? true}}
+   ]
+  {:pre [(string? className)
+         (string? fnName)
+         (coll? atList)
+         (every? string? atList)
+         (map? editMap)
+         (clojure.set/subset? (keys editMap) #{"atList" "constraintValue"})
+         (or (coll? (editMap "atList")) (nil? (editMap "atList")))]}
+  (editRelation :fromNodeLabel "CustomFunction"
+                :fromNodeParameters {"fnName" fnName}
+                :relationshipType "CustomConstraintAppliesTo"
+                :relationshipParameters {"atList" atList
+                                         "constraintValue" constraintValue}
+                :toNodeLabel "Class"
+                :toNodeParameters {"className" className}
+                :newRelationshipParameters editMap
+                :execute? execute?)
+  )
+
 (defn createReplaceATCC
   "Creates a query to replace an AttributeType in all relations with label CustomConstraintAppliesTo.
   :atName should be a string, _name of an AttributeType.
@@ -2023,6 +2081,11 @@
   (((gdriver/runQuery {:query "MATCH (att:AttributeType {_name:{_name}})<-[:HasAttributeType]-(n:Class) RETURN n"
                        :parameters {"_name" _name}}) :results) 0)
   )
+
+(defn getAttributeTypes
+  "Fetches all AttributeTypes from db"
+  []
+  (getNodes :label "AttributeType"))
 
 (defn editAttributeType
   "Edit an attributeType.
@@ -2313,7 +2376,7 @@ One must manually edit all the instances to fit the constraints and then call `a
   )
 
 (defn addRelApplicableTypeQuery
-  "Returns the query of the function addRelApplicableType withoout doing a check 
+  "Returns the query of the function addRelApplicableType without doing a check 
   on the existence and uniqueness of applicableClass.
   :className should be className of relation class.
   :applicationType should be either SOURCE or TARGET as string.

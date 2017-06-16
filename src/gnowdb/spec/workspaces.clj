@@ -232,6 +232,10 @@
   )
   (instantiateGroupWorkspace :displayName "home" :relationshipsOnly? true)
   (instantiatePersonalWorkspace :displayName "admin" :relationshipsOnly? true)
+  (instantiateGroupWorkspace  :displayName "TRASH" 
+                              :groupType "Public"
+                              :editingPolicy "Editable_Non-Moderated"
+  )
 )
 
 (defn getAdminList
@@ -347,14 +351,6 @@
   )
 )
 
-(defn deleteWorkspace
-	"Deletes a given workspace."
-	[& {:keys [:workspaceName :workspaceClass]}]
-	(gneo/deleteDetachNodes :label workspaceClass
-							:parameters {"GDB_DisplayName" workspaceName}
-	)
-)
-
 (defn- publishToUnmoderatedGroup
   "Publish nodes to unmoderated groups i.e. without admin check"
   [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
@@ -407,9 +403,12 @@
 
 (defn crossPublishAllowed?
   "Determines whether cross-publication is allowed for a particular resource"
-  [& {:keys [:resourceIDMap :resourceClass :groupType]}]
-  (let [workspaceTypes (getTypeOfWorkspaces resourceIDMap resourceClass)]
-    (if (and (= workspaceTypes #{"Private"}) (not= groupType "Private"))
+  [& {:keys [:resourceIDMap :resourceClass :groupType :groupName]}]
+  (let  [
+          workspaceTypes (getTypeOfWorkspaces resourceIDMap resourceClass)
+          groupType (if groupType groupType (getGroupType groupName))
+        ]
+    (if (and (= workspaceTypes #{"Private"}) (not= groupType "Private") (= groupName "TRASH"))
       false
       true
     )
@@ -432,12 +431,14 @@
                                             :propertyMap {}
                                           }]
           )
-          (editLastModified :groupName groupName :editor adminName)
+          (if adminName
+            (editLastModified :groupName groupName :editor adminName)
+          )
+          nil
         )
         {:results [] :summary {:summaryMap {} :summaryString "Membership could not be created, either the group is Anonymous or the user does not have admin permissions"}}
       )
     )
-    nil
 )
 
 (defn addAdminToGroup
@@ -471,7 +472,7 @@
   (let [groupType (getGroupType groupName)
         editingPolicy (getEditingPolicy groupName)
     ]
-    (if (and (not= editingPolicy "Archive") (crossPublishAllowed? :resourceIDMap resourceIDMap :resourceClass resourceClass :groupType groupType))
+    (if (and (not= editingPolicy "Archive") (crossPublishAllowed? :resourceIDMap resourceIDMap :resourceClass resourceClass :groupType groupType :groupName groupName))
       (if (.contains (getMemberList groupName) username)
         (cond 
           (= editingPolicy "Editable_Moderated") (publishToModeratedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
@@ -525,6 +526,43 @@
   (publishToGroup :username adminName :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
 )
 
+(defn moveToTrash
+  "Moves the resource into TRASH workspace."
+  [& {:keys [:resourceIDMap :resourceClass]}]
+  (gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList  [{
+                                                      :fromClassName resourceClass
+                                                      :fromPropertyMap resourceIDMap
+                                                      :toClassName "GDB_GroupWorkspace"
+                                                      :toPropertyMap {"GDB_DisplayName" "TRASH"}
+                                                      :propertyMap {}
+                                                    }]
+  )
+)
+
+(defn purgeTrash
+  "Purge the resources present in TRASH."
+  [& {:keys [:adminName :resourceIDMap :resourceClass]}]
+  (let [admins (getAdminList "TRASH")]
+    (if (.contains admins adminName)
+      (gneo/deleteDetachNodes   :label resourceClass 
+                                :parameters resourceIDMap
+      )  
+    )
+  )
+)
+
+(defn restoreResource
+  "Restores a resource by removing from TRASH."
+  [& {:keys [:resourceIDMap :resourceClass]}]
+  (gneo/deleteRelations
+              :toNodeLabel ["GDB_GroupWorkspace"]
+              :toNodeParameters {"GDB_DisplayName" "TRASH"}
+              :relationshipType "GDB_MemberOfWorkspace"
+              :fromNodeLabel [resourceClass]
+              :fromNodeParameters resourceIDMap
+  )
+)
+
 (defn deleteFromUnmoderatedGroup
 	[& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
 	(gneo/deleteRelations 	:fromNodeLabel [resourceClass]
@@ -532,6 +570,12 @@
 							:relationshipType "GDB_MemberOfWorkspace" 
 							:toNodeLabel ["GDB_GroupWorkspace"] 
 							:toNodeParameters {"GDB_DisplayName" groupName})
+  (if (empty? (gneo/getRelations :fromNodeLabel [resourceClass]
+                    :fromNodeParameters resourceIDMap
+                    :relationshipType "GDB_MemberOfWorkspace"
+      ))
+      (moveToTrash :resourceIDMap resourceIDMap :resourceClass resourceClass)
+  )
 	; (let [resourceUHRID
 	;   	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
 	;   	(gneo/editNodeProperties 	:label resourceClass 
@@ -573,6 +617,7 @@
       "Delete Unsuccessful: The group is either non-editable or you're trying to cross-publish in a private group"
     )
   )
+  
 )
 
 (defn deleteFromPersonalWorkspace
@@ -593,6 +638,12 @@
 							:relationshipType "GDB_LastModifiedBy" 
 							:toNodeLabel ["GDB_PersonalWorkspace"] 
 							:toNodeParameters {"GDB_DisplayName" username})
+  (if (empty? (gneo/getRelations :fromNodeLabel [resourceClass]
+                    :fromNodeParameters resourceIDMap
+                    :relationshipType "GDB_MemberOfWorkspace"
+      ))
+      (moveToTrash :resourceIDMap resourceIDMap :resourceClass resourceClass)
+  )
 	; (let [resourceUHRID
 	;   	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
 	;   	(gneo/editNodeProperties 	:label resourceClass 
@@ -601,6 +652,48 @@
  ;  	)
 )
 
+(defn removeMemberFromGroup
+  "Removes a member from the given groupworkspace."
+  [& {:keys [:memberName :groupName :adminName]}]
+  (let [admins (getAdminList groupName)
+        members (getMemberList groupName)]
+    (if (and (.contains admins adminName) (.contains members memberName))
+      (do
+        (gneo/deleteRelations   :fromNodeLabel ["GDB_PersonalWorkspace"]
+                                :fromNodeParameters {"GDB_DisplayName" memberName} 
+                                :relationshipType "GDB_MemberOfGroup" 
+                                :toNodeLabel ["GDB_GroupWorkspace"] 
+                                :toNodeParameters {"GDB_DisplayName" groupName})
+        (gneo/deleteRelations   :fromNodeLabel ["GDB_PersonalWorkspace"]
+                                :fromNodeParameters {"GDB_DisplayName" memberName} 
+                                :relationshipType "GDB_AdminOfGroup" 
+                                :toNodeLabel ["GDB_GroupWorkspace"] 
+                                :toNodeParameters {"GDB_DisplayName" groupName})
+        (editLastModified :groupName groupName :editor adminName)
+      )
+      {:results [] :summary {:summaryMap {} :summaryString "Member could not be removed, either the he/she is not a member of the group or the user does not have admin permissions"}}
+    )
+  )
+  nil
+)
+
+(defn removeAdminFromGroup
+  "Removes an admin from the given groupworkspace."
+  [& {:keys [:removedAdminName :groupName :adminName]}]
+  (let [admins (getAdminList groupName)]
+    (if (.contains admins adminName)
+      (gneo/deleteRelations   :fromNodeLabel ["GDB_PersonalWorkspace"]
+                                :fromNodeParameters {"GDB_DisplayName" removedAdminName} 
+                                :relationshipType "GDB_AdminOfGroup" 
+                                :toNodeLabel ["GDB_GroupWorkspace"] 
+                                :toNodeParameters {"GDB_DisplayName" groupName})
+      (editLastModified :groupName groupName :editor adminName)
+    )
+    {:results [] :summary {:summaryMap {} :summaryString "Admin permissions could not be removed,the user does not have admin permissions"}}
+  )
+  nil
+)
+  
 (defn resourceExists
 	"Returns true if given workspace contains the given resource else false"
 	[& {:keys [:resourceIDMap :resourceClass :workspaceName :workspaceClass]}]

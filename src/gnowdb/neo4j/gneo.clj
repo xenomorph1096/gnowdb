@@ -656,6 +656,76 @@
     )
   )
 
+(defn removeLabels
+  "Removes labels from a node
+  :remLabelList should be a list of strings"
+  [& {:keys [:label
+             :properties
+             :remLabelList
+             :execute?]
+      :or {:properties {}}
+      :execute? true}]
+  {:pre [(string? label)
+         (map? properties)
+         (coll? remLabelList)
+         (every? string? remLabelList)
+         (not (empty? remLabelList))]}
+  (let [builtQuery {:query (str "MATCH (obj:"label" "(createParameterPropertyString properties)") "
+                                (clojure.string/join " " (map #(str "REMOVE obj:"%) remLabelList)
+                                                     )
+                                )
+                    :parameters properties}]
+    (if execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery)
+    )
+  )
+
+(defn renameLabels
+  "Renames label(s) of a node/relation.
+  :objectType should be NODE or RELATION.
+  :replaceLabelMap should be a map of strings, with keys as existing labels and the values as newLabels.
+  if a label with a particular key doesnt exist, the new label will be added.
+  if :objectType is RELATION, remLabelList can only have one string"
+  [& {:keys [:label
+             :properties
+             :objectType
+             :replaceLabelMap
+             :execute?]
+      :or {:properties {}
+           :objectType "NODE"
+           :execute? true}}]
+  {:pre [(string? label)
+         (map? properties)
+         (map? replaceLabelMap)
+         (every? string? (vals replaceLabelMap))
+         (every? string? (keys replaceLabelMap))
+         (not (empty? replaceLabelMap))
+         (or (= "NODE" objectType)
+             (and (= "RELATION" objectType)
+                  (= 1 (count replaceLabelMap))
+                  (not (nil? (replaceLabelMap label)))
+                  )
+             )
+         ]
+   }
+  (let [builtQuery {:query (case objectType
+                             "NODE" (str "MATCH (obj:"label" "(createParameterPropertyString properties)") "
+                                         (clojure.string/join " " (map #(str "REMOVE obj:"(% 0)" "
+                                                                             "SET obj:"(% 1)) replaceLabelMap)
+                                                              )
+                                         )
+                             "RELATION" (str "MATCH (n1)-[rel:"label"]->(n2)"
+                                             " MERGE (n1)-[rel2:"(replaceLabelMap label)"]-(n2)"
+                                             " SET rel2=rel"
+                                             " WITH rel"
+                                             " DELETE rel")
+                             )
+                    :parameters properties}]
+    (if execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery)
+    ))
 
 (defn getNodes
   "Get Node(s) matched by label and propertyMap"
@@ -2674,7 +2744,143 @@ One must manually edit all the instances to fit the constraints and then call `a
         )
       )
     )
-  )   
+  )
+
+(defn getClassType
+  "Gets the classType of a Class"
+  [&{:keys [:className]}]
+  {:pre [(string? className)]}
+  (try ((into {} ((first (getNodes :label "Class"
+                                   :parameters {"className" className}
+                                   )
+                         ) :properties)
+              ) "classType")
+       (catch Exception E
+         (throw (Exception.
+                 (str "Failed to fetch classType"
+                      (.getMessage E)
+                      )
+                 )
+                )
+         )
+       )
+  )
+
+(defn getClassInstances
+  "Get Class Instances"
+  [& {:keys [:className
+             :parameters
+             :count?]
+      :or {:count false
+           :parameters {}}}]
+  {:pre [(string? className)]}
+  (if (= "NODE" (getClassType :className className))
+    (getNodes :count? count? :label className :parameters parameters)
+    (getRelations :count? count? :relationshipType className :relationshipParameters parameters)
+    )
+  )
+
+(defn editClass
+  "Edit isAbstract,className, miscelaneous properties of a class.
+  :className should be string , name of class to edit.
+  :newProperties should be a map with optional keys:
+  -'className'
+  -'isAbstract'
+  :miscProperties should be a map with optional keys other than:
+  -'className'
+  -'classType'
+  -'isAbstract'
+  Changing isAbstract to true will delete all instances of the class, including relations, if the class is a node class."
+  [& {:keys [:className
+             :newProperties
+             :miscProperties
+             :forceMigrate?
+             :execute?]
+      :or {:newProperties {}
+           :miscProperties {}
+           :forceMigrate? false
+           :execute? true}}]
+  {:pre [(string? className)
+         (clojure.set/subset? (into #{} (keys newProperties)) #{"className" "isAbstract"})
+         (empty? (clojure.set/intersection (into #{} (keys miscProperties)) #{"className" "isAbstract" "classType" "UUID"}))]}
+  (let [classType (getClassType :className className)
+        editClassQuery (editNodeProperties :label "Class"
+                                           :parameters {"className" className}
+                                           :changeMap (merge newProperties
+                                                             miscProperties)
+                                           :execute? false)]
+    (if (empty? newProperties)
+      (if execute?
+        (gdriver/runQuery editClassQuery)
+        editClassQuery)
+      (if (or (= 0 (first (getClassInstances :className className
+                                             :count? true)
+                          )
+                 ) forceMigrate?)
+        (let [dataEditQueries (reduceQueryColl (concat [editClassQuery]
+                                                       [(if (and (contains? newProperties "isAbstract")
+                                                                 (= true (newProperties "isAbstract")))
+                                                          (case classType
+                                                            "NODE" (deleteDetachNodes :label className
+                                                                                      :parameters {}
+                                                                                      :execute? false)
+                                                            "RELATION" (deleteRelations :relationshipType className
+                                                                                        :execute? false)
+                                                            )
+                                                          []
+                                                          )
+                                                        ]
+                                                       [(if (contains? newProperties "className")
+                                                          (renameLabels :label className
+                                                                        :properties {}
+                                                                        :objectType classType
+                                                                        :replaceLabelMap {className (newProperties "className")}
+                                                                        :execute? false)
+                                                          []
+                                                          )]
+                                                       ))
+              constraintDropQueries (reduceQueryColl (if (contains? newProperties "className")
+                                                       (exemptClassNeoConstraints :className className
+                                                                                  :execute? false)
+                                                       []))
+              constraintCreateQueries (reduceQueryColl (if (contains? newProperties "className")
+                                                         (map (fn [nc] (let [neoConstraint (merge ((into {} (nc "ncat")) :properties)
+                                                                                                   ((into {} (nc "neo")) :properties))]
+                                                                         (applyClassNeoConstraint :className (newProperties "className")
+                                                                                                  :constraintValue (neoConstraint "constraintValue")
+                                                                                                  :constraintType (neoConstraint "constraintType")
+                                                                                                  :constraintTarget (neoConstraint "constraintTarget")
+                                                                                                  :execute? false)
+                                                                         )
+                                                                )
+                                                              (first ((getClassNeoConstraints :className className) :results)
+                                                                     )
+                                                              )
+                                                         []
+                                                         ))
+              ]
+          (if execute?
+            (gdriver/runTransactions constraintDropQueries
+                                     dataEditQueries
+                                     constraintCreateQueries)
+            {:constraintDropQueries constraintDropQueries
+             :dataEditQueries dataEditQueries
+             :constraintCreateQueries constraintCreateQueries}
+            )
+          )
+        (throw (Exception. "Use `:forceMigrate?` true explicitly to make functional changes to the class and it's instances automatically."))
+        ))
+    )
+  )
+
+;; (defn deleteClass
+;;   "Deletes a class.
+;;   :forceMigrate? should be true if instances, constraints, etc  are to be deleted as well"
+;;   [& {:keys [:className
+;;              :forceMigrate?]
+;;       :or {:forceMigrate? false}}]
+;;   {:pre [(string? className)]}
+;;   )
 
 (defn defineInitialConstraints
   "Creates Initial constraints"

@@ -116,8 +116,8 @@
                                  (removeVectorStringSuffixes editPropertyList characteristicString)
                                  editPropertyList)
                             )
+       )
   )
-)
 
 (defn createRemString
   "Creates a property removal string.
@@ -155,10 +155,10 @@
          ]
    }
   (str (if addWhere? "WHERE ") (clojure.string/join " and "
-                                     (map #(str varName"."%" is null")
-                                          (vals renameMap)
-                                          )
-                                     )
+                                                    (map #(str varName"."%" is null")
+                                                         (vals renameMap)
+                                                         )
+                                                    )
        " SET " (clojure.string/join ", "
                                     (map #(str varName"."(% 1)"="varName"."(% 0))
                                          (into [] renameMap)
@@ -1293,12 +1293,12 @@
   (map #((% (if count?
               "count(att)"
               "att")) :properties) (((gdriver/runQuery
-                                   {:query (str "MATCH (class:Class {className:{className}})-[rel:HasAttributeType]->(att:AttributeType) RETURN "(if count?
-                                                                                                                                                   "count(att)"
-                                                                                                                                                   "att"))
-                                    :parameters {"className" className}
-                                    }
-                                   ) :results) 0))
+                                      {:query (str "MATCH (class:Class {className:{className}})-[rel:HasAttributeType]->(att:AttributeType) RETURN "(if count?
+                                                                                                                                                      "count(att)"
+                                                                                                                                                      "att"))
+                                       :parameters {"className" className}
+                                       }
+                                      ) :results) 0))
   )
 
 (defn getClassApplicableSourceNT
@@ -1311,11 +1311,11 @@
               "count(rl)"
               "rl")) :properties) (((gdriver/runQuery
                                      {:query (str "MATCH (class:Class {className:{className}})<-[rel:ApplicableSourceNT]-(rl:Class) RETURN "(if count?
-                                                                                                                                      "count(rl)"
-                                                                                                                                      "rl"))
-                                   :parameters {"className" className}
-                                   }
-                                  ) :results) 0))
+                                                                                                                                              "count(rl)"
+                                                                                                                                              "rl"))
+                                      :parameters {"className" className}
+                                      }
+                                     ) :results) 0))
   )
 
 (defn getClassApplicableTargetNT
@@ -1327,12 +1327,12 @@
   (map #((% (if count?
               "count(rl)"
               "rl")) :properties) (((gdriver/runQuery
-                                  {:query (str "MATCH (class:Class {className:{className}})<-[rel:ApplicableTargetNT]-(rl:Class) RETURN "(if count?
-                                                                                                                                      "count(rl)"
-                                                                                                                                      "rl"))
-                                   :parameters {"className" className}
-                                   }
-                                  ) :results) 0))
+                                     {:query (str "MATCH (class:Class {className:{className}})<-[rel:ApplicableTargetNT]-(rl:Class) RETURN "(if count?
+                                                                                                                                              "count(rl)"
+                                                                                                                                              "rl"))
+                                      :parameters {"className" className}
+                                      }
+                                     ) :results) 0))
   )
 
 (defn getClassNeoConstraints
@@ -1838,12 +1838,12 @@
       :or {:count? false}}]
   {:pre [(string? atName)]}
   (apply concat ((gdriver/runQuery {:query (str "MATCH (neo:NeoConstraint {constraintType:\"NODEKEY\"})-[rel:NeoConstraintAppliesTo]->(cl:Class)"
-                                 " WHERE {ATT} IN rel.constraintValue"
-                                 " RETURN "
-                                 (if count?
-                                   "count(neo)"
-                                   "cl.className,neo.constraintType,neo.constraintTarget,rel.constraintValue")
-                                 )
+                                                " WHERE {ATT} IN rel.constraintValue"
+                                                " RETURN "
+                                                (if count?
+                                                  "count(neo)"
+                                                  "cl.className,neo.constraintType,neo.constraintTarget,rel.constraintValue")
+                                                )
                                     :parameters {"ATT" atName}}
                                    {:query (str "MATCH (neo:NeoConstraint)-[rel:NeoConstraintAppliesTo]->(cl:Class)"
                                                 " WHERE {ATT} IN rel.constraintValue and"
@@ -1925,13 +1925,13 @@
          ]
    }
   (let [builtQueries [[(deleteRelation :fromNodeLabel "NeoConstraint"
-                                      :fromNodeParameters {"constraintType" constraintType
-                                                           "constraintTarget" constraintTarget}
-                                      :relationshipType "NeoConstraintAppliesTo"
-                                      :relationshipParameters {"constraintValue" constraintValue}
-                                      :toNodeLabel "Class"
-                                      :toNodeParameters {"className" className}
-                                      :execute? false)]
+                                       :fromNodeParameters {"constraintType" constraintType
+                                                            "constraintTarget" constraintTarget}
+                                       :relationshipType "NeoConstraintAppliesTo"
+                                       :relationshipParameters {"constraintValue" constraintValue}
+                                       :toNodeLabel "Class"
+                                       :toNodeParameters {"className" className}
+                                       :execute? false)]
                       (exemptClassNeoConstraint :className className
                                                 :constraintType constraintType
                                                 :constraintTarget constraintTarget
@@ -2265,10 +2265,10 @@
   CAREFUL when using forceMigrate... it will edit ALL nodes/relations with this attributeType, and automatically DROP and re-CREATE all constraints with the particular AttributeType.
   Currently will not check if there is actually a change in the AttributeType.
   If _datatype is a key in `:editChanges`, it will change the corresponding value in class instances to the default value, even though _datatype is the same.
-Using `:forceMigrate?` in editAttributeType is not advised when there are too many instances and constraints with the attributeType ... It would take WAYYY too much time.
-Also, when changing _datatype, if the AttributeType has some unique/nodekey constraint, the instances of the AT will not be edited, as the default values are non-unique.
-But, if _name and _datatype is being changed together, the instances will be updated, but the new constraints will not be created.
-One must manually edit all the instances to fit the constraints and then call `applyClassNeoConstraints` with the approproate `:className`"
+  Using `:forceMigrate?` in editAttributeType is not advised when there are too many instances and constraints with the attributeType ... It would take WAYYY too much time.
+  Also, when changing _datatype, if the AttributeType has some unique/nodekey constraint, the instances of the AT will not be edited, as the default values are non-unique.
+  But, if _name and _datatype is being changed together, the instances will be updated, but the new constraints will not be created.
+  One must manually edit all the instances to fit the constraints and then call `applyClassNeoConstraints` with the approproate `:className`"
   [& {:keys [:_name
              :editChanges
              :forceMigrate?
@@ -2318,21 +2318,21 @@ One must manually edit all the instances to fit the constraints and then call `a
         (let [nameChangeQueries (if (contains? editChanges "_name")
                                   (let [neoConstraintsWithAT (getNeoConstraintsWithAT :atName _name)
                                         constraintDropQueries 
-                                                            (reduceQueryColl (map #(exemptClassNeoConstraint :execute? false
-                                                                                                             :className (% "cl.className")
-                                                                                                             :constraintTarget (% "neo.constraintTarget")
-                                                                                                             :constraintValue (% "rel.constraintValue")
-                                                                                                             :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
+                                        (reduceQueryColl (map #(exemptClassNeoConstraint :execute? false
+                                                                                         :className (% "cl.className")
+                                                                                         :constraintTarget (% "neo.constraintTarget")
+                                                                                         :constraintValue (% "rel.constraintValue")
+                                                                                         :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
                                         constraintCreateQueries (reduceQueryColl (map #(applyClassNeoConstraint :execute? false
-                                                                                                            :className (% "cl.className")
-                                                                                                            :constraintTarget (% "neo.constraintTarget")
-                                                                                                            :constraintValue (if (= (type (% "rel.constraintValue")) java.util.Collections$UnmodifiableRandomAccessList)
-                                                                                                                               (editCollection :coll (into [] (% "rel.constraintValue"))
-                                                                                                                                               :editType "REPLACE"
-                                                                                                                                               :editVal _name
-                                                                                                                                               :replaceVal (editChanges "_name"))
-                                                                                                                               (editChanges "_name"))
-                                                                                                            :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
+                                                                                                                :className (% "cl.className")
+                                                                                                                :constraintTarget (% "neo.constraintTarget")
+                                                                                                                :constraintValue (if (= (type (% "rel.constraintValue")) java.util.Collections$UnmodifiableRandomAccessList)
+                                                                                                                                   (editCollection :coll (into [] (% "rel.constraintValue"))
+                                                                                                                                                   :editType "REPLACE"
+                                                                                                                                                   :editVal _name
+                                                                                                                                                   :replaceVal (editChanges "_name"))
+                                                                                                                                   (editChanges "_name"))
+                                                                                                                :constraintType (% "neo.constraintType")) neoConstraintsWithAT))
                                         dataEditQueries   (reduceQueryColl [(createReplaceATNC :atName _name
                                                                                                :renameName (editChanges "_name"))
                                                                             (createReplaceATCC :atName _name
@@ -2708,7 +2708,7 @@ One must manually edit all the instances to fit the constraints and then call `a
 			)
         ]
     (if (not (empty? subClassOf))
-    ;"Adds the attributes,NeoConstraints,CustomConstraints and ApplicableRelationNTs of the superclass to the subclass"
+                                        ;"Adds the attributes,NeoConstraints,CustomConstraints and ApplicableRelationNTs of the superclass to the subclass"
       (let
           [completeQueryVec (vec
                              (concat [createNewNodeQuery]
@@ -2845,7 +2845,7 @@ One must manually edit all the instances to fit the constraints and then call `a
                                                        []))
               constraintCreateQueries (reduceQueryColl (if (contains? newProperties "className")
                                                          (map (fn [nc] (let [neoConstraint (merge ((into {} (nc "ncat")) :properties)
-                                                                                                   ((into {} (nc "neo")) :properties))]
+                                                                                                  ((into {} (nc "neo")) :properties))]
                                                                          (applyClassNeoConstraint :className (newProperties "className")
                                                                                                   :constraintValue (neoConstraint "constraintValue")
                                                                                                   :constraintType (neoConstraint "constraintType")
@@ -2873,14 +2873,45 @@ One must manually edit all the instances to fit the constraints and then call `a
     )
   )
 
-;; (defn deleteClass
-;;   "Deletes a class.
-;;   :forceMigrate? should be true if instances, constraints, etc  are to be deleted as well"
-;;   [& {:keys [:className
-;;              :forceMigrate?]
-;;       :or {:forceMigrate? false}}]
-;;   {:pre [(string? className)]}
-;;   )
+(defn getClasses
+  "Retrieve all classes"
+  [& {:keys [:count?]
+      :or {:count? false}}]
+  (getNodes :label "Class"
+            :parameters {}
+            :count? count?))
+
+(defn deleteClass
+  "Deletes a class.
+  :forceMigrate? should be true if instances, constraints, etc  are to be deleted as well"
+  [& {:keys [:className
+             :forceMigrate?
+             :execute?]
+      :or {:forceMigrate? false
+           :execute? true}}]
+  {:pre [(string? className)]}
+  (let [classInstancesCount (first (getClassInstances :className className
+                                                      :parameters {}
+                                                      :count? true))
+        classDelQuery (deleteDetachNodes :label "Class"
+                                         :parameters {"className" className}
+                                         :execute? false)
+        classInstDelQuery (deleteDetachNodes :label className
+                                             :execute? false)
+        constraintDropQueries (exemptClassNeoConstraints :className className
+                                                         :execute? false)
+        constraintCreateQueries []
+        dataEditQueries (reduceQueryColl [classInstDelQuery classDelQuery])]
+    (if (or (= 0 classInstancesCount) forceMigrate?)
+      (if execute?
+        (gdriver/runTransactions constraintDropQueries
+                                 dataEditQueries)
+        {:constraintCreateQueries constraintCreateQueries
+         :constraintDropQueries constraintDropQueries
+         :dataEditQueries dataEditQueries})
+      (throw (Exception. "Use `:forceMigrate?` true explicitly to make functional changes to the class and it's instances automatically.")))
+    )
+  )
 
 (defn defineInitialConstraints
   "Creates Initial constraints"
@@ -2900,9 +2931,9 @@ One must manually edit all the instances to fit the constraints and then call `a
         execute?
       (apply gdriver/runTransactions builtQueries)
       builtQueries
+      )
     )
   )
-)
 
 (defn validatePropertyMaps
   "Validates propertyMaps for a class with className.

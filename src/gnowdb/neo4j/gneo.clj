@@ -1284,6 +1284,66 @@
                               "fnIntegrity" (gcust/hashCustomFunction fnString)}
                  :execute? execute?))
 
+(defn getCustomFunctions
+  "Get CustomFunctions"
+  [& {:keys [:count?]
+      :or {:count? false}}]
+  (getNodes :label "CustomFunction"
+            :parameters {}
+            :count? count?))
+
+(defn editCustomFunction
+  "Edit a CustomFunction's fnName and/or fnString"
+  [& {:keys [:fnName
+             :changeMap
+             :execute?]
+      :or {:execute? true}}]
+  {:pre [(string? fnName)
+         (map? changeMap)
+         (not (empty? changeMap))
+         (clojure.set/subset? (into #{} (keys changeMap)) #{"fnName"
+                                                            "fnString"}
+                              )
+         (or (and (contains? changeMap "fnString")
+                  (gcust/stringIsCustFunction? (changeMap "fnString")
+                                               )
+                  )
+             (not (contains? changeMap "fnString")))
+         ]
+   }
+  (let [mChangeMap (merge changeMap (if (contains? changeMap "fnString")
+                                      {"fnIntegrity" (gcust/hashCustomFunction (changeMap "fnString"))}
+                                      {})
+                          )]
+    (editNodeProperties :label "CustomFunction"
+                        :parameters {"fnName" fnName}
+                        :changeMap mChangeMap
+                        :execute? execute?)
+    )
+  )
+
+(defn reHashCustomFunctions
+  "Re-Hash all CustomFunctions.
+  Could take a long time depending on size of database.
+  Use only when customPassword is changed"
+  [& {:keys [:execute?]
+      :or {:execute? true}}]
+  (let [builtQueries (map (fn [customFunction]
+                            (let [cf (into {} (customFunction :properties))]
+                              (editCustomFunction :fnName (cf "fnName")
+                                                  :changeMap {"fnString" (cf "fnString")}
+                                                  :execute? false
+                                                  )
+                              )
+                            )
+                          (getCustomFunctions)
+                          )]
+    (if execute?
+      (apply gdriver/runQuery builtQueries)
+      builtQueries)
+    )
+  )
+
 (defn getClassAttributeTypes
   "Get all AttributeTypes 'attributed' to a class"
   [& {:keys [:className

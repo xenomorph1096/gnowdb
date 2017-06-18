@@ -8,7 +8,7 @@
 (defn getCustomPassword
   [details]
   (def ^{:private true} customPassword 
-    (select-keys details [:customFunctionPassword])
+    ((select-keys details [:customFunctionPassword]) :customFunctionPassword)
   )
 )
 

@@ -327,12 +327,37 @@
 
 
 
+
 (defresource delete-From-Personal-Workspace [request]
     :service-available? true
     :allowed-methods [:delete]    
     :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteFromPersonalWorkspace 	:username (get-in params [:username])     													
                                                                                   				:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
                                                                                  				:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+
+(defresource remove-Member-From-Group [request]
+    :service-available? true
+    :allowed-methods [:delete]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (removeMemberFromGroup 	:memberName (get-in params [:memberName])  
+    																					:groupName (get-in params [:groupName])    	
+    																					:adminName (get-in params [:adminName]))))												
+
+    :available-media-types ["application/json"])
+
+
+
+
+(defresource remove-Admin-From-Group [request]
+    :service-available? true
+    :allowed-methods [:delete]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (removeAdminFromGroup 	:removedAdminName (get-in params [:removedAdminName])  
+    																					:groupName (get-in params [:groupName])    	
+    																					:adminName (get-in params [:adminName]))))												
+
     :available-media-types ["application/json"])
 
 

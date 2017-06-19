@@ -53,7 +53,7 @@
 
 (defresource delete-Workspace-From-UHRID [request]
   :service-available? true
-  :allowed-methods [:delete!]
+  :allowed-methods [:delete]
   :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteWorkspaceFromUHRID  :label (get-in params [:resourceUHRID]) 
                                                                        					:workspaceName (get-in params[:workspaceName]))))
   :available-media-types ["application/json"])
@@ -272,4 +272,68 @@
     																					       	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
                                                                                  				:resourceClass (get-in params [:resourceClass]))))
     :available-media-types ["application/json"])
+
+
+
+(defresource move-To-Trash [request]
+    :service-available? true
+    :allowed-methods [:delete]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (moveToTrash 	    :resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 	:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource restore-Resource [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (restoreResource 	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 		:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource delete-From-Unmoderated-Group [request]
+    :service-available? true
+    :allowed-methods [:delete]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteFromUnmoderatedGroup 	:username (get-in params [:username]) 
+    																						:groupName (get-in params [:groupName]) 
+                                                                                  			:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 			:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+
+(defresource delete-From-Moderated-Group [request]
+    :service-available? true
+    :allowed-methods [:delete]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteFromModeratedGroup 	:username (get-in params [:username]) 
+    																						:groupName (get-in params [:groupName]) 
+                                                                                  			:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 			:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource delete-From-Group [request]
+    :service-available? true
+    :allowed-methods [:delete]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteFromGroup 	:username (get-in params [:username]) 
+    																				:groupName (get-in params [:groupName]) 
+                                                                                  	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 	:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource delete-From-Personal-Workspace [request]
+    :service-available? true
+    :allowed-methods [:delete]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteFromPersonalWorkspace 	:username (get-in params [:username])     													
+                                                                                  				:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 				:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
 

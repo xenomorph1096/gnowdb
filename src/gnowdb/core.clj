@@ -1,9 +1,10 @@
 (ns gnowdb.core
   (:gen-class)
   (:require [clojure.java.io :as io]
-  			[gnowdb.neo4j.gneo :as gneo]
+            [gnowdb.neo4j.gneo :as gneo]
             [gnowdb.neo4j.gdriver :as gdriver]
             [gnowdb.neo4j.gcust :as gcust]
+            [gnowdb.neo4j.grcs :as grcs]
             [gnowdb.neo4j.dumprestore :as dumprestore]
             [gnowdb.spec.files :as files]
             [gnowdb.spec.init :as init]

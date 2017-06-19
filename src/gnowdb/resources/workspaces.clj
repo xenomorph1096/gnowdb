@@ -167,3 +167,57 @@
     :handle-created (fn [_] (let [params (get-in request[:params])] (editLastModified 	:editor (get-in params[:editor])
     																					:groupName (get-in params [:groupName]))))
     :available-media-types ["application/json"])
+
+
+
+(defresource get-Type-Of-Workspaces [request]
+    :service-available? true
+    :allowed-methods [:get]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (getTypeOfWorkspaces :resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))  
+    																				:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource publish-To-Unmoderated-Group [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (publishToUnmoderatedGroup 	:username (get-in params [:username]) 
+    																							:groupName (get-in params [:groupName]) 
+                                                                                  				:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 			    :resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource publish-To-Moderated-Group [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (publishToModeratedGroup 	:username (get-in params [:username]) 
+    																							:groupName (get-in params [:groupName]) 
+                                                                                  				:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 			    :resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource publish-To-Admin-Only-Group [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (publishToAdminOnlyGroup 	:username (get-in params [:username]) 
+    																							:groupName (get-in params [:groupName]) 
+                                                                                  				:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 			    :resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource publish-To-Admin-Only-Group [request]
+    :service-available? true
+    :allowed-methods [:get]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (publishToAdminOnlyGroup  	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 			:resourceClass (get-in params [:resourceClass])
+                                                                                 			:groupType (get-in params [:groupType]) 
+    																						:groupName (get-in params [:groupName]))))
+    :available-media-types ["application/json"])
+

@@ -138,3 +138,32 @@
   :allowed-methods [:get]
   :handle-ok (fn [_] (getEditingPolicy (get-in request [:params :groupName])))
   :available-media-types ["application/json"])
+
+
+
+(defresource set-Group-Type [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (setGroupType 	:groupName (get-in params [:groupName]) 
+                                                                                    :adminName (get-in params[:adminName]) 
+                                                                                    :groupType (get-in params[:groupType]) )))
+    :available-media-types ["application/json"])
+
+
+
+(defresource set-Editing-Policy [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (setEditingPolicy 	:groupName (get-in params [:groupName]) 
+                                                                        	            :adminName (get-in params[:adminName]) 
+                                                                            	        :setEditingPolicy (get-in params[:setEditingPolicy]) )))
+    :available-media-types ["application/json"])
+
+
+
+(defresource edit-Last-Modified [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (editLastModified 	:editor (get-in params[:editor])
+    																					:groupName (get-in params [:groupName]))))
+    :available-media-types ["application/json"])

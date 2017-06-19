@@ -362,3 +362,15 @@
 
 
 
+
+(defresource resource-Exists [request]
+    :service-available? true
+    :allowed-methods [:get]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (resourceExists 	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                :resourceClass (get-in params [:resourceClass])
+                                                                                :workspaceName (get-in params [:workspaceName]) 
+    																			:workspaceClass (get-in params [:workspaceClass]))))                                                                                  
+    :available-media-types ["application/json"])
+
+
+

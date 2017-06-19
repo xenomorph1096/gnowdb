@@ -45,6 +45,7 @@
                  :password "neo"
                  :customFunctionPassword "password"
                  :backup-directory "backups"
+                 :data-directory "src/gnowdb/media"
                  }
         ]
 	  	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))

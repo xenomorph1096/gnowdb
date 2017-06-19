@@ -87,7 +87,6 @@
 			filePath (derivePath :GDB_MD5 GDB_MD5)]
 		(if (not (fileExists :GDB_MD5 GDB_MD5 :workspaceName author :workspaceClass "GDB_PersonalWorkspace"))
 			(do
-				(println filePath)
 				(gneo/createNodeClassInstances :className "GDB_File" :nodeList 	[{
 																					"GDB_DisplayName" fileName 
 																					"GDB_Extension" (subs fileName (inc (clojure.string/last-index-of fileName ".")))
@@ -120,7 +119,7 @@
 				(if (not (empty? memberOfWorkspace))
 					(
 						map (fn [groupName]
-								(if (not (fileExists :fileName fileName :workspaceName groupName :workspaceClass "GDB_GroupWorkspace"))
+								(if (not (fileExists :GDB_MD5 GDB_MD5 :workspaceName groupName :workspaceClass "GDB_GroupWorkspace"))
 									(workspaces/publishToGroup :username author :groupName groupName :resourceIDMap {"GDB_MD5" GDB_MD5} :resourceClass "GDB_File")
 							 	)
 						 	)
@@ -183,5 +182,3 @@
 	[]
 	(createFileClass)
 )
-
-

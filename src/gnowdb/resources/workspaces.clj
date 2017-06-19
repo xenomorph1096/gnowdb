@@ -221,3 +221,55 @@
     																						:groupName (get-in params [:groupName]))))
     :available-media-types ["application/json"])
 
+
+
+(defresource add-Member-To-Group [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (addMemberToGroup 	:newMemberName (get-in params [:newMemberName]) 
+    																					:groupName (get-in params[:groupName])
+                                                                        	            :adminName (get-in params[:adminName]))))                                                                            	        
+    :available-media-types ["application/json"])
+
+
+
+(defresource add-Admin-To-Group [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (addAdminToGroup 	:newAdminName (get-in params [:newAdminName]) 
+    																					:groupName (get-in params[:groupName])
+                                                                        	            :adminName (get-in params[:adminName]))))                                                                            	        
+    :available-media-types ["application/json"])
+
+
+
+(defresource publish-To-Group [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (publishToGroup 	:username (get-in params [:username]) 
+    																					:groupName (get-in params [:groupName]) 
+                                                                                  		:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 		:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource publish-To-Personal-Workspace [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (publishToPersonalWorkspace 	:username (get-in params [:username]) 
+    																					       		:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 					:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
+
+
+(defresource publish-Pending-Resource [request]
+    :service-available? true
+    :allowed-methods [:post]    
+    :handle-created (fn [_] (let [params (get-in request[:params])] (publishPendingResource 	:adminName (get-in params [:adminName]) 
+    																							:groupName (get-in params [:groupName]) 
+    																					       	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 				:resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+

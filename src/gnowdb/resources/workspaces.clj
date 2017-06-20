@@ -1,9 +1,8 @@
 (ns gnowdb.resources.workspaces
-  (:require [liberator.core 
-            :refer [defresource resource request-method-in]]
+  (:require [liberator.core :refer [defresource resource request-method-in]]
             [cheshire.core :refer :all] 
             [gnowdb.core :refer :all]
-            [gnowdb.neo4j.gneo :refer :all])) 
+            [gnowdb.spec.workspaces :refer :all])) 
 
 (use 'clojure.walk)
 

@@ -1,4 +1,4 @@
-ns gnowdb.routes.workspaces
+(ns gnowdb.routes.workspaces
   (:require [compojure.core :refer :all]
             [gnowdb.resources.workspaces :refer :all]))
 

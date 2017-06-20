@@ -2451,6 +2451,7 @@
       )
     )
   )
+
 (defn deleteAttributeType
   "Delete an AttributeType.
   :forceMigrate?"
@@ -2778,7 +2779,7 @@
 			)
         ]
     (if (not (empty? subClassOf))
-                                        ;"Adds the attributes,NeoConstraints,CustomConstraints and ApplicableRelationNTs of the superclass to the subclass"
+    ;"Adds the attributes,NeoConstraints,CustomConstraints and ApplicableRelationNTs of the superclass to the subclass"
       (let
           [completeQueryVec (vec
                              (concat [createNewNodeQuery]

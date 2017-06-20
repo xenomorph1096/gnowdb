@@ -186,7 +186,7 @@
              :editType
              :editVal
              :replaceVal]
-      :or [:replaceVal ""]}]
+      :or {:replaceVal ""}}]
   {:pre [(coll? coll)
          (every? string? coll)
          (contains? #{"APPEND" "DELETE" "REPLACE"} editType)
@@ -213,8 +213,8 @@
              :editVal
              :replaceVal
              :withWhere?]
-      :or [:replaceVal ""
-           :withWhere? true]}]
+      :or {:replaceVal ""
+           :withWhere? true}}]
   {:pre [(string? varName)
          (string? propName)
          (contains? #{"APPEND" "DELETE" "REPLACE"} editType)

@@ -375,23 +375,18 @@
     )
 
 ;;;;;;;;;;uuidEnabled not tested
-
-
-
-
-
 )
 
 (deftest addStringToMapKeys-test
     (testing "Error in adding string to map keys(strings)"
-        (is (= {"test1suff" "test2suff"}
+        (is (= {"test1suff" "value1", "test2suff" "value2"}
             (addStringToMapKeys {"test1" "value1" "test2" "value2"} "suff")
             )
         )
     )
 
     (testing "Error in adding string to map keys(numbers)"
-        (is (= {"1suff" "2suff"}
+        (is (= {"1suff" "value1", "2suff" "value2"}
             (addStringToMapKeys {1 "value1" 2 "value2"} "suff")
             )
         )
@@ -414,7 +409,104 @@
     )
 )
 
+(deftest createRemString-test
+    (testing "Error in creating remove string"
+        (is (= "REMOVE n.prop1, n.prop2"
+            (createRemString :varName "n" :remPropertyList ["prop1" "prop2"])
+            )
+        )
+    )
+)
 
+(deftest createRenameString-test
+    (testing "Error in creating rename string"
+        (is (= "WHERE n.newProp1 is null and n.newProp2 is null SET n.newProp1=n.prop1, n.newProp2=n.prop2 REMOVE n.prop1, n.prop2"
+            (createRenameString :varName "n" :renameMap {"prop1" "newProp1" "prop2" "newProp2"})
+            )
+        )
+    )
+
+    (testing "Error in creating rename string"
+        (is (= "n.newProp1 is null and n.newProp2 is null SET n.newProp1=n.prop1, n.newProp2=n.prop2 REMOVE n.prop1, n.prop2"
+            (createRenameString :varName "n" :renameMap {"prop1" "newProp1" "prop2" "newProp2"} :addWhere? false)
+            )
+        )
+    )
+)
+
+(deftest editCollection-test
+    (testing "Error in editing collection string APPEND"
+        (is (= ["name" "prop" "value"]
+            (editCollection :coll ["name" "prop"] :editType "APPEND" :editVal "value")
+            )
+        )
+    )
+
+    (testing "Error in editing collection string APPEND when editVal already present in editCollection"
+        (is (= ["name" "prop" "prop"]
+            (editCollection :coll ["name" "prop"] :editType "APPEND" :editVal "prop")
+            )
+        )
+    )
+
+    (testing "Error in editing collection string DELETE"
+        (is (= '("name")
+            (editCollection :coll ["name" "prop"] :editType "DELETE" :editVal "prop")
+            )
+        )
+    )
+
+    (testing "Error in editing collection string REPLACE"
+        (is (= ["name" "newValue"]
+            (editCollection :coll ["name" "value"] :editType "REPLACE" :editVal "value" :replaceVal "newValue")
+            )
+        )
+    )
+
+    (testing "Error in editing collection string REPLACE when editVal is not present in editCollection"
+        (is (= ["name" "value" "newProp"]
+            (editCollection :coll ["name" "value"] :editType "REPLACE" :editVal "prop" :replaceVal "newProp")
+            )
+        )
+    )
+)
+
+(deftest createPropListEditString-test
+    (testing "Error in creating property list editing string APPEND"
+        (is (= " SET n.prop = n.prop + {newProp}"
+            (createPropListEditString :varName "n" :propName "prop" :editType "APPEND" :editVal "newProp")
+            )
+        )
+    )
+
+    (testing "Error in creating property list editing string DELETE with where true"
+        (is (= "WHERE {newProp} IN n.prop SET n.prop = FILTER(x IN n.prop WHERE x <> {newProp})"
+            (createPropListEditString :varName "n" :propName "prop" :editType "DELETE" :editVal "newProp")
+            )
+        )
+    )
+
+    (testing "Error in creating property list editing string DELETE with where false"
+        (is (= " SET n.prop = FILTER(x IN n.prop WHERE x <> {newProp})"
+            (createPropListEditString :varName "n" :propName "prop" :editType "DELETE" :editVal "newProp" :withWhere? false)
+            )
+        )
+    )
+
+    (testing "Error in creating property list editing string REPLACE with where true"
+        (is (= "WHERE {newProp} IN n.prop SET n.prop = FILTER(x IN n.prop WHERE x <> {newProp}) + {repProp}"
+            (createPropListEditString :varName "n" :propName "prop" :editType "REPLACE" :editVal "newProp" :replaceVal "repProp")
+            )
+        )
+    )
+
+    (testing "Error in creating property list editing string REPLACE with where false"
+        (is (= " SET n.prop = FILTER(x IN n.prop WHERE x <> {newProp}) + {repProp}"
+            (createPropListEditString :varName "n" :propName "prop" :editType "REPLACE" :editVal "newProp" :replaceVal "repProp" :withWhere? false)
+            )
+        )
+    )
+)
 
 (run-tests)
 

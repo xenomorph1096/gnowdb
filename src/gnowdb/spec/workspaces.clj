@@ -61,23 +61,28 @@
   nil
 )
 
-(defn- generateUHRID
-  [& {:keys [resourceUHRID workspaceName]}]
-  (str workspaceName "/" resourceUHRID)
-)
+; (defn- generateUHRID
+;   [& {:keys [resourceUHRID workspaceName]}]
+;   (str workspaceName "/" resourceUHRID)
+; )
 
-(defn- deleteWorkspaceFromUHRID
-  [& {:keys [resourceUHRID workspaceName]}]
-  (clojure.string/replace resourceUHRID (str workspaceName "/") "")
-)
+; (defn- deleteWorkspaceFromUHRID
+;   [& {:keys [resourceUHRID workspaceName]}]
+;   (clojure.string/replace resourceUHRID (str workspaceName "/") "")
+; )
 
 (defn instantiateGroupWorkspace
-  "Creates Group Workspaces
+  "Creates Group Workspaces, the creater is also made an admin by default.
     :groupType can be Public, Private or Anonymous.
     :editingPolicy can be Editable_Admin-Only, Editable_Moderated, Editable_Non-Moderated or Archive.
     :displayName should be the displayName of the group.
     :createdBy should be the name of the user who created the workspace.
     :subGroupOf should be a vector containing the names of the parent groups.
+
+    Eg:
+      1: (instantiateGroupWorkspace :displayName \"Gnowledge\") creates a Public, Editable_Non-Moderated, group workspace called Gnowledge in the database, with admin user being the admin
+      2: (instantiateGroupWorkspace :displayName \"GNU\" :editingPolicy \"Editable_Moderated\" :subGroupOf [\"Gnowledge\"] :createdBy \"GN\") creates a Public, Editable_Moderated, group workspace called GNU which is a subgroup of Gnowledge
+      3: (instantiateGroupWorkspace :displayName \"Gnowledge\" :relationshipsOnly? true) does NOT create a group, but define the relationships of a group if they did not exist already.
   "
   [& {:keys [:groupType :editingPolicy :displayName :alternateName :description :createdBy :subGroupOf :relationshipsOnly?] :or {:groupType "Public" :editingPolicy "Editable_Non-Moderated" :alternateName "[]" :createdBy "admin" :description "" :subGroupOf [] :relationshipsOnly? false}}]
   (if (false? relationshipsOnly?)
@@ -153,10 +158,15 @@
 )
 
 (defn instantiatePersonalWorkspace
-  "Creates Group Workspaces
+  "Creates Personal Workspace, who is marked as being created by the admin and is a member of the group home by default.
     :displayName should be the name of the user
     :createdBy should be the name of the user who created this one, default is admin
     :memberOfGroup should be the name of the Group the user is a member of, default is home
+
+    Eg:
+      1: (instantiatePersonalWorkspace :displayName \"GN\") creates a user called GN who is a member of the group home. GN is marked as being created by admin.
+      2: (instantiatePersonalWorkspace :displayName \"Lex\" :memberOfGroup \"Gnowledge\") creates a user Lex, who is a member of Gnowledge. Ray is marked as being created by admin.
+      3: (instantiateGroupWorkspace :displayName \"Anant\" :memberOfGroup \"Gnowledge\" :createdBy \"GN\") created user Anant, who is a member of Gnowledge. Anant is marked as being created by GN.
   "
   [& {:keys [:displayName :alternateName :createdBy :memberOfGroup :description :relationshipsOnly?] :or {:alternateName "[]" :createdBy "admin" :memberOfGroup "home" :description "" :relationshipsOnly? false}}]
   (if (false? relationshipsOnly?)
@@ -242,6 +252,10 @@
 )
 
 (defn getAdminList
+  "Gives the admin list for a particular group workspace, given by the group's name
+  Eg:
+    1: (getAdminList \"Gnowledge\") gives the admin list for the group Gnowledge
+  "
   [groupName]
   (map #(((% :start) :properties) "GDB_DisplayName")
       (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
@@ -253,6 +267,10 @@
 )
 
 (defn getMemberList
+  "Gives the member list for a particular group workspace, given by the group's name.
+  Eg:
+    1: (getMemberList \"Gnowledge\") gives the member list for the group Gnowledge
+  "
   [groupName]
   (map #(((% :start) :properties) "GDB_DisplayName")
       (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
@@ -264,6 +282,10 @@
 )
 
 (defn getPublishedResources
+  "Gives the GDB_DisplayName of published resources in the group, needs the group's name as argument.
+  Eg:
+    1: (getPublishedResources \"Gnowledge\") gives published resources in the group Gnowledge.
+  "
   [groupName]
   (map #(((% :start) :properties) "GDB_DisplayName")
       (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
@@ -275,6 +297,10 @@
 )
 
 (defn getPendingResources
+  "Gives the GDB_DisplayName of pending resources in the group, needs the group's name as argument.
+  Eg:
+    1: (getPendingResources \"Gnowledge\") gives pending resources in the group Gnowledge.
+  "
   [groupName]
   (map #((% :start) :properties)
       (gneo/getRelations :toNodeLabel ["GDB_GroupWorkspace"] 
@@ -286,6 +312,10 @@
 )
 
 (defn getGroupType
+  "Gives the group type of the group, needs the group's name as argument. The group type can be one of public, private, or anonymous.
+  Eg:
+    1: (getGroupType \"Gnowledge\") gives group type of group Gnowledge.
+  "
   [groupName]
     (((first (gneo/getNodes 
                         :label "GDB_GroupWorkspace" 
@@ -296,6 +326,10 @@
 )
 
 (defn getEditingPolicy
+  "Gives the editing policy of the group, needs the group's name as argument. The editing policy can be one of Editable_Moderated, Editable_Non-Moderated, Editable_Admin-Only or Archive.
+  Eg:
+    1: (getEditingPolicy \"Gnowledge\") gives editing policy of group Gnowledge.
+  "
   [groupName]
     (((first (gneo/getNodes 
                         :label "GDB_GroupWorkspace" 
@@ -306,6 +340,10 @@
 )
 
 (defn setGroupType
+  "Sets the group type of the group, needs the group's name as argument. The group type can be one of public, private, or anonymous.
+  Eg:
+    1: (getGroupType \"Gnowledge\") sets group type of group Gnowledge.
+  "
   [& {:keys [groupName adminName groupType]}]
   (if (.contains (getAdminList groupName) adminName)
     (gneo/editNodeProperties :label "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_GroupType" groupType})
@@ -314,6 +352,10 @@
 )
 
 (defn setEditingPolicy
+  "Sets the editing policy of the group, needs the group's name as argument. The editing policy can be one of Editable_Moderated, Editable_Non-Moderated, Editable_Admin-Only or Archive.
+  Eg:
+    1: (getEditingPolicy \"Gnowledge\") sets editing policy of group Gnowledge.
+  "
   [& {:keys [groupName adminName editingPolicy]}]
   (if (.contains (getAdminList groupName) adminName)
     (gneo/editNodeProperties :label "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_GroupType" editingPolicy})
@@ -322,12 +364,15 @@
 )
 
 (defn- editLastModified
+  "Changes the last modified credentials for a group workspace and calls on RCS with the accumulated changes."
   [& {:keys [:editor :groupName]}]
   (rcs/updateLastModified :editor editor :resourceClass "GDB_GroupWorkspace" :resourceIDMap {"GDB_DisplayName" groupName})
 )
 
 (defn- getTypeOfWorkspaces
-  "Determines types of workspaces the resource is published to"
+  "Determines types of workspaces a resource is published to. 
+   Requires an ID Map of the resource that uniquely identifies it, and its class
+  "
   [& {:keys [:resourceIDMap :resourceClass]}]
   (into #{} 
     (map #(((% :end) :properties) "GDB_GroupType")
@@ -381,6 +426,7 @@
 )
 
 (defn- publishToAdminOnlyGroup
+  "Publish nodes to admin only groups i.e. with admin check and no pendencies added"
   [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
   (if (.contains (getAdminList groupName) username)
     (do
@@ -391,7 +437,12 @@
 )
 
 (defn crossPublishAllowed?
-  "Determines whether cross-publication is allowed for a particular resource"
+  "Determines whether cross-publication is allowed for a particular resource
+    :resourceIDMap takes a map that can uniquely identify a resource in the database.
+    :resourceClass takes a string class name of the resource
+    :groupName name of the group to which the file needs to be published to
+    :groupType (OPTIONAL) type of the group, need not be given
+  "
   [& {:keys [:resourceIDMap :resourceClass :groupType :groupName]}]
   (let  [
           workspaceTypes (getTypeOfWorkspaces resourceIDMap resourceClass)
@@ -405,7 +456,15 @@
 )
 
 (defn addMemberToGroup
-  "Adds member to group workspace"
+  "Adds a member to group workspace, an admin is required to add members to private groups and no members can be added to anonymous groups
+    :newMemberName the name of the member to be added to the groupType
+    :groupName the name of the group to which the member needs to be added
+    :adminName (OPTIONAL) the name of the admin authorizing the join request. Needed only for private groups!
+
+    Eg:
+      1: (addMemberToGroup :newMemberName \"Bruce\" :groupName \"Gnowledge\") adds Bruce to the group Gnowledge
+      2: (addMemberToGroup :newMemberName \"Alfred\" :groupName \"Butlers\" :adminName \"Bruce\") adds Alfred to the Butlers group which is managed by Bruce.
+  "
   [& {:keys [:newMemberName :groupName :adminName]}]
     (let [workspaceType (getGroupType groupName)
           admins (getAdminList groupName)
@@ -414,7 +473,7 @@
         (do
           (gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList    [{
                                             :fromClassName "GDB_PersonalWorkspace"
-                                            :fromPropertyMap {"GDB_DisplayName" ditnewMemberName}
+                                            :fromPropertyMap {"GDB_DisplayName" newMemberName}
                                             :toClassName "GDB_GroupWorkspace"
                                             :toPropertyMap {"GDB_DisplayName" groupName}
                                             :propertyMap {}
@@ -431,7 +490,14 @@
 )
 
 (defn addAdminToGroup
-  "Adds an Administrator to a group workspace"
+  "Adds an Administrator to a group workspace, the admin should already be a member to the group
+    :newAdminName The name of the member who is to be promoted to admin status
+    :groupName the name of the group in which the promotion is to be done
+    :adminName the name of the admin authorizing the promotion should be here
+
+    Eg:
+      1: (addAdminToGroup :newAdminName \"Alfred\" :groupName \"Butlers\" :adminName \"Bruce\") adds Alfred as an admin to the Butlers group, Alfred can now manage all other butlers.
+  "
   [& {:keys [:newAdminName :groupName :adminName]}]
   (let [
           admins (getAdminList groupName)
@@ -456,7 +522,14 @@
 )
 
 (defn publishToGroup
-  "Publish nodes to Group Workspace"
+  "Publish resources to a Group Workspace in accordance to the editing policy and group type of the group provided
+    :username The display name of the user publishing resources to the group
+    :groupName The display name of the group to which the resources are being published
+    :resourceIDMap An ID map of the resource that is to be published. The resource should be uniquely identifiable.
+    :resourceClass The class of the resource that is to be published.
+    Eg:
+      1: (publishToGroup :username \"Gordon\" :groupName \"GCPD\" :resourceIDMap {\"CriminalName\" \"???\" \"Alias\" \"JOKER\"} :resourceClass \"APBs\") adds an APB to the group GCPD against with the details present in resourceIDMap
+  "
   [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
   (let [groupType (getGroupType groupName)
         editingPolicy (getEditingPolicy groupName)
@@ -483,7 +556,13 @@
 )
 
 (defn publishToPersonalWorkspace
-  "Publish nodes to personal workspace"
+  "Publish resources to personal workspace
+    :username The display name of the user publishing resources to the group
+    :resourceIDMap An ID map of the resource that is to be published. The resource should be uniquely identifiable.
+    :resourceClass The class of the resource that is to be published.
+    Eg:
+      1: (publishToPersonalWorkspace :username \"Darkseid\" :resourceIDMap {\"PlanetID\" \"Earth:52\"} :resourceClass \"Planets\")
+  "
   [& {:keys [:username :resourceIDMap :resourceClass]}]
   (gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList  [{
                                               :fromClassName resourceClass
@@ -504,7 +583,16 @@
 )
 
 (defn publishPendingResource
-  "Publishes Pending Resources to Group"
+  "Publishes Pending Resources to Group, which were added by non-admin members to Editable_Moderated groups
+    :adminName The display name of the admin publishing resources to the group
+    :groupName The display name of the group to which the resources are being published
+    :resourceIDMap An ID map of the resource that is to be published. The resource should be uniquely identifiable.
+    :resourceClass The class of the resource that is to be published.
+
+    Eg:
+      1: (publishPendingResource :adminName \"Bruce\" :groupName \"Utility\" :resourceIDMap {\"Inventor\" \"Lucius\" \"ID\" \"Knightfall\"} :resourceClass \"Protocols\") 
+          Adds a protocol resource to the Utility group which was added by a non admin user earlier, but is now approved by an admin.
+  "
   [& {:keys [:adminName :groupName :resourceIDMap :resourceClass]}]
   (gneo/deleteRelations
               :toNodeLabel ["GDB_GroupWorkspace"]

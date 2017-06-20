@@ -630,8 +630,8 @@
 )
 
 (defn restoreResource
-  "Restores a resource by removing from TRASH."
-  [& {:keys [:resourceIDMap :resourceClass]}]
+  "Restores a resource by removing from TRASH and adding to the given workspace."
+  [& {:keys [:resourceIDMap :resourceClass :workspaceClass :workspaceName :username]}]
   (gneo/deleteRelations
               :toNodeLabel ["GDB_GroupWorkspace"]
               :toNodeParameters {"GDB_DisplayName" "TRASH"}
@@ -639,6 +639,10 @@
               :fromNodeLabel [resourceClass]
               :fromNodeParameters resourceIDMap
   )
+  (cond 
+          (= workspaceClass "GDB_GroupWorkspace") (publishToGroup :username username :groupName workspaceName :resourceIDMap resourceIDMap :resourceClass resourceClass)
+          (= workspaceClass "GDB_PersonalWorkspace") (publishToPersonalWorkspace :username username :resourceIDMap resourceIDMap :resourceClass resourceClass)
+  )         
 )
 
 (defn deleteFromUnmoderatedGroup

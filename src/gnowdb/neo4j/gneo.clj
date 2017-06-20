@@ -2204,7 +2204,7 @@
      :parameters propertyMap})
   )
 
-(defn addSubTypeVRQueryVec
+(defn- addSubTypeVRQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass NeoConstraints to the subclass"
   [& {:keys [:_name
@@ -2513,7 +2513,7 @@
     )
   )
 
-(defn addSubClassATQueryVec
+(defn- addSubClassATQueryVec
   "Returns a vector of queries consisting of is_aRelationship 
   query and the queries for adding superclass AttributeTypes to the subclass"
   [& {:keys [:className
@@ -2545,7 +2545,7 @@
     )
   )
 
-(defn addClassNCQuery
+(defn- addClassNCQuery
   "Returns addClassNC query without doing a check on the existence and the uniqueness of the class.
   :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
   :constraintTarget should be either of NODE,RELATION.
@@ -2578,7 +2578,7 @@
   )
 
 ;;;;;;Try to improve efficiency
-(defn addSubClassNCQueryVec
+(defn- addSubClassNCQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass NeoConstraints to the subclass"
   [& {:keys [:className
@@ -2627,7 +2627,7 @@
     )
   )
 
-(defn addClassCCQuery
+(defn- addClassCCQuery
   "Returns query for addClassCC without doing a check on atList
   :fnName of a CustomFunction.
   :constraintValue should be value to be passed as CustomFunction's second argument"
@@ -2649,7 +2649,7 @@
    )
   )
 
-(defn addSubClassCCQueryVec
+(defn- addSubClassCCQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass CustomConstraints to the subclass"
   [& {:keys [:className
@@ -2673,7 +2673,7 @@
     )
   )
 
-(defn addRelApplicableTypeQuery
+(defn- addRelApplicableTypeQuery
   "Returns the query of the function addRelApplicableType without doing a check 
   on the existence and uniqueness of applicableClass.
   :className should be className of relation class.
@@ -2709,7 +2709,7 @@
     )
   )
 
-(defn addSubClassAppTypeQueryVec
+(defn- addSubClassAppTypeQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass ApplicableTypeRelations to the subclass"
   [& {:keys [:className :subClassOf]}]

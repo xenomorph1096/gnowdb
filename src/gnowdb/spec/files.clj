@@ -68,13 +68,13 @@
 	(subs filePath (inc (clojure.string/last-index-of filePath "/")))
 )
 
-(defn fileExists
+(defn- fileExists
 	"Returns true if the given workspace contains the file else false"
 	[& {:keys [:GDB_MD5 :workspaceName :workspaceClass]}]
 	(workspaces/resourceExists :resourceIDMap {"GDB_MD5" GDB_MD5} :resourceClass "GDB_File" :workspaceClass workspaceClass :workspaceName workspaceName)
 )
 
-(defn createFileInstance 
+(defn- createFileInstance 
 	":fileSrcPath should include the filename as well e.g. src/gnowdb/core.clj.
 	 :author is the name of the user uploading file .
 	 :memberOfWorkspace is a vector containing names of groupworkspaces which will
@@ -153,13 +153,33 @@
 	)
 )
 
-(defn deleteFileInstance
+(defn- deleteFileInstance
 	"Deletes a file instance"
 	[& {:keys[:GDB_MD5]}]
 	(
 		gneo/deleteDetachNodes 	:label "GDB_File" 
 								:parameters {"GDB_MD5" GDB_MD5}
 	)
+)
+
+(defn restoreFile
+	"Restores a file by moving from TRASH to the given workspace."
+	[& {:keys [:GDB_MD5 :workspaceClass :workspaceName :username]}]
+	(workspaces/restoreResource :resourceClass "GDB_File"
+								:resourceIDMap {"GDB_MD5" GDB_MD5}
+								:workspaceName workspaceName
+								:workspaceClass workspaceClass
+								:username username
+	)
+)
+
+(defn purgeFile
+	"Purge the file present in TRASH."
+  	[& {:keys [:adminName :GDB_MD5]}]
+  	(workspaces/purgeResource 	:adminName adminName 
+  								:resourceClass "GDB_File"
+  								:resourceIDMap {"GDB_MD5" GDB_MD5}
+  	)
 )
 
 (defn addFileToDB

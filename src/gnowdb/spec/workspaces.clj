@@ -414,7 +414,7 @@
         (do
           (gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList    [{
                                             :fromClassName "GDB_PersonalWorkspace"
-                                            :fromPropertyMap {"GDB_DisplayName" ditnewMemberName}
+                                           ; :fromPropertyMap {"GDB_DisplayName" ditnewMemberName}
                                             :toClassName "GDB_GroupWorkspace"
                                             :toPropertyMap {"GDB_DisplayName" groupName}
                                             :propertyMap {}

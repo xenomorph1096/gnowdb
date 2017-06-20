@@ -48,6 +48,7 @@
                  :customFunctionPassword "password"
                  :backup-directory "backups"
                  :data-directory "src/gnowdb/media"
+                 :uuidEnabled true
                  }
         ]
 	  	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))

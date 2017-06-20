@@ -374,7 +374,7 @@
 
     )
 
-
+;;;;;;;;;;uuidEnabled not tested
 
 
 
@@ -382,11 +382,37 @@
 
 )
 
+(deftest addStringToMapKeys-test
+    (testing "Error in adding string to map keys(strings)"
+        (is (= {"test1suff" "test2suff"}
+            (addStringToMapKeys {"test1" "value1" "test2" "value2"} "suff")
+            )
+        )
+    )
 
+    (testing "Error in adding string to map keys(numbers)"
+        (is (= {"1suff" "2suff"}
+            (addStringToMapKeys {1 "value1" 2 "value2"} "suff")
+            )
+        )
+    )
+)
 
+(deftest createEditString-test
+    (testing "Error in editing string 1"
+        (is (= " SET n.height = {height} ,n.streng = {strength}"
+            (createEditString :varName "n" :editPropertyList '("height" "strength") :characteristicString "th")
+            )
+        )
+    )
 
-
-
+    (testing "Error in editing string 2"
+        (is (= " SET class.name = {name1} ,class.prop = {prop1}"
+            (createEditString :varName "class" :editPropertyList '("name1" "prop1") :characteristicString "1")
+            )
+        )
+    )
+)
 
 
 

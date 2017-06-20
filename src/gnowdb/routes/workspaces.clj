@@ -6,23 +6,23 @@
 
   (context "/api" [] 
 
-    (POST "/prepareNodeClass" request (prepare-Node-Class request))
+    ; (POST "/prepareNodeClass" request (prepare-Node-Class request))
 
-    (POST "/createAbstractWorkspaceClass" request (create-Abstract-Workspace-Class request))
+    ; (POST "/createAbstractWorkspaceClass" request (create-Abstract-Workspace-Class request))
 
-    (POST "/createPersonalWorkspaceClass" request (create-Personal-Workspace-Class request))
+    ; (POST "/createPersonalWorkspaceClass" request (create-Personal-Workspace-Class request))
 
-    (POST "/createGroupWorkspaceClass" request (create-Group-Workspace-Class request))
+    ; (POST "/createGroupWorkspaceClass" request (create-Group-Workspace-Class request))
 
-    (GET "/generateUHRID" request (generate-UHRID request))
+    ; (GET "/generateUHRID" request (generate-UHRID request))
 
-    (DELETE "/deleteWorkspaceFromUHRID" request (delete-Workspace-From-UHRID request))
+    ; (DELETE "/deleteWorkspaceFromUHRID" request (delete-Workspace-From-UHRID request))
 
     (POST "/instantiateGroupWorkspace" request (instantiate-Group-Workspace request))
 
     (POST "/instantiatePersonalWorkspace" request (instantiate-Personal-Workspace request))
 
-    (POST "/instantiateDefaultWorkspaces" request (instantiate-Default-Workspaces request))
+    ; (POST "/instantiateDefaultWorkspaces" request (instantiate-Default-Workspaces request))
 
     (GET "/getAdminList" request (get-Admin-List request))
 
@@ -40,17 +40,17 @@
 
     (POST "/setEditingPolicy" request (set-Editing-Policy request))
 
-    (POST "/editLastModified" request (edit-Last-Modified request))
+    ; (POST "/editLastModified" request (edit-Last-Modified request))
 
-    (GET "/getTypeOfWorkspaces" request (get-Type-Of-Workspaces request))
+    ; (GET "/getTypeOfWorkspaces" request (get-Type-Of-Workspaces request))
 
-    (POST "/publishToUnmoderatedGroup" request (publish-To-Unmoderated-Group request))
+    ; (POST "/publishToUnmoderatedGroup" request (publish-To-Unmoderated-Group request))
 
-    (POST "/publishToModeratedGroup" request (publish-To-Moderated-Group request))
+    ; (POST "/publishToModeratedGroup" request (publish-To-Moderated-Group request))
 
-    (POST "/publishToAdminOnlyGroup" request (publish-To-Admin-Only-Group request))
+    ; (POST "/publishToAdminOnlyGroup" request (publish-To-Admin-Only-Group request))
 
-    (GET "/crossPublishAllowed?" request (cross-Publish-Allowed? request))
+    ; (GET "/crossPublishAllowed?" request (cross-Publish-Allowed? request))
 
     (POST "/addMemberToGroup" request (add-Member-To-Group request))
 
@@ -64,11 +64,11 @@
 
     (DELETE "/moveToTrash" request (move-To-Trash request))
 
-    (POST "/restoreResource" request (restoreResource request))
+    (POST "/restoreResource" request (restore-Resource request))
 
-    (DELETE "/deleteFromUnmoderatedGroup" request (delete-From-Unmoderated-Group request))
+    ; (DELETE "/deleteFromUnmoderatedGroup" request (delete-From-Unmoderated-Group request))
 
-    (DELETE "/deleteFromModeratedGroup" request (delete-From-Moderated-Group request))
+    ; (DELETE "/deleteFromModeratedGroup" request (delete-From-Moderated-Group request))
 
     (DELETE "/deleteFromGroup" request (delete-From-Group request))
 

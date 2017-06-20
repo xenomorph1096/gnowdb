@@ -17,6 +17,13 @@
 	)
 )
 
+(defn getDataStorageLevels
+	[details]
+	(def ^{:private true} dataStorageLevels 
+		(details :data-storage-levels)
+	)
+)
+
 (defn- createFileClass
 	[] 
 	(gneo/createClass :className "GDB_File" :classType "NODE" :isAbstract? false :subClassOf ["GDB_Node"] :properties {} :execute? true)
@@ -37,9 +44,12 @@
 (defn- derivePath
 	"Derives the file path(e.g.1/2/3) where the file is to be stored inside the data directory"
 	[& {:keys [:GDB_MD5]}]
-	(let [last3DigitString (subs GDB_MD5 (- (count GDB_MD5) 3)) 
-		  filePath (str (subs last3DigitString 2 3) "/" (subs last3DigitString 1 2) "/" (subs last3DigitString 0 1))]
-		  (str dataDir "/" filePath)
+	(let [
+		endSubString (subs GDB_MD5 (- (count GDB_MD5) dataStorageLevels)) 
+		reversedString (clojure.string/reverse endSubString)
+		splitVec (clojure.string/split reversedString #"")
+		]
+		(clojure.string/join "/" splitVec)
 	)
 )
 

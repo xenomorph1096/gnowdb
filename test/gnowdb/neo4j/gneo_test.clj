@@ -382,13 +382,40 @@
     )
   )
 
-  ;(createNeoConstraint :constraintType "UNIQUE" :constraintTarget "NODE")
-  ; (addClassNC :constraintType "UNIQUE" :constraintTarget "NODE" :constraintValue "small" :className "tdb23")
+  (testing "Deleting all changes2"
+    (is 
+      (= (select-keys {:results [()],
+       :summary
+       {:summaryMap
+        {:relationshipsCreated 0,
+         :containsUpdates true,
+         :nodesCreated 0,
+         :nodesDeleted 2,
+         :indexesRemoved 0,
+         :labelsRemoved 0,
+         :constraintsAdded 0,
+         :propertiesSet 0,
+         :labelsAdded 0,
+         :constraintsRemoved 0,
+         :indexesAdded 0,
+         :relationshipsDeleted 1},
+        :summaryString
+        "ContainsUpdates :true ;NodesDeleted :2 ;RelationshipsDeleted :1 ;"}} [:results])
+        (select-keys (runQuery {:query "match (n {tag:{a}}) detach delete n" :parameters {"a" "test"}}) [:results]) 
+      )
+    )
+  )
+  
+  ; (createClass :className "tdb23" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"tag" "test"} :execute? true)
+  ; (addClassAT :_atname "small" :className "tdb23")
+  ; ;(createNeoConstraint :constraintType "UNIQUE" :constraintTarget "NODE")
+
+  ; (addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "small" :className "tdb23")
 
   ; (testing " Error in creating subclass of a class with a neo constraint."
   ;   (is 
   ;     (= {:results
-  ;       '({:results [() () ()],
+  ;      '({:results [() () ()],
   ;        :summary
   ;        {:summaryMap
   ;         {:relationshipsCreated 2,
@@ -459,29 +486,29 @@
   ;   )
   ; )
 
-  (testing "Deleting all changes2"
-    (is 
-      (= (select-keys {:results [()],
-       :summary
-       {:summaryMap
-        {:relationshipsCreated 0,
-         :containsUpdates true,
-         :nodesCreated 0,
-         :nodesDeleted 2,
-         :indexesRemoved 0,
-         :labelsRemoved 0,
-         :constraintsAdded 0,
-         :propertiesSet 0,
-         :labelsAdded 0,
-         :constraintsRemoved 0,
-         :indexesAdded 0,
-         :relationshipsDeleted 1},
-        :summaryString
-        "ContainsUpdates :true ;NodesDeleted :2 ;RelationshipsDeleted :1 ;"}} [:results])
-        (select-keys (runQuery {:query "match (n {tag:{a}}) detach delete n" :parameters {"a" "test"}}) [:results]) 
-      )
-    )
-  )
+  ; (testing "Deleting all changes3"
+  ;   (is 
+  ;     (= (select-keys {:results [()],
+  ;      :summary
+  ;      {:summaryMap
+  ;       {:relationshipsCreated 0,
+  ;        :containsUpdates true,
+  ;        :nodesCreated 0,
+  ;        :nodesDeleted 2,
+  ;        :indexesRemoved 0,
+  ;        :labelsRemoved 0,
+  ;        :constraintsAdded 0,
+  ;        :propertiesSet 0,
+  ;        :labelsAdded 0,
+  ;        :constraintsRemoved 0,
+  ;        :indexesAdded 0,
+  ;        :relationshipsDeleted 1},
+  ;       :summaryString
+  ;       "ContainsUpdates :true ;NodesDeleted :2 ;RelationshipsDeleted :1 ;"}} [:results])
+  ;       (select-keys (runQuery {:query "match (n {tag:{a}}) detach delete n" :parameters {"a" "test"}}) [:results]) 
+  ;     )
+  ;   )
+  ; )
 
   (deleteDetachNodes :label "CustomFunction" :parameters {"fnName" "func"})
   (deleteDetachNodes :label "AttributeType" :parameters {"_name" "small" "_datatype" "java.lang.String"})

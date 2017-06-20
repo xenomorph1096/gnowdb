@@ -837,8 +837,8 @@
     :resourceIDMap contains the key-value pair which uniquely identifies the resource.
     :resourceClass is the class name to which the resource belongs.
   Eg:
-      1: (resourceExists :resourceIDMap {\"GDB_DisplayName\ \"Jarvis\"} :resourceClass \"Bot\" :workspaceName \"Superheroes\" :workspaceClass \"GDB_GroupWorkspace\")
-      2: (resourceExists :resourceIDMap {\"GDB_DisplayName\ \"Jarvis\"} :resourceClass \"Bot\" :workspaceName \"Tony\" :workspaceClass \"GDB_PersonalWorkspace\")"
+      1: (resourceExists :resourceIDMap {\"GDB_DisplayName\" \"Jarvis\"} :resourceClass \"Bot\" :workspaceName \"Superheroes\" :workspaceClass \"GDB_GroupWorkspace\")
+      2: (resourceExists :resourceIDMap {\"GDB_DisplayName\" \"Jarvis\"} :resourceClass \"Bot\" :workspaceName \"Tony\" :workspaceClass \"GDB_PersonalWorkspace\")"
   [& {:keys [:resourceIDMap :resourceClass :workspaceName :workspaceClass]}]
   (let [workspaces
     (map #(((% :end) :properties) "GDB_DisplayName")

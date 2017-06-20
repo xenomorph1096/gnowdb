@@ -1,12 +1,13 @@
 (ns gnowdb.spec.workspaces
   (:gen-class)
   (:require [gnowdb.neo4j.gneo :as gneo]
+            [gnowdb.spec.rcs :as rcs]
   )
 )
 
 (defn- prepareNodeClass
   "Applies relationships to GDB_Node class and adds all dependencies required for Workspaces"
-	[]
+  []
   (gneo/createClass :className "GDB_MemberOfWorkspace" :classType "RELATION" :isAbstract? false :properties {})
   (gneo/addRelApplicableType :className "GDB_MemberOfWorkspace" :applicationType "Source" :applicableClassName "GDB_Node")
   (gneo/createClass :className "GDB_CreatedBy" :classType "RELATION" :isAbstract? false :properties {})
@@ -61,13 +62,13 @@
 )
 
 (defn- generateUHRID
-	[& {:keys [resourceUHRID workspaceName]}]
-	(str workspaceName "/" resourceUHRID)
+  [& {:keys [resourceUHRID workspaceName]}]
+  (str workspaceName "/" resourceUHRID)
 )
 
 (defn- deleteWorkspaceFromUHRID
-	[& {:keys [resourceUHRID workspaceName]}]
-	(clojure.string/replace resourceUHRID (str workspaceName "/") "")
+  [& {:keys [resourceUHRID workspaceName]}]
+  (clojure.string/replace resourceUHRID (str workspaceName "/") "")
 )
 
 (defn instantiateGroupWorkspace
@@ -78,75 +79,76 @@
     :createdBy should be the name of the user who created the workspace.
     :subGroupOf should be a vector containing the names of the parent groups.
   "
-	[& {:keys [:groupType :editingPolicy :displayName :alternateName :description :createdBy :subGroupOf :relationshipsOnly?] :or {:groupType "Public" :editingPolicy "Editable_Non-Moderated" :alternateName "[]" :createdBy "admin" :description "" :subGroupOf [] :relationshipsOnly? false}}]
-	(if (false? relationshipsOnly?)
-		(gneo/createNodeClassInstances :className "GDB_GroupWorkspace" :nodeList 		[{
-																							"GDB_DisplayName" displayName
-																							"GDB_GroupType" groupType
-																							"GDB_EditingPolicy" editingPolicy
-																							"GDB_AlternateName" alternateName
-																							"GDB_ModifiedAt" (.toString (new java.util.Date))
-																							"GDB_CreatedAt" (.toString (new java.util.Date))
-																							"GDB_Description" description
-																		;					"GDB_UHRID" (generateUHRID :resourceUHRID displayName :workspaceName displayName)
-																						}]
-		)
-	)
-	(gneo/createRelationClassInstances :className "GDB_CreatedBy" :relList 	[{
-																						:fromClassName "GDB_GroupWorkspace"
-																						:fromPropertyMap {"GDB_DisplayName" displayName}
-																						:toClassName "GDB_PersonalWorkspace"
-																						:toPropertyMap {"GDB_DisplayName" createdBy}
-																						:propertyMap {}
-																					}]
-	)
-	(gneo/createRelationClassInstances :className "GDB_LastModifiedBy" :relList 	[{
-																						:fromClassName "GDB_GroupWorkspace"
-																						:fromPropertyMap {"GDB_DisplayName" displayName}
-																						:toClassName "GDB_PersonalWorkspace"
-																						:toPropertyMap {"GDB_DisplayName" createdBy}
-																						:propertyMap {}
-																					}]
-	)
-	(gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList 	[{
-																						:fromClassName "GDB_GroupWorkspace"
-																						:fromPropertyMap {"GDB_DisplayName" displayName}
-																						:toClassName "GDB_GroupWorkspace"
-																						:toPropertyMap {"GDB_DisplayName" displayName}
-																						:propertyMap {}
-																					}]
-	)
-	(gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList 		[{
-																						:fromClassName "GDB_PersonalWorkspace"
-																						:fromPropertyMap {"GDB_DisplayName" createdBy}
-																						:toClassName "GDB_GroupWorkspace"
-																						:toPropertyMap {"GDB_DisplayName" displayName}
-																						:propertyMap {}
-																					}]
-	)
-	(gneo/createRelationClassInstances :className "GDB_AdminOfGroup" :relList 		[{
-																						:fromClassName "GDB_PersonalWorkspace"
-																						:fromPropertyMap {"GDB_DisplayName" createdBy}
-																						:toClassName "GDB_GroupWorkspace"
-																						:toPropertyMap {"GDB_DisplayName" displayName}
-																						:propertyMap {}
-																					}]
-	)
-  (doall
-  	(map 
-  		(fn [parentGroupName] 
-  			(println (gneo/createRelationClassInstances :className "GDB_SubGroupOf" :relList 		[{
-  																								:fromClassName "GDB_GroupWorkspace"
-  																								:fromPropertyMap {"GDB_DisplayName" displayName}
-  																								:toClassName "GDB_GroupWorkspace"
-  																								:toPropertyMap {"GDB_DisplayName" parentGroupName}
-  																								:propertyMap {}
-  																							}]
-  			)) 
-      )
-  	 subGroupOf
-   	)
+  [& {:keys [:groupType :editingPolicy :displayName :alternateName :description :createdBy :subGroupOf :relationshipsOnly?] :or {:groupType "Public" :editingPolicy "Editable_Non-Moderated" :alternateName "[]" :createdBy "admin" :description "" :subGroupOf [] :relationshipsOnly? false}}]
+  (if (false? relationshipsOnly?)
+    (gneo/createNodeClassInstances :className "GDB_GroupWorkspace" :nodeList    [{
+                                              "GDB_DisplayName" displayName
+                                              "GDB_GroupType" groupType
+                                              "GDB_EditingPolicy" editingPolicy
+                                              "GDB_AlternateName" alternateName
+                                              "GDB_ModifiedAt" (.toString (new java.util.Date))
+                                              "GDB_CreatedAt" (.toString (new java.util.Date))
+                                              "GDB_Description" description
+                                    ;         "GDB_UHRID" (generateUHRID :resourceUHRID displayName :workspaceName displayName)
+                                            }]
+    )
   )
+  (gneo/createRelationClassInstances :className "GDB_CreatedBy" :relList  [{
+                                            :fromClassName "GDB_GroupWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" displayName}
+                                            :toClassName "GDB_PersonalWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" createdBy}
+                                            :propertyMap {}
+                                          }]
+  )
+  (gneo/createRelationClassInstances :className "GDB_LastModifiedBy" :relList   [{
+                                            :fromClassName "GDB_GroupWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" displayName}
+                                            :toClassName "GDB_PersonalWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" createdBy}
+                                            :propertyMap {}
+                                          }]
+  )
+  (gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList  [{
+                                            :fromClassName "GDB_GroupWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" displayName}
+                                            :toClassName "GDB_GroupWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" displayName}
+                                            :propertyMap {}
+                                          }]
+  )
+  (gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList    [{
+                                            :fromClassName "GDB_PersonalWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" createdBy}
+                                            :toClassName "GDB_GroupWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" displayName}
+                                            :propertyMap {}
+                                          }]
+  )
+  (gneo/createRelationClassInstances :className "GDB_AdminOfGroup" :relList     [{
+                                            :fromClassName "GDB_PersonalWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" createdBy}
+                                            :toClassName "GDB_GroupWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" displayName}
+                                            :propertyMap {}
+                                          }]
+  )
+  (doall
+    (map 
+      (fn [parentGroupName] 
+        (println (gneo/createRelationClassInstances :className "GDB_SubGroupOf" :relList    [{
+                                                  :fromClassName "GDB_GroupWorkspace"
+                                                  :fromPropertyMap {"GDB_DisplayName" displayName}
+                                                  :toClassName "GDB_GroupWorkspace"
+                                                  :toPropertyMap {"GDB_DisplayName" parentGroupName}
+                                                  :propertyMap {}
+                                                }]
+        )) 
+      )
+     subGroupOf
+    )
+  )
+  (rcs/instantiateResourceRCS :resourceIDMap {"GDB_DisplayName" displayName} :resourceClass "GDB_GroupWorkspace")
   nil
 )
 
@@ -156,52 +158,53 @@
     :createdBy should be the name of the user who created this one, default is admin
     :memberOfGroup should be the name of the Group the user is a member of, default is home
   "
-	[& {:keys [:displayName :alternateName :createdBy :memberOfGroup :description :relationshipsOnly?] :or {:alternateName "[]" :createdBy "admin" :memberOfGroup "home" :description "" :relationshipsOnly? false}}]
-	(if (false? relationshipsOnly?)
-		(gneo/createNodeClassInstances :className "GDB_PersonalWorkspace" :nodeList 	[{
-																							"GDB_DisplayName" displayName
-																							"GDB_GroupType" "Public"
-																							"GDB_EditingPolicy" "Editable_Admin-Only"
-																							"GDB_AlternateName" alternateName
-																							"GDB_ModifiedAt" (.toString (new java.util.Date))
-																							"GDB_CreatedAt" (.toString (new java.util.Date))
-																							"GDB_Description" description
-																			;				"GDB_UHRID" (generateUHRID :resourceUHRID displayName :workspaceName displayName)
-																						}]
-		)
-	)
-	(gneo/createRelationClassInstances :className "GDB_CreatedBy" :relList 	[{
-																						:fromClassName "GDB_PersonalWorkspace"
-																						:fromPropertyMap {"GDB_DisplayName" displayName}
-																						:toClassName "GDB_PersonalWorkspace"
-																						:toPropertyMap {"GDB_DisplayName" createdBy}
-																						:propertyMap {}
-																					}]
-	)
-	(gneo/createRelationClassInstances :className "GDB_LastModifiedBy" :relList 	[{
-																						:fromClassName "GDB_PersonalWorkspace"
-																						:fromPropertyMap {"GDB_DisplayName" displayName}
-																						:toClassName "GDB_GroupWorkspace"
-																						:toPropertyMap {"GDB_DisplayName" createdBy}
-																						:propertyMap {}
-																					}]
-	)
-	(gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList 	[{
-																						:fromClassName "GDB_PersonalWorkspace"
-																						:fromPropertyMap {"GDB_DisplayName" displayName}
-																						:toClassName "GDB_PersonalWorkspace"
-																						:toPropertyMap {"GDB_DisplayName" displayName}
-																						:propertyMap {}
-																					}]
-	)
-	(gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList 		[{
-																						:fromClassName "GDB_PersonalWorkspace"
-																						:fromPropertyMap {"GDB_DisplayName" displayName}
-																						:toClassName "GDB_GroupWorkspace"
-																						:toPropertyMap {"GDB_DisplayName" memberOfGroup}
-																						:propertyMap {}
-																					}]
-	)
+  [& {:keys [:displayName :alternateName :createdBy :memberOfGroup :description :relationshipsOnly?] :or {:alternateName "[]" :createdBy "admin" :memberOfGroup "home" :description "" :relationshipsOnly? false}}]
+  (if (false? relationshipsOnly?)
+    (gneo/createNodeClassInstances :className "GDB_PersonalWorkspace" :nodeList   [{
+                                              "GDB_DisplayName" displayName
+                                              "GDB_GroupType" "Public"
+                                              "GDB_EditingPolicy" "Editable_Admin-Only"
+                                              "GDB_AlternateName" alternateName
+                                              "GDB_ModifiedAt" (.toString (new java.util.Date))
+                                              "GDB_CreatedAt" (.toString (new java.util.Date))
+                                              "GDB_Description" description
+                                      ;       "GDB_UHRID" (generateUHRID :resourceUHRID displayName :workspaceName displayName)
+                                            }]
+    )
+  )
+  (gneo/createRelationClassInstances :className "GDB_CreatedBy" :relList  [{
+                                            :fromClassName "GDB_PersonalWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" displayName}
+                                            :toClassName "GDB_PersonalWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" createdBy}
+                                            :propertyMap {}
+                                          }]
+  )
+  (gneo/createRelationClassInstances :className "GDB_LastModifiedBy" :relList   [{
+                                            :fromClassName "GDB_PersonalWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" displayName}
+                                            :toClassName "GDB_GroupWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" createdBy}
+                                            :propertyMap {}
+                                          }]
+  )
+  (gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList  [{
+                                            :fromClassName "GDB_PersonalWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" displayName}
+                                            :toClassName "GDB_PersonalWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" displayName}
+                                            :propertyMap {}
+                                          }]
+  )
+  (gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList    [{
+                                            :fromClassName "GDB_PersonalWorkspace"
+                                            :fromPropertyMap {"GDB_DisplayName" displayName}
+                                            :toClassName "GDB_GroupWorkspace"
+                                            :toPropertyMap {"GDB_DisplayName" memberOfGroup}
+                                            :propertyMap {}
+                                          }]
+  )
+  (rcs/instantiateResourceRCS :resourceIDMap {"GDB_DisplayName" displayName} :resourceClass "GDB_PersonalWorkspace")
   nil
 )
 
@@ -320,21 +323,7 @@
 
 (defn- editLastModified
   [& {:keys [:editor :groupName]}]
-  (gneo/deleteRelations
-              :fromNodeLabel ["GDB_GroupWorkspace"]
-              :fromNodeProperties {"GDB_DisplayName" groupName}
-              :relationshipType "GDB_LastModifiedBy"
-            )
-  (gneo/createRelationClassInstances :className "GDB_LastModifiedBy" :relList    [{
-                                    :fromClassName "GDB_GroupWorkspace"
-                                    :fromPropertyMap {"GDB_DisplayName" groupName}
-                                    :toClassName "GDB_PersonalWorkspace"
-                                    :toPropertyMap {"GDB_DisplayName" editor}
-                                    :propertyMap {}
-                                  }]
-  )
-  (gneo/editNodeProperties :label "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_ModifiedAt" (.toString (new java.util.Date))})
-  nil
+  (rcs/updateLastModified :editor editor :resourceClass "GDB_GroupWorkspace" :resourceIDMap {"GDB_DisplayName" groupName})
 )
 
 (defn- getTypeOfWorkspaces
@@ -364,11 +353,11 @@
   )
 
   ; (let [resourceUHRID
-	 ;  	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
-	 ;  (gneo/editNodeProperties 	:label resourceClass 
-	 ;  							:parameters resourceIDMap 
-	 ;  							:changeMap {"GDB_UHRID" (generateUHRID 	:resourceUHRID resourceUHRID 
-	 ;  																	:workspaceName groupName)})
+   ;    (((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
+   ;  (gneo/editNodeProperties  :label resourceClass 
+   ;                :parameters resourceIDMap 
+   ;                :changeMap {"GDB_UHRID" (generateUHRID  :resourceUHRID resourceUHRID 
+   ;                                    :workspaceName groupName)})
   ; )
   (editLastModified :editor username :groupName groupName)
 )
@@ -425,7 +414,7 @@
         (do
           (gneo/createRelationClassInstances :className "GDB_MemberOfGroup" :relList    [{
                                             :fromClassName "GDB_PersonalWorkspace"
-                                            :fromPropertyMap {"GDB_DisplayName" newMemberName}
+                                            :fromPropertyMap {"GDB_DisplayName" ditnewMemberName}
                                             :toClassName "GDB_GroupWorkspace"
                                             :toPropertyMap {"GDB_DisplayName" groupName}
                                             :propertyMap {}
@@ -504,12 +493,13 @@
                                               :propertyMap {}
                                           }]
   )
+  (rcs/updateLastModified :editor username :resourceIDMap {"GDB_DisplayName" username} :resourceClass "GDB_PersonalWorkspace")
   ; (let [resourceUHRID
-	 ;  	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
-	 ;  (gneo/editNodeProperties 	:label resourceClass 
-	 ;  							:parameters resourceIDMap 
-	 ;  							:changeMap {"GDB_UHRID" (generateUHRID 	:resourceUHRID resourceUHRID 
-	 ;  																	:workspaceName username)})
+   ;    (((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
+   ;  (gneo/editNodeProperties  :label resourceClass 
+   ;                :parameters resourceIDMap 
+   ;                :changeMap {"GDB_UHRID" (generateUHRID  :resourceUHRID resourceUHRID 
+   ;                                    :workspaceName username)})
   ; )
 )
 
@@ -564,25 +554,25 @@
 )
 
 (defn deleteFromUnmoderatedGroup
-	[& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
-	(gneo/deleteRelations 	:fromNodeLabel [resourceClass]
-							:fromNodeParameters resourceIDMap 
-							:relationshipType "GDB_MemberOfWorkspace" 
-							:toNodeLabel ["GDB_GroupWorkspace"] 
-							:toNodeParameters {"GDB_DisplayName" groupName})
+  [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
+  (gneo/deleteRelations   :fromNodeLabel [resourceClass]
+              :fromNodeParameters resourceIDMap 
+              :relationshipType "GDB_MemberOfWorkspace" 
+              :toNodeLabel ["GDB_GroupWorkspace"] 
+              :toNodeParameters {"GDB_DisplayName" groupName})
   (if (empty? (gneo/getRelations :fromNodeLabel [resourceClass]
                     :fromNodeParameters resourceIDMap
                     :relationshipType "GDB_MemberOfWorkspace"
       ))
       (moveToTrash :resourceIDMap resourceIDMap :resourceClass resourceClass)
   )
-	; (let [resourceUHRID
-	;   	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
-	;   	(gneo/editNodeProperties 	:label resourceClass 
-	; 	  							:parameters resourceIDMap 
-	; 	  							:changeMap {"GDB_UHRID" (deleteWorkspaceFromUHRID :resourceUHRID resourceUHRID :workspaceName groupName)})
- ;  	)
-	(editLastModified :editor username :groupName groupName) 
+  ; (let [resourceUHRID
+  ;     (((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
+  ;     (gneo/editNodeProperties  :label resourceClass 
+  ;                   :parameters resourceIDMap 
+  ;                   :changeMap {"GDB_UHRID" (deleteWorkspaceFromUHRID :resourceUHRID resourceUHRID :workspaceName groupName)})
+ ;    )
+  (editLastModified :editor username :groupName groupName) 
 )
 
 (defn- deleteFromModeratedGroup
@@ -590,7 +580,7 @@
   [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
   (if (.contains (getAdminList groupName) username)
     (deleteFromUnmoderatedGroup :username username :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
-	(editLastModified :editor username :groupName groupName) 
+  (editLastModified :editor username :groupName groupName) 
   )
 )
 
@@ -621,35 +611,36 @@
 )
 
 (defn deleteFromPersonalWorkspace
-	"Delete nodes from personal workspace"
-  	[& {:keys [:username :resourceIDMap :resourceClass]}]
-	(gneo/deleteRelations 	:fromNodeLabel [resourceClass] 
-							:fromNodeParameters resourceIDMap 
-							:relationshipType "GDB_MemberOfWorkspace" 
-							:toNodeLabel ["GDB_PersonalWorkspace"] 
-							:toNodeParameters {"GDB_DisplayName" username})
-	(gneo/deleteRelations 	:fromNodeLabel [resourceClass] 
-							:fromNodeParameters resourceIDMap 
-							:relationshipType "GDB_CreatedBy" 
-							:toNodeLabel ["GDB_PersonalWorkspace"] 
-							:toNodeParameters {"GDB_DisplayName" username})
-	(gneo/deleteRelations 	:fromNodeLabel [resourceClass] 
-							:fromNodeParameters resourceIDMap 
-							:relationshipType "GDB_LastModifiedBy" 
-							:toNodeLabel ["GDB_PersonalWorkspace"] 
-							:toNodeParameters {"GDB_DisplayName" username})
+  "Delete nodes from personal workspace"
+    [& {:keys [:username :resourceIDMap :resourceClass]}]
+  (gneo/deleteRelations   :fromNodeLabel [resourceClass] 
+              :fromNodeParameters resourceIDMap 
+              :relationshipType "GDB_MemberOfWorkspace" 
+              :toNodeLabel ["GDB_PersonalWorkspace"] 
+              :toNodeParameters {"GDB_DisplayName" username})
+  (gneo/deleteRelations   :fromNodeLabel [resourceClass] 
+              :fromNodeParameters resourceIDMap 
+              :relationshipType "GDB_CreatedBy" 
+              :toNodeLabel ["GDB_PersonalWorkspace"] 
+              :toNodeParameters {"GDB_DisplayName" username})
+  (gneo/deleteRelations   :fromNodeLabel [resourceClass] 
+              :fromNodeParameters resourceIDMap 
+              :relationshipType "GDB_LastModifiedBy" 
+              :toNodeLabel ["GDB_PersonalWorkspace"] 
+              :toNodeParameters {"GDB_DisplayName" username})
   (if (empty? (gneo/getRelations :fromNodeLabel [resourceClass]
                     :fromNodeParameters resourceIDMap
                     :relationshipType "GDB_MemberOfWorkspace"
       ))
       (moveToTrash :resourceIDMap resourceIDMap :resourceClass resourceClass)
   )
-	; (let [resourceUHRID
-	;   	(((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
-	;   	(gneo/editNodeProperties 	:label resourceClass 
-	; 	  							:parameters resourceIDMap 
-	; 	  							:changeMap {"GDB_UHRID" (deleteWorkspaceFromUHRID :resourceUHRID resourceUHRID :workspaceName username)})
- ;  	)
+  (rcs/updateLastModified :editor username :resourceIDMap {"GDB_DisplayName" username} :resourceClass "GDB_PersonalWorkspace")
+  ; (let [resourceUHRID
+  ;     (((first (gneo/getNodes :label resourceClass :parameters resourceIDMap)) :properties) "GDB_UHRID")]
+  ;     (gneo/editNodeProperties  :label resourceClass 
+  ;                   :parameters resourceIDMap 
+  ;                   :changeMap {"GDB_UHRID" (deleteWorkspaceFromUHRID :resourceUHRID resourceUHRID :workspaceName username)})
+ ;    )
 )
 
 (defn removeMemberFromGroup
@@ -695,26 +686,26 @@
 )
   
 (defn resourceExists
-	"Returns true if given workspace contains the given resource else false"
-	[& {:keys [:resourceIDMap :resourceClass :workspaceName :workspaceClass]}]
-	(let [workspaces
-		(map #(((% :end) :properties) "GDB_DisplayName")
-			(gneo/getRelations 	:fromNodeLabel [resourceClass]
-								:fromNodeParameters resourceIDMap
-								:relationshipType "GDB_MemberOfWorkspace"
-								:toNodeLabel [workspaceClass]
-								:toNodeParameters {"GDB_DisplayName" workspaceName}
-								:nodeInfo? true
-			)
-		)]
-		(if (empty? workspaces)
-			false 
-			(if (.contains workspaces workspaceName)
-				true
-				false
-			)
-		)
-	)
+  "Returns true if given workspace contains the given resource else false"
+  [& {:keys [:resourceIDMap :resourceClass :workspaceName :workspaceClass]}]
+  (let [workspaces
+    (map #(((% :end) :properties) "GDB_DisplayName")
+      (gneo/getRelations  :fromNodeLabel [resourceClass]
+                :fromNodeParameters resourceIDMap
+                :relationshipType "GDB_MemberOfWorkspace"
+                :toNodeLabel [workspaceClass]
+                :toNodeParameters {"GDB_DisplayName" workspaceName}
+                :nodeInfo? true
+      )
+    )]
+    (if (empty? workspaces)
+      false 
+      (if (.contains workspaces workspaceName)
+        true
+        false
+      )
+    )
+  )
 )
 
 (defn init

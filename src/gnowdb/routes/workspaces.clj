@@ -64,6 +64,8 @@
 
     (DELETE "/moveToTrash" request (move-To-Trash request))
 
+    (DELETE "/purgeTrash" request (purge-Trash request))
+
     (POST "/restoreResource" request (restore-Resource request))
 
     ; (DELETE "/deleteFromUnmoderatedGroup" request (delete-From-Unmoderated-Group request))

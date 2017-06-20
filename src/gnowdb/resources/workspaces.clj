@@ -278,9 +278,9 @@
     :service-available? true
     :allowed-methods [:post]    
     :handle-created (fn [_] (let [params (get-in request[:params])] (publishPendingResource 	:adminName (get-in params [:adminName]) 
-    																							:groupName (get-in params [:groupName]) 
-    																					       	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
-                                                                                 				:resourceClass (get-in params [:resourceClass]))))
+    																						                                            	:groupName (get-in params [:groupName]) 
+    																					       	                                         :resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                 			      	:resourceClass (get-in params [:resourceClass]))))
     :available-media-types ["application/json"])
 
 
@@ -291,6 +291,18 @@
     :handle-ok (fn [_] (let [params (get-in request[:params])] (moveToTrash 	    :resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
                                                                                  	:resourceClass (get-in params [:resourceClass]))))
     :available-media-types ["application/json"])
+
+
+
+
+(defresource purge-Trash [request]
+    :service-available? true
+    :allowed-methods [:delete]    
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (purgeTrash        :adminName (get-in params [:adminName]) 
+                                                                                  :resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+                                                                                  :resourceClass (get-in params [:resourceClass]))))
+    :available-media-types ["application/json"])
+
 
 
 

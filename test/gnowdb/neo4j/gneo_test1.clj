@@ -96,3 +96,63 @@
 
 )
 
+(deftest createAttributeType-test
+    (testing "Creating a node  without qualifiers"
+        (is (= {:results [()],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates true,
+   :nodesCreated 1,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 6,
+   :labelsAdded 1,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :6 ;LabelsAdded :1 ;"}}
+ (createAttributeType :_name "t_db1" :_datatype "java.lang.Boolean")
+            )
+        )
+
+    )
+
+    (testing "Creating a node with qualifiers"
+        (is (= {:results [()],
+ :summary
+ {:summaryMap
+  {:relationshipsCreated 0,
+   :containsUpdates true,
+   :nodesCreated 1,
+   :nodesDeleted 0,
+   :indexesRemoved 0,
+   :labelsRemoved 0,
+   :constraintsAdded 0,
+   :propertiesSet 6,
+   :labelsAdded 1,
+   :constraintsRemoved 0,
+   :indexesAdded 0,
+   :relationshipsDeleted 0},
+  :summaryString
+  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :6 ;LabelsAdded :1 ;"}} 
+  (createAttributeType :_name "t_db2" :_datatype "java.lang.Boolean" :subjectQualifier `("t_db2" "t_db3") :attributeQualifier `("t_db4" "t_db5") :valueQualifier `("t_db6" "t_db7") :execute? true)
+            )
+        )
+
+    )
+
+
+
+
+    (testing "Delete changes"
+      (runQuery {:query "match (n:AttributeType {_name:{a}}),(n1:AttributeType {_name:{b}}) detach delete n,n1" :parameters {"a" "t_db1 " "b" "t_db2"}})
+
+    )
+
+
+)
+

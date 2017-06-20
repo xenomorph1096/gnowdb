@@ -30,6 +30,7 @@
 		 ]
 		 ;Add readbackfunctions here with the desired data
 		(gdriver/getNeo4jDBDetails details)
+		(gneo/getUUIDEnabled details)
 		(gcust/getCustomPassword details)
 		(dumprestore/getBackupDirectory details)
 		(files/getDataDirectory details)

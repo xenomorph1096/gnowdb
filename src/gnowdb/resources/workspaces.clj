@@ -1,62 +1,61 @@
 (ns gnowdb.resources.workspaces
-  (:require [liberator.core 
-            :refer [defresource resource request-method-in]]
+  (:require [liberator.core :refer [defresource resource request-method-in]]
             [cheshire.core :refer :all] 
             [gnowdb.core :refer :all]
-            [gnowdb.neo4j.gneo :refer :all])) 
+            [gnowdb.spec.workspaces :refer :all])) 
 
 (use 'clojure.walk)
 
 
  
-(defresource prepare-Node-Class [request]
-  :service-available? true
-  :allowed-methods [:post]
-  :handle-created (fn [_] (prepareNodeClass))
-  :available-media-types ["application/json"]) 
+; (defresource prepare-Node-Class [request]
+;   :service-available? true
+;   :allowed-methods [:post]
+;   :handle-created (fn [_] (prepareNodeClass))
+;   :available-media-types ["application/json"]) 
 
 
 
-(defresource create-Abstract-Workspace-Class [request]
-  :service-available? true
-  :allowed-methods [:post]
-  :handle-created (fn [_] (createAbstractWorkspaceClass))
-  :available-media-types ["application/json"]) 
+; (defresource create-Abstract-Workspace-Class [request]
+;   :service-available? true
+;   :allowed-methods [:post]
+;   :handle-created (fn [_] (createAbstractWorkspaceClass))
+;   :available-media-types ["application/json"]) 
 
 
 
-(defresource create-Personal-Workspace-Class [request]
-  :service-available? true
-  :allowed-methods [:post]
-  :handle-created (fn [_] (createPersonalWorkspaceClass))
-  :available-media-types ["application/json"]) 
+; (defresource create-Personal-Workspace-Class [request]
+;   :service-available? true
+;   :allowed-methods [:post]
+;   :handle-created (fn [_] (createPersonalWorkspaceClass))
+;   :available-media-types ["application/json"]) 
 
 
 
-(defresource create-Group-Workspace-Class [request]
-  :service-available? true
-  :allowed-methods [:post]
-  :handle-created (fn [_] (createGroupWorkspaceClass))
-  :available-media-types ["application/json"]) 
+; (defresource create-Group-Workspace-Class [request]
+;   :service-available? true
+;   :allowed-methods [:post]
+;   :handle-created (fn [_] (createGroupWorkspaceClass))
+;   :available-media-types ["application/json"]) 
 
 
 
 
-(defresource generate-UHRID [request]
-  :service-available? true
-  :allowed-methods [:get]
-  :handle-ok (fn [_] (let [params (get-in request[:params])] (generateUHRID :label (get-in params [:resourceUHRID]) 
-                                                                       		:workspaceName (get-in params[:workspaceName]))))
-  :available-media-types ["application/json"])
+; (defresource generate-UHRID [request]
+;   :service-available? true
+;   :allowed-methods [:get]
+;   :handle-ok (fn [_] (let [params (get-in request[:params])] (generateUHRID :label (get-in params [:resourceUHRID]) 
+;                                                                        		:workspaceName (get-in params[:workspaceName]))))
+;   :available-media-types ["application/json"])
 
 
 
-(defresource delete-Workspace-From-UHRID [request]
-  :service-available? true
-  :allowed-methods [:delete]
-  :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteWorkspaceFromUHRID  :label (get-in params [:resourceUHRID]) 
-                                                                       					:workspaceName (get-in params[:workspaceName]))))
-  :available-media-types ["application/json"])
+; (defresource delete-Workspace-From-UHRID [request]
+;   :service-available? true
+;   :allowed-methods [:delete]
+;   :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteWorkspaceFromUHRID  :label (get-in params [:resourceUHRID]) 
+;                                                                        					:workspaceName (get-in params[:workspaceName]))))
+;   :available-media-types ["application/json"])
 
 
 
@@ -86,11 +85,11 @@
     :available-media-types ["application/json"])
 
 
-(defresource instantiate-Default-Workspaces [request]
-  :service-available? true
-  :allowed-methods [:post]
-  :handle-created (fn [_] (instantiateDefaultWorkspaces))
-  :available-media-types ["application/json"]) 
+; (defresource instantiate-Default-Workspaces [request]
+;   :service-available? true
+;   :allowed-methods [:post]
+;   :handle-created (fn [_] (instantiateDefaultWorkspaces))
+;   :available-media-types ["application/json"]) 
 
 
 
@@ -161,65 +160,76 @@
 
 
 
-(defresource edit-Last-Modified [request]
-    :service-available? true
-    :allowed-methods [:post]    
-    :handle-created (fn [_] (let [params (get-in request[:params])] (editLastModified 	:editor (get-in params[:editor])
-    																					:groupName (get-in params [:groupName]))))
-    :available-media-types ["application/json"])
+; (defresource edit-Last-Modified [request]
+;     :service-available? true
+;     :allowed-methods [:post]    
+;     :handle-created (fn [_] (let [params (get-in request[:params])] (editLastModified 	:editor (get-in params[:editor])
+;     																					                                           :groupName (get-in params [:groupName]))))
+;     :available-media-types ["application/json"])
 
 
 
-(defresource get-Type-Of-Workspaces [request]
-    :service-available? true
-    :allowed-methods [:get]    
-    :handle-ok (fn [_] (let [params (get-in request[:params])] (getTypeOfWorkspaces :resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))  
-    																				:resourceClass (get-in params [:resourceClass]))))
-    :available-media-types ["application/json"])
+; (defresource get-Type-Of-Workspaces [request]
+;     :service-available? true
+;     :allowed-methods [:get]    
+;     :handle-ok (fn [_] (let [params (get-in request[:params])] (getTypeOfWorkspaces :resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))  
+;     																			                                         	:resourceClass (get-in params [:resourceClass]))))
+;     :available-media-types ["application/json"])
 
 
 
-(defresource publish-To-Unmoderated-Group [request]
-    :service-available? true
-    :allowed-methods [:post]    
-    :handle-created (fn [_] (let [params (get-in request[:params])] (publishToUnmoderatedGroup 	:username (get-in params [:username]) 
-    																							:groupName (get-in params [:groupName]) 
-                                                                                  				:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
-                                                                                 			    :resourceClass (get-in params [:resourceClass]))))
-    :available-media-types ["application/json"])
+; (defresource publish-To-Unmoderated-Group [request]
+;     :service-available? true
+;     :allowed-methods [:post]    
+;     :handle-created (fn [_] (let [params (get-in request[:params])] (publishToUnmoderatedGroup  	:username (get-in params [:username]) 
+;     																							                                                :groupName (get-in params [:groupName]) 
+;                                                                                   			         	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+;                                                                                  			            :resourceClass (get-in params [:resourceClass]))))
+;     :available-media-types ["application/json"])
 
 
 
-(defresource publish-To-Moderated-Group [request]
-    :service-available? true
-    :allowed-methods [:post]    
-    :handle-created (fn [_] (let [params (get-in request[:params])] (publishToModeratedGroup 	:username (get-in params [:username]) 
-    																							:groupName (get-in params [:groupName]) 
-                                                                                  				:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
-                                                                                 			    :resourceClass (get-in params [:resourceClass]))))
-    :available-media-types ["application/json"])
+; (defresource publish-To-Moderated-Group [request]
+;     :service-available? true
+;     :allowed-methods [:post]    
+;     :handle-created (fn [_] (let [params (get-in request[:params])] (publishToModeratedGroup 	  :username (get-in params [:username]) 
+;     																							                                              :groupName (get-in params [:groupName]) 
+;                                                                                   			       	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+;                                                                                  			          :resourceClass (get-in params [:resourceClass]))))
+;     :available-media-types ["application/json"])
 
 
 
-(defresource publish-To-Admin-Only-Group [request]
-    :service-available? true
-    :allowed-methods [:post]    
-    :handle-created (fn [_] (let [params (get-in request[:params])] (publishToAdminOnlyGroup 	:username (get-in params [:username]) 
-    																							:groupName (get-in params [:groupName]) 
-                                                                                  				:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
-                                                                                 			    :resourceClass (get-in params [:resourceClass]))))
-    :available-media-types ["application/json"])
+; (defresource publish-To-Admin-Only-Group [request]
+;     :service-available? true
+;     :allowed-methods [:post]    
+;     :handle-created (fn [_] (let [params (get-in request[:params])] (publishToAdminOnlyGroup 	:username (get-in params [:username]) 
+;     																							                                            :groupName (get-in params [:groupName]) 
+;                                                                                   				    :resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+;                                                                                  			        :resourceClass (get-in params [:resourceClass]))))
+;     :available-media-types ["application/json"])
 
 
 
-(defresource publish-To-Admin-Only-Group [request]
-    :service-available? true
-    :allowed-methods [:get]    
-    :handle-ok (fn [_] (let [params (get-in request[:params])] (publishToAdminOnlyGroup  	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
-                                                                                 			:resourceClass (get-in params [:resourceClass])
-                                                                                 			:groupType (get-in params [:groupType]) 
-    																						:groupName (get-in params [:groupName]))))
-    :available-media-types ["application/json"])
+
+
+
+
+
+
+; (defresource publish-To-Admin-Only-Group [request]
+;     :service-available? true
+;     :allowed-methods [:get]    
+;     :handle-ok (fn [_] (let [params (get-in request[:params])] (publishToAdminOnlyGroup  	:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+;                                                                                  			:resourceClass (get-in params [:resourceClass])
+;                                                                                  			:groupType (get-in params [:groupType]) 
+;     																						:groupName (get-in params [:groupName]))))
+;     :available-media-types ["application/json"])
+
+
+
+
+
 
 
 
@@ -293,26 +303,26 @@
 
 
 
-(defresource delete-From-Unmoderated-Group [request]
-    :service-available? true
-    :allowed-methods [:delete]    
-    :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteFromUnmoderatedGroup 	:username (get-in params [:username]) 
-    																						:groupName (get-in params [:groupName]) 
-                                                                                  			:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
-                                                                                 			:resourceClass (get-in params [:resourceClass]))))
-    :available-media-types ["application/json"])
+; (defresource delete-From-Unmoderated-Group [request]
+;     :service-available? true
+;     :allowed-methods [:delete]    
+;     :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteFromUnmoderatedGroup 	:username (get-in params [:username]) 
+;     																						:groupName (get-in params [:groupName]) 
+;                                                                                   			:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+;                                                                                  			:resourceClass (get-in params [:resourceClass]))))
+;     :available-media-types ["application/json"])
 
 
 
 
-(defresource delete-From-Moderated-Group [request]
-    :service-available? true
-    :allowed-methods [:delete]    
-    :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteFromModeratedGroup 	:username (get-in params [:username]) 
-    																						:groupName (get-in params [:groupName]) 
-                                                                                  			:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
-                                                                                 			:resourceClass (get-in params [:resourceClass]))))
-    :available-media-types ["application/json"])
+; (defresource delete-From-Moderated-Group [request]
+;     :service-available? true
+;     :allowed-methods [:delete]    
+;     :handle-ok (fn [_] (let [params (get-in request[:params])] (deleteFromModeratedGroup 	:username (get-in params [:username]) 
+;     																						:groupName (get-in params [:groupName]) 
+;                                                                                   			:resourceIDMap (stringify-keys (get-in params[:resourceIDMap]))
+;                                                                                  			:resourceClass (get-in params [:resourceClass]))))
+;     :available-media-types ["application/json"])
 
 
 

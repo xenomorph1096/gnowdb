@@ -6,6 +6,13 @@
             [gnowdb.neo4j.gdriver :as gdriver]
             [gnowdb.neo4j.gcust :as gcust]))
 
+(defn getUUIDEnabled
+	[details]
+	(def ^{:private true} uuidEnabled 
+		(details :uuidEnabled)
+	)
+)
+
 (defn addStringToMapKeys
   [stringMap string]
   {:pre [(string? string)
@@ -256,9 +263,11 @@
   [& {:keys [:label
              :parameters
              :execute?
-             :unique?]
+             :unique?
+             :uuid?]
       :or {:execute? true
            :unique? false
+           :uuid? uuidEnabled
            :parameters {}}
       :as keyArgs
       }
@@ -268,7 +277,7 @@
           "MERGE"
           "CREATE"
           )
-        mergedParams (merge parameters {"UUID" (generateUUID)})
+        mergedParams (if uuid? (merge parameters {"UUID" (generateUUID)}) parameters)
   	builtQuery  	{:query (str queryType " (node:" label " "
                                      (createParameterPropertyString
                                       mergedParams) " )")
@@ -1315,6 +1324,7 @@
                                       {"fnIntegrity" (gcust/hashCustomFunction (changeMap "fnString"))}
                                       {})
                           )]
+  ;(println )
     (editNodeProperties :label "CustomFunction"
                         :parameters {"fnName" fnName}
                         :changeMap mChangeMap

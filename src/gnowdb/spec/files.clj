@@ -56,7 +56,7 @@
 	(sh "rm" (str (derivePath :GDB_MD5 GDB_MD5) "/" fileName))
 )
 
-(defn generateMD5 
+(defn- generateMD5 
 	"Generates MD5 hash using the source path of the file."
 	[& {:keys [:filePath]}]
 	(digest/md5 ((extract/parse filePath) :text))
@@ -176,7 +176,7 @@
 (defn purgeFile
 	"Purge the file present in TRASH."
   	[& {:keys [:adminName :GDB_MD5]}]
-  	(workspaces/purgeResource 	:adminName adminName 
+  	(workspaces/purgeTrash 	:adminName adminName 
   								:resourceClass "GDB_File"
   								:resourceIDMap {"GDB_MD5" GDB_MD5}
   	)

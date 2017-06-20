@@ -605,7 +605,12 @@
 )
 
 (defn moveToTrash
-  "Moves the resource into TRASH workspace."
+  "Moves the resource into the TRASH workspace i.e. adds a GDB_MemberOfWorkspace relationship between
+  the given resource and the TRASH workspace.
+    :resourceIDMap contains the key-value pair which uniquely identifies the resource.
+    :resourceClass is the class to which the resource belongs.
+  Eg:
+      1: (moveToTrash :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\")"
   [& {:keys [:resourceIDMap :resourceClass]}]
   (gneo/createRelationClassInstances :className "GDB_MemberOfWorkspace" :relList  [{
                                                       :fromClassName resourceClass
@@ -618,19 +623,43 @@
 )
 
 (defn purgeTrash
-  "Purge the resources present in TRASH."
+  "Removes the resource from the TRASH workspace by deleting the resource instance.
+    :adminName is the name of the admin of the TRASH workspace for resource to be purged.
+    :resourceIDMap contains the key-value pair which uniquely identifies the resource.
+    :resourceClass is the class to which the resource belongs.
+  Eg:
+      1: (purgeTrash :adminName \"RG\" :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\")"
   [& {:keys [:adminName :resourceIDMap :resourceClass]}]
   (let [admins (getAdminList "TRASH")]
     (if (.contains admins adminName)
       (gneo/deleteDetachNodes   :label resourceClass 
                                 :parameters resourceIDMap
-      )  
+      )
+      (println "Given user is not an admin of the TRASH workspace.")  
     )
   )
 )
 
 (defn restoreResource
-  "Restores a resource by removing from TRASH and adding to the given workspace."
+  "Restores a resource by removing from TRASH i.e. deleting the GDB_MemberOfWorkspace relationship
+  between the resource and the TRASH workspace and adding the resource to the given workspace by 
+  creating a GDB_MemberOfWorkspace relationship between the resource and the workspace.
+  Two sets of inputs possible:
+  
+    :workspaceClass is GDB_GroupWorkspace.
+    :username is the name of the user who is adding the resource to the given GroupWorkspace.
+    :workspaceName is the name of the workspace to which the resource needs to be added.
+    :resourceIDMap contains the key-value pair which uniquely identifies the resource.
+    :resourceClass is the class to which the resource belongs.
+
+    :workspaceClass is GDB_PersonalWorkspace.
+    :username not required.
+    :workspaceName is the name of the workspace to which the resource needs to be added.
+    :resourceIDMap contains the key-value pair which uniquely identifies the resource.
+    :resourceClass is the class to which the resource belongs.
+  Eg:
+      1: (restoreResource :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :workspaceClass \"GDB_GroupWorkspace\" :workspaceName \"CheapCars\" :username \"RG\")
+      2: (restoreResource :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :workspaceClass \"GDB_PersonalWorkspace\" :workspaceName \"RG\")"
   [& {:keys [:resourceIDMap :resourceClass :workspaceClass :workspaceName :username]}]
   (gneo/deleteRelations
               :toNodeLabel ["GDB_GroupWorkspace"]
@@ -645,7 +674,8 @@
   )         
 )
 
-(defn deleteFromUnmoderatedGroup
+(defn- deleteFromUnmoderatedGroup
+  "Deletes a resource from an unmoderated group."
   [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
   (gneo/deleteRelations   :fromNodeLabel [resourceClass]
               :fromNodeParameters resourceIDMap 
@@ -677,7 +707,13 @@
 )
 
 (defn deleteFromGroup
-  "Delete nodes from Group Workspace"
+  "Deletes resources from a group workspace.
+    :username is the name of the user deleting the file.
+    :groupName is the name of the group workspace.
+    :resourceIDMap contains the key-value pair which uniquely identifies the resource.
+    :resourceClass is the class to which the resource belongs.
+  Eg:
+      1: (deleteFromGroup :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :groupName \"CheapCars\" :username \"RG\")"
   [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
   (let [groupType (getGroupType groupName)
         editingPolicy (getEditingPolicy groupName)
@@ -703,7 +739,12 @@
 )
 
 (defn deleteFromPersonalWorkspace
-  "Delete nodes from personal workspace"
+ "Deletes resources from a personal workspace.
+    :username is the name of the user .
+    :resourceIDMap contains the key-value pair which uniquely identifies the resource.
+    :resourceClass is the class to which the resource belongs.
+  Eg:
+      1: (deleteFromPersonalWorkspace :username \"RG\" :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\")"
     [& {:keys [:username :resourceIDMap :resourceClass]}]
   (gneo/deleteRelations   :fromNodeLabel [resourceClass] 
               :fromNodeParameters resourceIDMap 
@@ -736,7 +777,13 @@
 )
 
 (defn removeMemberFromGroup
-  "Removes a member from the given groupworkspace."
+  "Removes a member from the given groupworkspace.
+    :memberName is the name of the member who needs to be removed.
+    :groupName is the name of the group from which the member is to be deleted.
+    :adminName is the name of the user removing the member from the group.
+    For member to be removed, adminName should be the name of an admin of the group.
+  Eg:
+      1: (removeMemberFromGroup :memberName \"Tony\" :groupName \"Superheroes\" :adminName \"Steve\")"
   [& {:keys [:memberName :groupName :adminName]}]
   (let [admins (getAdminList groupName)
         members (getMemberList groupName)]
@@ -761,7 +808,13 @@
 )
 
 (defn removeAdminFromGroup
-  "Removes an admin from the given groupworkspace."
+  "Removes an admin from the given groupworkspace.
+    :removedAdminName is the name of the admin whose admin permissions are to be removed.
+    :groupName is the name of the group for which the admin is to be removed.
+    :adminName is the name of the user who is removing the admin permissions of the removedAdminName.
+    adminName should be the name of an admin of the group for the admin permissions to be removed.
+  Eg:
+      1: (removeAdminFromGroup :removedAdminName \"Tony\" :groupName \"Superheroes\" :adminName \"Steve\")"
   [& {:keys [:removedAdminName :groupName :adminName]}]
   (let [admins (getAdminList groupName)]
     (if (.contains admins adminName)
@@ -778,7 +831,14 @@
 )
   
 (defn resourceExists
-  "Returns true if given workspace contains the given resource else false"
+  "Returns true if given workspace contains the given resource else false.
+    :workspaceClass is the class name of the workspace(GDB_PersonalWorkspace or GDB_GroupWorkspace).
+    :workspaceName is the name of the workspace for which the existence of the resource is to be checked.
+    :resourceIDMap contains the key-value pair which uniquely identifies the resource.
+    :resourceClass is the class name to which the resource belongs.
+  Eg:
+      1: (resourceExists :resourceIDMap {\"GDB_DisplayName\ \"Jarvis\"} :resourceClass \"Bot\" :workspaceName \"Superheroes\" :workspaceClass \"GDB_GroupWorkspace\")
+      2: (resourceExists :resourceIDMap {\"GDB_DisplayName\ \"Jarvis\"} :resourceClass \"Bot\" :workspaceName \"Tony\" :workspaceClass \"GDB_PersonalWorkspace\")"
   [& {:keys [:resourceIDMap :resourceClass :workspaceName :workspaceClass]}]
   (let [workspaces
     (map #(((% :end) :properties) "GDB_DisplayName")
@@ -801,6 +861,7 @@
 )
 
 (defn init
+  "Initializer function for all the default classes and instances."
   []
   (prepareNodeClass)
   (createAbstractWorkspaceClass)

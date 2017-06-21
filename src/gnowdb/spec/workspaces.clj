@@ -624,11 +624,11 @@
 
 (defn purgeTrash
   "Removes the resource from the TRASH workspace by deleting the resource instance.
-    :adminName is the name of the admin of the TRASH workspace for resource to be purged.
+    :adminName should be the name of the admin of the TRASH workspace for the resource to be purged.
     :resourceIDMap contains the key-value pair which uniquely identifies the resource.
     :resourceClass is the class to which the resource belongs.
   Eg:
-      1: (purgeTrash :adminName \"RG\" :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\")"
+      1: (purgeTrash :adminName \"Stark\" :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\")"
   [& {:keys [:adminName :resourceIDMap :resourceClass]}]
   (let [admins (getAdminList "TRASH")]
     (if (.contains admins adminName)
@@ -658,8 +658,8 @@
     :resourceIDMap contains the key-value pair which uniquely identifies the resource.
     :resourceClass is the class to which the resource belongs.
   Eg:
-      1: (restoreResource :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :workspaceClass \"GDB_GroupWorkspace\" :workspaceName \"CheapCars\" :username \"RG\")
-      2: (restoreResource :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :workspaceClass \"GDB_PersonalWorkspace\" :workspaceName \"RG\")"
+      1: (restoreResource :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :workspaceClass \"GDB_GroupWorkspace\" :workspaceName \"CheapCars\" :username \"Loki\")
+      2: (restoreResource :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :workspaceClass \"GDB_PersonalWorkspace\" :workspaceName \"Loki\")"
   [& {:keys [:resourceIDMap :resourceClass :workspaceClass :workspaceName :username]}]
   (gneo/deleteRelations
               :toNodeLabel ["GDB_GroupWorkspace"]
@@ -713,7 +713,7 @@
     :resourceIDMap contains the key-value pair which uniquely identifies the resource.
     :resourceClass is the class to which the resource belongs.
   Eg:
-      1: (deleteFromGroup :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :groupName \"CheapCars\" :username \"RG\")"
+      1: (deleteFromGroup :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :groupName \"CheapCars\" :username \"Loki\")"
   [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
   (let [groupType (getGroupType groupName)
         editingPolicy (getEditingPolicy groupName)
@@ -744,7 +744,7 @@
     :resourceIDMap contains the key-value pair which uniquely identifies the resource.
     :resourceClass is the class to which the resource belongs.
   Eg:
-      1: (deleteFromPersonalWorkspace :username \"RG\" :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\")"
+      1: (deleteFromPersonalWorkspace :username \"Dexter\" :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\")"
     [& {:keys [:username :resourceIDMap :resourceClass]}]
   (gneo/deleteRelations   :fromNodeLabel [resourceClass] 
               :fromNodeParameters resourceIDMap 

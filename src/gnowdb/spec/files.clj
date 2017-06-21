@@ -25,6 +25,7 @@
 )
 
 (defn- createFileClass
+	"Creates a file class with all attributes."
 	[] 
 	(gneo/createClass :className "GDB_File" :classType "NODE" :isAbstract? false :subClassOf ["GDB_Node"] :properties {} :execute? true)
 	(gneo/createAttributeType :_name "GDB_Path" :_datatype "java.lang.String" :subTypeOf [] :execute? true)
@@ -42,7 +43,7 @@
 )
 
 (defn- derivePath
-	"Derives the file path(e.g.1/2/3) where the file is to be stored inside the data directory"
+	"Derives the file path(e.g.1/2/3) from the md5 hash where the file is to be stored inside the data directory"
 	[& {:keys [:GDB_MD5]}]
 	(let [
 		endSubString (subs GDB_MD5 (- (count GDB_MD5) dataStorageLevels)) 
@@ -86,7 +87,7 @@
 
 (defn- createFileInstance 
 	":fileSrcPath should include the filename as well e.g. src/gnowdb/core.clj.
-	 :author is the name of the user uploading file .
+	 :author is the name of the user uploading the file .
 	 :memberOfWorkspace is a vector containing names of groupworkspaces which will
 	  contain the file.
 	  if PersonalWorkspace of author already contains the file then the file instance is not created.
@@ -143,7 +144,10 @@
 )
 
 (defn deleteFileFromGroupWorkspace
-	"Deletes a file from given group workspace"
+	"Deletes a file from given group workspace
+		:username id the name of the user deleting the file from the group workspaceName
+		:groupName is the name of the group from which the file is to be removed.
+		:GDB_MD5 is the md5 hash of the file."
 	[& {:keys [:username :groupName :GDB_MD5]}]
 	(
 		workspaces/deleteFromGroup 	:username username 
@@ -154,7 +158,9 @@
 )
 
 (defn deleteFileFromPersonalWorkspace
-	"Deletes a file from given personal workspace"
+	"Deletes a file from given personal workspace
+		:username id the name of the user who want's the file to be deleted from his/her personal workspace. 
+		:GDB_MD5 is the md5 hash of the file."
 	[& {:keys [:username :GDB_MD5]}]
 	(
 		workspaces/deleteFromPersonalWorkspace 	:username username 
@@ -173,7 +179,20 @@
 )
 
 (defn restoreFile
-	"Restores a file by moving from TRASH to the given workspace."
+	"Restores a file by moving from TRASH to the given workspace.
+	Two sets of input possible:-
+		:workspaceClass is GDB_GroupWorkspace.
+	    :username is the name of the user who is adding the file to the given GroupWorkspace.
+	    :workspaceName is the name of the workspace to which the file needs to be added.
+	    :GDB_MD5 is the md5 hash of the file to be restored.
+
+	    :workspaceClass is GDB_PersonalWorkspace.
+	    :username not required.
+	    :workspaceName is the name of the workspace to which the file needs to be added.
+	    :GDB_MD5 is the md5 hash of the file to be restored.
+    Eg:
+      	1: (restoreFile :GDB_MD5 \"md5 hash\" :workspaceClass \"GDB_GroupWorkspace\" :workspaceName \"Confidential\" :username \"Hulk\")
+      	2: (restoreFile :GDB_MD5 \"md5 hash\" :workspaceClass \"GDB_PersonalWorkspace\" :workspaceName \"Hulk\")"
 	[& {:keys [:GDB_MD5 :workspaceClass :workspaceName :username]}]
 	(workspaces/restoreResource :resourceClass "GDB_File"
 								:resourceIDMap {"GDB_MD5" GDB_MD5}
@@ -184,7 +203,11 @@
 )
 
 (defn purgeFile
-	"Purge the file present in TRASH."
+	"Removes the file from the TRASH workspace by deleting the file instance.
+    	:adminName should be the name of the admin of the TRASH workspace for the file to be purged.
+    	:GDB_MD5 is the md5 hash of the file to be purged.
+  	Eg:
+      	1: (purgeFile :adminName \"Stark\" :GDB_MD5 \"md5 hash\")"
   	[& {:keys [:adminName :GDB_MD5]}]
   	(workspaces/purgeTrash 	:adminName adminName 
   								:resourceClass "GDB_File"
@@ -193,14 +216,21 @@
 )
 
 (defn addFileToDB
-	"Adds a file to the database"
+	"Adds a file to the database
+	 	:fileSrcPath should include the filename as well e.g. src/gnowdb/core.clj.
+	 	:author is the name of the user uploading the file .
+	 	:memberOfWorkspace is a vector containing names of groupworkspaces which will
+	  	contain the file.
+	Eg:
+      	1: (addFileToDB :fileSrcPath \"src/gnowdb/core.clj\" :author \"Arrow\" :memberOfWorkspace [\"Superheroes\"])"
 	[& {:keys[:fileSrcPath :author :memberOfWorkspace]:or {:memberOfWorkspace []}}]
 	(createFileInstance :fileSrcPath fileSrcPath :author author :memberOfWorkspace memberOfWorkspace)
 	(copyFileToDataDir :srcPath fileSrcPath :filePath (derivePath :GDB_MD5 (generateMD5 :filePath fileSrcPath)))
 )
 
 (defn removeFileFromDB
-	"Deletes a file from the database"
+	"Deletes a file from the database
+	 :GDB_MD5 is the md5 hash of the file to be deleted."
 	[& {:keys[:GDB_MD5]}]
 	(let [fileName (((first (gneo/getNodes :label "GDB_File" :parameters {"GDB_MD5" GDB_MD5})) :properties) "GDB_DisplayName")]
 		(deleteFileInstance :GDB_MD5 GDB_MD5)
@@ -209,6 +239,7 @@
 )
 	
 (defn init
+	"Initializer function to initialize the file class with the required attribute types."
 	[]
 	(createFileClass)
 )

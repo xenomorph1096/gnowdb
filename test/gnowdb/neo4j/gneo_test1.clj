@@ -95,7 +95,14 @@
     )
 
 )
+(ns gnowdb.neo4j.gneo_test2
+  (:require [clojure.test :refer :all]
+              [gnowdb.neo4j.gneo :refer :all]
+            [gnowdb.neo4j.gdriver :refer :all]
 
+  
+            )
+)
 (deftest createAttributeType-test
     (testing "Creating a node  without qualifiers"
         (is (= {:results [()],

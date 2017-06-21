@@ -31,9 +31,11 @@
 		 ]
 		 ;Add readbackfunctions here with the desired data
 		(gdriver/getNeo4jDBDetails details)
+		(gneo/getUUIDEnabled details)
 		(gcust/getCustomPassword details)
 		(dumprestore/getBackupDirectory details)
 		(files/getDataDirectory details)
+		(files/getDataStorageLevels details)
 	)
 )
 
@@ -47,6 +49,8 @@
                  :customFunctionPassword "password"
                  :backup-directory "backups"
                  :data-directory "src/gnowdb/media"
+                 :uuidEnabled true
+                 :data-storage-levels 3
                  }
         ]
 	  	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))

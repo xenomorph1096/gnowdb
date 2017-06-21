@@ -31,5 +31,8 @@
     (POST "/createAttributeType" request (create-Attribute-Type request))
     (POST "/createCustomFunction" request (create-Custom-Function request))
 
+
+    (DELETE "/deleteNodes" request (delete-Nodes request))
+
   )
 )

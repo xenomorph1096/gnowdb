@@ -177,13 +177,19 @@
 (defresource delete-Detach-Nodes [request]
     :service-available? true
     :allowed-methods [:delete]    
-    :delete! (fn[_] (let [params (get-in request[:params])] (deleteDetachNodes :label (get-in params [:label]) :parameters (if (contains? params :parameters) (stringify-keys (get-in params[:parameters])) {})  :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) )))
+
+    :delete! (fn[_] (let [params (get-in request[:params])] (deleteDetachNodes :label (get-in params [:label]) 
+                                                                               :parameters (if (contains? params :parameters) (stringify-keys (get-in params[:parameters])) {})  
+                                                                               :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) )))
     :available-media-types ["application/json"])
 
 (defresource delete-Nodes [request]
     :service-available? true
-    :allowed-methods [:delete]    
-    :delete! (fn[_] (let [params (get-in request[:params])] (deleteNodes :label (get-in params [:label]) :parameters (if (contains? params :parameters) (stringify-keys (get-in params[:parameters])) {})  :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) )))
+    :allowed-methods [:delete]  
+    
+    :delete! (fn[_] (let [params (get-in request[:params])] (deleteNodes :label (get-in params [:label]) 
+                                                                         :parameters (if (contains? params :parameters) (stringify-keys (get-in params[:parameters])) {})  
+                                                                         :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) )))
     :available-media-types ["application/json"])
 
 

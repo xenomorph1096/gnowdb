@@ -6,6 +6,13 @@
             [gnowdb.neo4j.gdriver :as gdriver]
             [gnowdb.neo4j.gcust :as gcust]))
 
+(defn getUUIDEnabled
+	[details]
+	(def ^{:private true} uuidEnabled 
+		(details :uuidEnabled)
+	)
+)
+
 (defn addStringToMapKeys
   [stringMap string]
   {:pre [(string? string)
@@ -179,7 +186,7 @@
              :editType
              :editVal
              :replaceVal]
-      :or [:replaceVal ""]}]
+      :or {:replaceVal ""}}]
   {:pre [(coll? coll)
          (every? string? coll)
          (contains? #{"APPEND" "DELETE" "REPLACE"} editType)
@@ -206,8 +213,8 @@
              :editVal
              :replaceVal
              :withWhere?]
-      :or [:replaceVal ""
-           :withWhere? true]}]
+      :or {:replaceVal ""
+           :withWhere? true}}]
   {:pre [(string? varName)
          (string? propName)
          (contains? #{"APPEND" "DELETE" "REPLACE"} editType)
@@ -256,9 +263,11 @@
   [& {:keys [:label
              :parameters
              :execute?
-             :unique?]
+             :unique?
+             :uuid?]
       :or {:execute? true
            :unique? false
+           :uuid? uuidEnabled
            :parameters {}}
       :as keyArgs
       }
@@ -268,7 +277,7 @@
           "MERGE"
           "CREATE"
           )
-        mergedParams (merge parameters {"UUID" (generateUUID)})
+        mergedParams (if uuid? (merge parameters {"UUID" (generateUUID)}) parameters)
   	builtQuery  	{:query (str queryType " (node:" label " "
                                      (createParameterPropertyString
                                       mergedParams) " )")
@@ -1315,6 +1324,7 @@
                                       {"fnIntegrity" (gcust/hashCustomFunction (changeMap "fnString"))}
                                       {})
                           )]
+  ;(println )
     (editNodeProperties :label "CustomFunction"
                         :parameters {"fnName" fnName}
                         :changeMap mChangeMap
@@ -2194,7 +2204,7 @@
      :parameters propertyMap})
   )
 
-(defn addSubTypeVRQueryVec
+(defn- addSubTypeVRQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass NeoConstraints to the subclass"
   [& {:keys [:_name
@@ -2503,7 +2513,7 @@
     )
   )
 
-(defn addSubClassATQueryVec
+(defn- addSubClassATQueryVec
   "Returns a vector of queries consisting of is_aRelationship 
   query and the queries for adding superclass AttributeTypes to the subclass"
   [& {:keys [:className
@@ -2535,7 +2545,7 @@
     )
   )
 
-(defn addClassNCQuery
+(defn- addClassNCQuery
   "Returns addClassNC query without doing a check on the existence and the uniqueness of the class.
   :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
   :constraintTarget should be either of NODE,RELATION.
@@ -2568,7 +2578,7 @@
   )
 
 ;;;;;;Try to improve efficiency
-(defn addSubClassNCQueryVec
+(defn- addSubClassNCQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass NeoConstraints to the subclass"
   [& {:keys [:className
@@ -2617,7 +2627,7 @@
     )
   )
 
-(defn addClassCCQuery
+(defn- addClassCCQuery
   "Returns query for addClassCC without doing a check on atList
   :fnName of a CustomFunction.
   :constraintValue should be value to be passed as CustomFunction's second argument"
@@ -2639,7 +2649,7 @@
    )
   )
 
-(defn addSubClassCCQueryVec
+(defn- addSubClassCCQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass CustomConstraints to the subclass"
   [& {:keys [:className
@@ -2663,7 +2673,7 @@
     )
   )
 
-(defn addRelApplicableTypeQuery
+(defn- addRelApplicableTypeQuery
   "Returns the query of the function addRelApplicableType without doing a check 
   on the existence and uniqueness of applicableClass.
   :className should be className of relation class.
@@ -2699,7 +2709,7 @@
     )
   )
 
-(defn addSubClassAppTypeQueryVec
+(defn- addSubClassAppTypeQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass ApplicableTypeRelations to the subclass"
   [& {:keys [:className :subClassOf]}]

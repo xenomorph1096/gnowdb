@@ -95,7 +95,14 @@
     )
 
 )
+(ns gnowdb.neo4j.gneo_test2
+  (:require [clojure.test :refer :all]
+              [gnowdb.neo4j.gneo :refer :all]
+            [gnowdb.neo4j.gdriver :refer :all]
 
+  
+            )
+)
 (deftest createAttributeType-test
     (testing "Creating a node  without qualifiers"
         (is (= {:results [()],
@@ -149,7 +156,7 @@
 
 
     (testing "Delete changes"
-      (runQuery {:query "match (n:AttributeType {_name:{a}}),(n1:AttributeType {_name:{b}}) detach delete n,n1" :parameters {"a" "t_db1 " "b" "t_db2"}})
+      (runQuery {:query "match (n:AttributeType {_name:{a}}),(n1:AttributeType {_name:{b}}) detach delete n,n1" :parameters {"a" "t_db1" "b" "t_db2"}})
 
     )
 

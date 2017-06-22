@@ -4,7 +4,10 @@
             [clojure.java.io :as io]
             [clojure.string :as clojure.string]
             [gnowdb.neo4j.gdriver :as gdriver]
-            [gnowdb.neo4j.gcust :as gcust]))
+            [gnowdb.neo4j.gcust :as gcust]
+            [gnowdb.neo4j.queryAggregator :as queryAggregator]
+  )
+)
 
 (defn getUUIDEnabled
 	[details]
@@ -262,6 +265,7 @@
   Map values must be neo4j compatible Objects"
   [& {:keys [:label
              :parameters
+             :aggregator
              :execute?
              :unique?
              :uuid?]
@@ -273,18 +277,21 @@
       }
    ]
   (let [queryType 
- 	(if unique?
-          "MERGE"
-          "CREATE"
-          )
-        mergedParams (if uuid? (merge parameters {"UUID" (generateUUID)}) parameters)
-  	builtQuery  	{:query (str queryType " (node:" label " "
+ 	        (if unique?
+            "MERGE"
+            "CREATE"
+            )
+          mergedParams (if uuid? (merge parameters {"UUID" (generateUUID)}) parameters)
+  	      builtQuery  	{:query (str queryType " (node:" label " "
                                      (createParameterPropertyString
                                       mergedParams) " )")
                          :parameters mergedParams}
         ]
     (if execute?
-      ((gdriver/runQuery builtQuery) :summary)
+      (if aggregator
+        (queryAggregator/addQueries aggregator "Data" (merge builtQuery {:IDMap mergedParams}))
+        ((gdriver/runQuery builtQuery) :summary)
+      )
       builtQuery
       )
     )

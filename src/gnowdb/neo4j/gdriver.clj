@@ -8,15 +8,12 @@
 
 (defn getNeo4jDBDetails
   [details]
-  (def ^{:private true} neo4jDBDetails 
-    (select-keys details [:bolt-url :username :password])
-    )
+  (if (bound? (resolve `driver))
+  	(.close (var-get (resolve `driver)))
   )
-
-(defn- getDriver
-	"Get neo4j Database Driver"
-	[]
-	(GraphDatabase/driver (neo4jDBDetails :bolt-url) (AuthTokens/basic (neo4jDBDetails :username) (neo4jDBDetails :password)))
+  (def ^{:private true} driver 
+    (GraphDatabase/driver (details :bolt-url) (AuthTokens/basic (details :username) (details :password)))
+  )
 )
 
 (defn- createSummaryMap
@@ -90,7 +87,6 @@
 	In case of failure, {:results [] :summary <default full summary>}"
 	[& queriesList]
 	(let [
-			driver (getDriver)
 			session (.session driver)
 			transaction (.beginTransaction session)
 		 ]
@@ -126,7 +122,7 @@
 				finalResult
 			)
 			(catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
-			(finally (.close transaction) (.close session) (.close driver))
+			(finally (.close transaction) (.close session))
 		)
 	)
 )

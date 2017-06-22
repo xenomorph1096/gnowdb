@@ -727,6 +727,20 @@
       builtQuery)
     ))
 
+(defn getNodeByUUID
+  "Get Node by UUID"
+  [& {:keys [:UUID]}]
+  {:pre [(string? UUID)]}
+  (let [params {"UUID" UUID}
+        ret (first ((gdriver/runQuery {:query (str "MATCH (n "(createParameterPropertyString params)") RETURN n")
+                       :parameters params}
+                                      ) :results))]
+    (if (empty? ret)
+        nil
+        ((first ret) "n"))
+    )
+  )
+
 (defn getNodes
   "Get Node(s) matched by label and propertyMap"
   [& {:keys [:label
@@ -922,6 +936,40 @@
         )
       )
     )
+  )
+
+(defn getInRels
+  [& {:keys [:labels
+             :inNodeParameters]
+      :or {:inNodeParameters {}}}]
+  {:pre [(coll? labels)
+         (every? string? labels)]}
+  (let [labelString (if (empty? labels)
+                        ""
+                        (str ":" (clojure.string/join ":" labels)))
+        builtQuery {:query (str "MATCH (n"
+                                labelString
+                                " "
+                                (createParameterPropertyString inNodeParameters)
+                                " )<-[relation]-(node) RETURN relation,node.UUID"
+                                )
+                    :parameters inNodeParameters}]
+    (map (fn [rel]  (dissoc (rel "relation") :fromNode :toNode)) (first ((gdriver/runQuery builtQuery) :results)))))
+
+(defn getNBH
+  "GET NBH"
+  [& {:keys [:UUID]}]
+  {:pre [(string? UUID)]}
+  (let [nodeMatched (getNodeByUUID :UUID UUID)
+        nodeNBH (if (nil? nodeMatched)
+                  nil
+                  (getInRels :labels (nodeMatched :labels)
+                             :inNodeParameters {"UUID" UUID}))
+        ]
+    (if (nil? nodeMatched)
+      nil
+      {:node (assoc nodeMatched :labels (into #{} (nodeMatched :labels)))
+       :inRelations (into #{} nodeNBH)}))
   )
 
 ;;Class building functions start here

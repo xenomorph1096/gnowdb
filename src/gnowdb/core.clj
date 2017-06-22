@@ -34,20 +34,23 @@
 		(gcust/getCustomPassword details)
 		(dumprestore/getBackupDirectory details)
 		(files/getDataDirectory details)
+                (grcs/getRCSConfig details)
 	)
 )
 
 (defn- generateConf
   "Generates a default configuration file"
   	[]
-  	(let [defaultMap {
-                 :bolt-url "bolt://localhost:7687"
-                 :username "neo4j"
-                 :password "neo"
-                 :customFunctionPassword "password"
-                 :backup-directory "backups"
-                 :data-directory "src/gnowdb/media"
-                 }
+  (let [defaultMap {
+                    :bolt-url "bolt://localhost:7687"
+                    :username "neo4j"
+                    :password "neo"
+                    :customFunctionPassword "password"
+                    :backup-directory "backups"
+                    :data-directory "src/gnowdb/media"
+                    :rcs-directory "rcsrepo"
+                    :rcs-dir-levels 3
+                    }
         ]
 	  	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))
 	    	(spit "src/gnowdb/neo4j/gconf.clj"

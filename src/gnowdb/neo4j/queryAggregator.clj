@@ -6,26 +6,26 @@
 
 (defn queryAggregator
 	[]
-	{:queryList [] :lastUpdate "" :IDMaps #{}}
+	(atom {:queryList [] :lastUpdate "" :IDMaps #{}})
 )
 
 (defn addQueries
 	[aggregator queryType & queries]
 	(let
 		[queryList
-			(if (not= (aggregator :lastUpdate) queryType)
-				(conj (aggregator :queryList) (vec queries))
-				(into (last (aggregator :queryList)) queries)
+			(if (not= (@aggregator :lastUpdate) queryType)
+				(conj (@aggregator :queryList) (vec queries))
+				(into (last (@aggregator :queryList)) queries)
 			)
 		]
-		{
+		(reset! aggregator {
 			:queryList queryList
 			:lastUpdate queryType 
-			:IDMaps 	(conj 
-						(aggregator :IDMaps)
+			:IDMaps 	(into
+						(@aggregator :IDMaps)
 						(map #(% :IDMap) queries)
 					)
-		}
+		})
 	)
 )
 
@@ -33,5 +33,5 @@
 	[aggregator]
 	(apply gdriver/runTransactions (aggregator :queryList))
 	;RCS Trigger goes here with UUIDs of all nodes UUID can be xtracted from the neighborhood
-	(queryAggregator)
+	(reset! aggregator {:queryList [] :lastUpdate "" :IDMaps #{}})
 )

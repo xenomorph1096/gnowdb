@@ -6,8 +6,8 @@
 
 (defn updateLastModified
   [& {:keys [:editor :resourceIDMap :resourceClass]}]
-  (gneo/deleteRelations
-              :fromNodeLabel [resourceClass]
+  (gneo/deleteRelation
+              :fromNodeLabels [resourceClass]
               :fromNodeProperties resourceIDMap
               :relationshipType "GDB_LastModifiedBy"
   )

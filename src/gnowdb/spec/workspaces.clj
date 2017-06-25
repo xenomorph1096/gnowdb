@@ -594,11 +594,11 @@
           Adds a protocol resource to the Utility group which was added by a non admin user earlier, but is now approved by an admin.
   "
   [& {:keys [:adminName :groupName :resourceIDMap :resourceClass]}]
-  (gneo/deleteRelations
-              :toNodeLabel ["GDB_GroupWorkspace"]
+  (gneo/deleteRelation
+              :toNodeLabels ["GDB_GroupWorkspace"]
               :toNodeProperties {"GDB_DisplayName" groupName}
               :relationshipType "GDB_PendingReview"
-              :fromNodeLabel resourceClass
+              :fromNodeLabels [resourceClass]
               :fromNodeProperties resourceIDMap
   )
   (publishToGroup :username adminName :groupName groupName :resourceIDMap resourceIDMap :resourceClass resourceClass)
@@ -632,7 +632,7 @@
   [& {:keys [:adminName :resourceIDMap :resourceClass]}]
   (let [admins (getAdminList "TRASH")]
     (if (.contains admins adminName)
-      (gneo/deleteDetachNodes   :label resourceClass 
+      (gneo/deleteDetachNodes   :labels resourceClass 
                                 :parameters resourceIDMap
       )
       (println "Given user is not an admin of the TRASH workspace.")  
@@ -661,11 +661,11 @@
       1: (restoreResource :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :workspaceClass \"GDB_GroupWorkspace\" :workspaceName \"CheapCars\" :username \"Loki\")
       2: (restoreResource :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\" :workspaceClass \"GDB_PersonalWorkspace\" :workspaceName \"Loki\")"
   [& {:keys [:resourceIDMap :resourceClass :workspaceClass :workspaceName :username]}]
-  (gneo/deleteRelations
-              :toNodeLabel ["GDB_GroupWorkspace"]
+  (gneo/deleteRelation
+              :toNodeLabels ["GDB_GroupWorkspace"]
               :toNodeParameters {"GDB_DisplayName" "TRASH"}
               :relationshipType "GDB_MemberOfWorkspace"
-              :fromNodeLabel [resourceClass]
+              :fromNodeLabels [resourceClass]
               :fromNodeParameters resourceIDMap
   )
   (cond 
@@ -677,10 +677,10 @@
 (defn- deleteFromUnmoderatedGroup
   "Deletes a resource from an unmoderated group."
   [& {:keys [:username :groupName :resourceIDMap :resourceClass]}]
-  (gneo/deleteRelations   :fromNodeLabel [resourceClass]
+  (gneo/deleteRelation   :fromNodeLabels [resourceClass]
               :fromNodeParameters resourceIDMap 
               :relationshipType "GDB_MemberOfWorkspace" 
-              :toNodeLabel ["GDB_GroupWorkspace"] 
+              :toNodeLabels ["GDB_GroupWorkspace"] 
               :toNodeParameters {"GDB_DisplayName" groupName})
   (if (empty? (gneo/getRelations :fromNodeLabel [resourceClass]
                     :fromNodeParameters resourceIDMap
@@ -746,20 +746,20 @@
   Eg:
       1: (deleteFromPersonalWorkspace :username \"Dexter\" :resourceIDMap {\"GDB_DisplayName\" \"Lamborghini\"} :resourceClass \"GDB_Car\")"
     [& {:keys [:username :resourceIDMap :resourceClass]}]
-  (gneo/deleteRelations   :fromNodeLabel [resourceClass] 
+  (gneo/deleteRelation   :fromNodeLabels [resourceClass] 
               :fromNodeParameters resourceIDMap 
               :relationshipType "GDB_MemberOfWorkspace" 
-              :toNodeLabel ["GDB_PersonalWorkspace"] 
+              :toNodeLabels ["GDB_PersonalWorkspace"] 
               :toNodeParameters {"GDB_DisplayName" username})
-  (gneo/deleteRelations   :fromNodeLabel [resourceClass] 
+  (gneo/deleteRelation   :fromNodeLabels [resourceClass] 
               :fromNodeParameters resourceIDMap 
               :relationshipType "GDB_CreatedBy" 
-              :toNodeLabel ["GDB_PersonalWorkspace"] 
+              :toNodeLabels ["GDB_PersonalWorkspace"] 
               :toNodeParameters {"GDB_DisplayName" username})
-  (gneo/deleteRelations   :fromNodeLabel [resourceClass] 
+  (gneo/deleteRelation   :fromNodeLabels [resourceClass] 
               :fromNodeParameters resourceIDMap 
               :relationshipType "GDB_LastModifiedBy" 
-              :toNodeLabel ["GDB_PersonalWorkspace"] 
+              :toNodeLabels ["GDB_PersonalWorkspace"] 
               :toNodeParameters {"GDB_DisplayName" username})
   (if (empty? (gneo/getRelations :fromNodeLabel [resourceClass]
                     :fromNodeParameters resourceIDMap
@@ -789,15 +789,15 @@
         members (getMemberList groupName)]
     (if (and (.contains admins adminName) (.contains members memberName))
       (do
-        (gneo/deleteRelations   :fromNodeLabel ["GDB_PersonalWorkspace"]
+        (gneo/deleteRelation   :fromNodeLabels ["GDB_PersonalWorkspace"]
                                 :fromNodeParameters {"GDB_DisplayName" memberName} 
                                 :relationshipType "GDB_MemberOfGroup" 
-                                :toNodeLabel ["GDB_GroupWorkspace"] 
+                                :toNodeLabels ["GDB_GroupWorkspace"] 
                                 :toNodeParameters {"GDB_DisplayName" groupName})
-        (gneo/deleteRelations   :fromNodeLabel ["GDB_PersonalWorkspace"]
+        (gneo/deleteRelation   :fromNodeLabels ["GDB_PersonalWorkspace"]
                                 :fromNodeParameters {"GDB_DisplayName" memberName} 
                                 :relationshipType "GDB_AdminOfGroup" 
-                                :toNodeLabel ["GDB_GroupWorkspace"] 
+                                :toNodeLabels ["GDB_GroupWorkspace"] 
                                 :toNodeParameters {"GDB_DisplayName" groupName})
         (editLastModified :groupName groupName :editor adminName)
       )
@@ -818,10 +818,10 @@
   [& {:keys [:removedAdminName :groupName :adminName]}]
   (let [admins (getAdminList groupName)]
     (if (.contains admins adminName)
-      (gneo/deleteRelations   :fromNodeLabel ["GDB_PersonalWorkspace"]
+      (gneo/deleteRelation   :fromNodeLabels ["GDB_PersonalWorkspace"]
                                 :fromNodeParameters {"GDB_DisplayName" removedAdminName} 
                                 :relationshipType "GDB_AdminOfGroup" 
-                                :toNodeLabel ["GDB_GroupWorkspace"] 
+                                :toNodeLabels ["GDB_GroupWorkspace"] 
                                 :toNodeParameters {"GDB_DisplayName" groupName})
       (editLastModified :groupName groupName :editor adminName)
     )

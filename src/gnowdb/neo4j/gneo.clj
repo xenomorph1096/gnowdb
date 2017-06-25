@@ -4,7 +4,17 @@
             [clojure.java.io :as io]
             [clojure.string :as clojure.string]
             [gnowdb.neo4j.gdriver :as gdriver]
-            [gnowdb.neo4j.gcust :as gcust]))
+            [gnowdb.neo4j.gcust :as gcust]
+            [gnowdb.neo4j.queryAggregator :as queryAggregator]
+  )
+)
+
+(defn getUUIDEnabled
+	[details]
+	(def ^{:private true} uuidEnabled 
+		(details :uuidEnabled)
+	)
+)
 
 (defn addStringToMapKeys
   [stringMap string]
@@ -179,7 +189,7 @@
              :editType
              :editVal
              :replaceVal]
-      :or [:replaceVal ""]}]
+      :or {:replaceVal ""}}]
   {:pre [(coll? coll)
          (every? string? coll)
          (contains? #{"APPEND" "DELETE" "REPLACE"} editType)
@@ -206,8 +216,8 @@
              :editVal
              :replaceVal
              :withWhere?]
-      :or [:replaceVal ""
-           :withWhere? true]}]
+      :or {:replaceVal ""
+           :withWhere? true}}]
   {:pre [(string? varName)
          (string? propName)
          (contains? #{"APPEND" "DELETE" "REPLACE"} editType)
@@ -255,27 +265,33 @@
   Map values must be neo4j compatible Objects"
   [& {:keys [:label
              :parameters
+             :aggregator
              :execute?
-             :unique?]
+             :unique?
+             :uuid?]
       :or {:execute? true
            :unique? false
+           :uuid? uuidEnabled
            :parameters {}}
       :as keyArgs
       }
    ]
   (let [queryType 
- 	(if unique?
-          "MERGE"
-          "CREATE"
-          )
-        mergedParams (merge parameters {"UUID" (generateUUID)})
-  	builtQuery  	{:query (str queryType " (node:" label " "
+ 	        (if unique?
+            "MERGE"
+            "CREATE"
+            )
+          mergedParams (if uuid? (merge parameters {"UUID" (generateUUID)}) parameters)
+  	      builtQuery  	{:query (str queryType " (node:" label " "
                                      (createParameterPropertyString
                                       mergedParams) " )")
                          :parameters mergedParams}
         ]
     (if execute?
-      ((gdriver/runQuery builtQuery) :summary)
+      (if aggregator
+        (queryAggregator/addQueries aggregator "Data" (merge builtQuery {:IDMap mergedParams}))
+        ((gdriver/runQuery builtQuery) :summary)
+      )
       builtQuery
       )
     )
@@ -1363,6 +1379,7 @@
                                       {"fnIntegrity" (gcust/hashCustomFunction (changeMap "fnString"))}
                                       {})
                           )]
+  ;(println )
     (editNodeProperties :label "CustomFunction"
                         :parameters {"fnName" fnName}
                         :changeMap mChangeMap
@@ -2242,7 +2259,7 @@
      :parameters propertyMap})
   )
 
-(defn addSubTypeVRQueryVec
+(defn- addSubTypeVRQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass NeoConstraints to the subclass"
   [& {:keys [:_name
@@ -2551,7 +2568,7 @@
     )
   )
 
-(defn addSubClassATQueryVec
+(defn- addSubClassATQueryVec
   "Returns a vector of queries consisting of is_aRelationship 
   query and the queries for adding superclass AttributeTypes to the subclass"
   [& {:keys [:className
@@ -2583,7 +2600,7 @@
     )
   )
 
-(defn addClassNCQuery
+(defn- addClassNCQuery
   "Returns addClassNC query without doing a check on the existence and the uniqueness of the class.
   :constraintType should be either of UNIQUE,EXISTANCE,NODEKEY.
   :constraintTarget should be either of NODE,RELATION.
@@ -2616,7 +2633,7 @@
   )
 
 ;;;;;;Try to improve efficiency
-(defn addSubClassNCQueryVec
+(defn- addSubClassNCQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass NeoConstraints to the subclass"
   [& {:keys [:className
@@ -2665,7 +2682,7 @@
     )
   )
 
-(defn addClassCCQuery
+(defn- addClassCCQuery
   "Returns query for addClassCC without doing a check on atList
   :fnName of a CustomFunction.
   :constraintValue should be value to be passed as CustomFunction's second argument"
@@ -2687,7 +2704,7 @@
    )
   )
 
-(defn addSubClassCCQueryVec
+(defn- addSubClassCCQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass CustomConstraints to the subclass"
   [& {:keys [:className
@@ -2711,7 +2728,7 @@
     )
   )
 
-(defn addRelApplicableTypeQuery
+(defn- addRelApplicableTypeQuery
   "Returns the query of the function addRelApplicableType without doing a check 
   on the existence and uniqueness of applicableClass.
   :className should be className of relation class.
@@ -2747,7 +2764,7 @@
     )
   )
 
-(defn addSubClassAppTypeQueryVec
+(defn- addSubClassAppTypeQueryVec
   "Returns a vector of queries consisting of the queries 
   for adding superclass ApplicableTypeRelations to the subclass"
   [& {:keys [:className :subClassOf]}]

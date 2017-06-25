@@ -9,7 +9,9 @@
             [ring.middleware.json :refer [wrap-json-response]]
             [compojure.handler :as handler]
             [compojure.route :as route]
-            [gnowdb.routes.gneo :refer [gneo-routes]]))
+            [gnowdb.routes.gneo :refer [gneo-routes]]
+            [gnowdb.routes.workspaces :refer [workspaces-routes]]
+            [gnowdb.routes.files :refer [files-routes]]))
 
 (defn init []
   (println "liberator-service is starting"))
@@ -22,7 +24,7 @@
   (route/not-found "Not Found"))
 
 (def app
-  (-> (routes gneo-routes app-routes)
+  (-> (routes gneo-routes workspaces-routes files-routes app-routes)
       (handler/site)
       (wrap-json-params)
    ))

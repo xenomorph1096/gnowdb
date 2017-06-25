@@ -384,7 +384,7 @@
               " )  DELETE rel")
          :parameters (combinedProperties :combinedPropertyMap)}]
     (if execute?
-      (gdriver/runQuery builtQuery)
+      ((gdriver/runQuery builtQuery) :summary)
       builtQuery
       )
     )
@@ -922,40 +922,40 @@
     )
   )
 
-;; (defn getNeighborhood
-;;   "Get the neighborhood of a particular node"
-;;   [& {:keys [:label
-;;              :parameters]
-;;       :or {:parameters {}}
-;;       }
-;;    ]
-;;   (let [nodeseq (getNodes :label label
-;;                           :parameters parameters)
-;;         ]
-;;     (if (not= (count nodeseq) 1)
-;;       "Error"
-;;       (let [nodeLabel ((first nodeseq) :labels)
-;;             nodeParameters ((first nodeseq) :properties)
-;;             ]
-;;         {:labels nodeLabel
-;;          :properties nodeParameters
-;;          :outNodes (map #(select-keys % [:labels
-;;                                          :properties
-;;                                          :toNode])
-;;                         (getRelations :fromNodeLabel nodeLabel
-;;                                       :fromNodeParameters nodeParameters)
-;;                         )
-;;          :inNodes (map #(select-keys % [:labels
-;;                                         :properties
-;;                                         :fromNode])
-;;                        (getRelations :toNodeLabel nodeLabel
-;;                                      :toNodeParameters nodeParameters)
-;;                        )
-;;          }
-;;         )
-;;       )
-;;     )
-;;   )
+(defn getNeighborhood
+  "Get the neighborhood of a particular node"
+  [& {:keys [:labels
+             :parameters]
+      :or {:parameters {}}
+      }
+   ]
+  (let [nodeseq (getNodes :labels labels
+                          :parameters parameters)
+        ]
+    (if (not= (count nodeseq) 1)
+      "Error"
+      (let [nodeLabels ((first nodeseq) :labels)
+            nodeParameters ((first nodeseq) :properties)
+            ]
+        {:labels nodeLabels
+         :properties nodeParameters
+         :outNodes (map #(select-keys % [:labels
+                                         :properties
+                                         :toNode])
+                        (getRelations :fromNodeLabels nodeLabels
+                                      :fromNodeParameters nodeParameters)
+                        )
+         :inNodes (map #(select-keys % [:labels
+                                        :properties
+                                        :fromNode])
+                       (getRelations :toNodeLabels nodeLabels
+                                     :toNodeParameters nodeParameters)
+                       )
+         }
+        )
+      )
+    )
+  )
 
 (defn getInRels
   [& {:keys [:labels
@@ -2848,7 +2848,7 @@
                                              :subClassOf subClassOf
                                              :classType classType)
            [superClassName] subClassOf]
-        (if (not (empty? (getNodes :labels "Class"
+        (if (not (empty? (getNodes :labels ["Class"]
                                    :parameters {"className" (str superClassName)}
                                    :execute? true)
                          )

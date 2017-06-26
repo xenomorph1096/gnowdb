@@ -825,7 +825,7 @@
          (every? string? UUIDList)]}
   (let [builtQuery {:query (str "MATCH (node"(createLabelString :labels labels)") WHERE node.UUID in {UUIDList} return node")
                     :parameters {"UUIDList" UUIDList}}]
-    (map #(% "node") (first ((gdriver/runQuery builtQuery) :results)))
+    (reduce #(merge %1 {((%2 :properties) "UUID") %2}) {} (map #(% "node") (first ((gdriver/runQuery builtQuery) :results))))
     )
   )
 
@@ -959,19 +959,23 @@
 
 (defn getInRels
   [& {:keys [:labels
-             :inNodeParameters]
+             :UUIDList]
       :or {:labels []
-           :inNodeParameters {}}}]
-  {:pre [(map? inNodeParameters)]}
+           :UUIDList []}}]
+  {:pre [(every? string? UUIDList)]}
   (let [labelString (createLabelString :labels labels)
         builtQuery {:query (str "MATCH (n"
                                 labelString
-                                " "
-                                (createParameterPropertyString inNodeParameters)
-                                " )<-[relation]-(node) RETURN relation,node.UUID"
-                                )
-                    :parameters inNodeParameters}]
-    (map #(assoc {"fromNodeUUID" (% "node.UUID")} "relation" (dissoc (% "relation") :fromNode :toNode)) (first ((gdriver/runQuery builtQuery) :results)))))
+                                " )<-[relation]-(node)"
+                                " WHERE n.UUID IN {UUIDList}"
+                                " RETURN relation, node.UUID as fromUUID, n.UUID as toUUID")
+                    :parameters {"UUIDList" UUIDList}}
+        inRels (first ((gdriver/runQuery builtQuery) :results))]
+    (reduce #(assoc %1 %2
+                    (into #{} (filter
+                               (fn [rel]
+                                 (= %2 (rel "toUUID"))) (map (fn [rel]
+                                                             (assoc rel "relation"(dissoc (rel "relation") :fromNode :toNode))) inRels)))) {} UUIDList)))
 
 (defn getNBH
   "GET NBH"
@@ -982,12 +986,12 @@
   {:pre [(coll? UUIDList)
          (every? string? UUIDList)]}
   (let [nodesMatched (getNodesByUUID :UUIDList UUIDList)
-        nodeNBHs (map #(-> {:inRelations (into #{} (getInRels :labels (% :labels)
-                                                              :inNodeParameters (% :properties)))
-                            :node (assoc % :labels (into #{} (% :labels)))})
-                      nodesMatched)
+        nodeNBHs (getInRels :labels labels
+                             :UUIDList UUIDList)
         ]
-    nodeNBHs)
+    (reduce #(merge %1 {(%2 0) {:node (assoc (%2 1) :labels (into #{} ((%2 1) :labels)))
+                                :inRelations (nodeNBHs (%2 0))}})
+            {} nodesMatched))
   )
 
 ;;Class building functions start here

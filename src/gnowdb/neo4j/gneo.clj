@@ -815,17 +815,17 @@
       builtQuery)
     ))
 
-(defn getNodeByUUID
-  "Get Node by UUID"
-  [& {:keys [:UUID]}]
-  {:pre [(string? UUID)]}
-  (let [params {"UUID" UUID}
-        ret (first ((gdriver/runQuery {:query (str "MATCH (n "(createParameterPropertyString params)") RETURN n")
-                       :parameters params}
-                                      ) :results))]
-    (if (empty? ret)
-        nil
-        ((first ret) "n"))
+(defn getNodesByUUID
+  "Get Nodes by UUID"
+  [& {:keys [:labels
+             :UUIDList]
+      :or {:labels []}}]
+  {:pre [(coll? labels)
+         (coll? UUIDList)
+         (every? string? UUIDList)]}
+  (let [builtQuery {:query (str "MATCH (node"(createLabelString :labels labels)") WHERE node.UUID in {UUIDList} return node")
+                    :parameters {"UUIDList" UUIDList}}]
+    (map #(% "node") (first ((gdriver/runQuery builtQuery) :results)))
     )
   )
 
@@ -971,22 +971,23 @@
                                 " )<-[relation]-(node) RETURN relation,node.UUID"
                                 )
                     :parameters inNodeParameters}]
-    (map (fn [rel]  (dissoc (rel "relation") :fromNode :toNode)) (first ((gdriver/runQuery builtQuery) :results)))))
+    (map #(assoc {"fromNodeUUID" (% "node.UUID")} "relation" (dissoc (% "relation") :fromNode :toNode)) (first ((gdriver/runQuery builtQuery) :results)))))
 
 (defn getNBH
   "GET NBH"
-  [& {:keys [:UUID]}]
-  {:pre [(string? UUID)]}
-  (let [nodeMatched (getNodeByUUID :UUID UUID)
-        nodeNBH (if (nil? nodeMatched)
-                  nil
-                  (getInRels :labels (nodeMatched :labels)
-                             :inNodeParameters {"UUID" UUID}))
+  [& {:keys [:labels
+             :UUIDList]
+      :or {:labels []
+           :UUIDList []}}]
+  {:pre [(coll? UUIDList)
+         (every? string? UUIDList)]}
+  (let [nodesMatched (getNodesByUUID :UUIDList UUIDList)
+        nodeNBHs (map #(-> {:inRelations (into #{} (getInRels :labels (% :labels)
+                                                              :inNodeParameters (% :properties)))
+                            :node (assoc % :labels (into #{} (% :labels)))})
+                      nodesMatched)
         ]
-    (if (nil? nodeMatched)
-      nil
-      {:node (assoc nodeMatched :labels (into #{} (nodeMatched :labels)))
-       :inRelations (into #{} nodeNBH)}))
+    nodeNBHs)
   )
 
 ;;Class building functions start here
@@ -1046,14 +1047,15 @@
            )
          ]
    }
-  (let [queryBuilder (case constraintType
-                       "UNIQUE" #(str "(label:" label
+  (let [bklabel (backtick label)
+        queryBuilder (case constraintType
+                       "UNIQUE" #(str "(label:" bklabel
                                       ") ASSERT label." % " IS UNIQUE")
-                       "NODEEXISTANCE" #(str "(label:" label
+                       "NODEEXISTANCE" #(str "(label:" bklabel
                                              ") ASSERT exists(label." % ")")
-                       "RELATIONEXISTANCE" #(str "()-[label:" label
+                       "RELATIONEXISTANCE" #(str "()-[label:" bklabel
                                                  "]-() ASSERT exists(label." % ")")
-                       "NODEKEY" #(str "(label:" label
+                       "NODEKEY" #(str "(label:" bklabel
                                        ") ASSERT (" (clojure.string/join
                                                      ", "
                                                      (map (fn [property]

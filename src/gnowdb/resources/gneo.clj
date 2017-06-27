@@ -31,7 +31,7 @@
 (defresource create-New-Node [request]
     :service-available? true
     :allowed-methods [:post]    
-    :handle-created (fn [_] (let [params (get-in request[:params])] (createNewNode :label (get-in params [:label]) 
+    :handle-created (fn [_] (let [params (get-in request[:params])] (createNewNode :labels (get-in params [:labels]) 
                                                                                   :parameters (if (contains? params :parameters) (stringify-keys (get-in params[:parameters])) {})  
                                                                                   :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) 
                                                                                   :unique? (if (contains? params :unique?) (get-in params [:unique?]) false) )))
@@ -40,7 +40,7 @@
 (defresource get-Nodes [request]
   :service-available? true
   :allowed-methods [:get]
-  :handle-ok (fn [_] (let [params (get-in request[:params])] (getNodes :label (get-in params [:label]) 
+  :handle-ok (fn [_] (let [params (get-in request[:params])] (getNodes :labels (get-in params [:labels]) 
                                                                        :parameters (if (contains? params :parameters) (stringify-keys (get-in params[:parameters])) {})
                                                                        :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) )))
   :available-media-types ["application/json"])
@@ -48,11 +48,11 @@
 (defresource get-Relations [request]
     :service-available? true
     :allowed-methods [:get]    
-    :handle-ok (fn [_] (let [params (get-in request[:params])] (getRelations    :fromNodeLabel (if (contains? params :fromNodeLabel) (get-in params [:fromNodeLabel]) "") 
+    :handle-ok (fn [_] (let [params (get-in request[:params])] (getRelations    :fromNodeLabels (if (contains? params :fromNodeLabels) (get-in params [:fromNodeLabels]) "") 
                                                                                 :fromNodeParameters (if (contains? params :fromNodeParameters) (stringify-keys (get-in params[:fromNodeParameters])) {}) 
                                                                                 :relationshipType (if (contains? params :relationshipType) (get-in params [:relationshipType]) "") 
                                                                                 :relationshipParameters (if (contains? params :relationshipParameters) (stringify-keys (get-in params[:relationshipParameters])) {}) 
-                                                                                :toNodeLabel (if (contains? params :toNodeLabel) (get-in params [:toNodeLabel]) "") 
+                                                                                :toNodeLabels (if (contains? params :toNodeLabels) (get-in params [:toNodeLabels]) "") 
                                                                                 :toNodeParameters (if (contains? params :toNodeParameters) (stringify-keys (get-in params[:toNodeParameters])) {}) 
                                                                                 :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) 
                                                                                 :unique? (if (contains? params :unique?) (get-in params [:unique?]) false) )))
@@ -61,11 +61,11 @@
 (defresource create-Relation [request]
     :service-available? true
     :allowed-methods [:post]    
-    :handle-created (fn [_] (let [params (get-in request[:params])] (createRelation  :fromNodeLabel (get-in params [:fromNodeLabel]) 
+    :handle-created (fn [_] (let [params (get-in request[:params])] (createRelation  :fromNodeLabels (get-in params [:fromNodeLabels]) 
                                                                                     :fromNodeParameters (if (contains? params :fromNodeParameters) (stringify-keys (get-in params[:fromNodeParameters])) {}) 
                                                                                     :relationshipType (get-in params [:relationshipType]) 
                                                                                     :relationshipParameters (if (contains? params :relationshipParameters) (stringify-keys (get-in params[:relationshipParameters])) {}) 
-                                                                                    :toNodeLabel (get-in params [:toNodeLabel]) 
+                                                                                    :toNodeLabels (get-in params [:toNodeLabels]) 
                                                                                     :toNodeParameters (if (contains? params :toNodeParameters) (stringify-keys (get-in params[:toNodeParameters])) {}) 
                                                                                     :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) 
                                                                                     :unique? (if (contains? params :unique?) (get-in params [:unique?]) false) )))
@@ -178,7 +178,7 @@
     :service-available? true
     :allowed-methods [:delete]    
 
-    :delete! (fn[_] (let [params (get-in request[:params])] (deleteDetachNodes :label (get-in params [:label]) 
+    :delete! (fn[_] (let [params (get-in request[:params])] (deleteDetachNodes :labels (get-in params [:labels]) 
                                                                                :parameters (if (contains? params :parameters) (stringify-keys (get-in params[:parameters])) {})  
                                                                                :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) )))
     :available-media-types ["application/json"])
@@ -187,7 +187,7 @@
     :service-available? true
     :allowed-methods [:delete]  
     
-    :delete! (fn[_] (let [params (get-in request[:params])] (deleteNodes :label (get-in params [:label]) 
+    :delete! (fn[_] (let [params (get-in request[:params])] (deleteNodes :labels (get-in params [:labels]) 
                                                                          :parameters (if (contains? params :parameters) (stringify-keys (get-in params[:parameters])) {})  
                                                                          :execute? (if (contains? params :execute?) (get-in params [:execute?]) true) )))
     :available-media-types ["application/json"])

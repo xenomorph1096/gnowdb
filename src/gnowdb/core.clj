@@ -22,69 +22,72 @@
   [& args])
 
 (defn- initiateReadback
-	"Redifines global variables in other namespaces where needed"
-	[]
-	(let [details 
-			(with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
-							(read (PushbackReader. r))
-			)
-		 ]
-		 ;Add readbackfunctions here with the desired data
-		(gdriver/getNeo4jDBDetails details)
-		(gneo/getUUIDEnabled details)
-		(gcust/getCustomPassword details)
-		(dumprestore/getBackupDirectory details)
-		(files/getDataDirectory details)
-		(files/getDataStorageLevels details)
-	)
-)
+  "Redifines global variables in other namespaces where needed"
+  []
+  (let [details 
+        (with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
+          (read (PushbackReader. r))
+          )
+        ]
+                                        ;Add readbackfunctions here with the desired data
+    (gdriver/getNeo4jDBDetails details)
+    (gneo/getUUIDEnabled details)
+    (gcust/getCustomPassword details)
+    (dumprestore/getBackupDirectory details)
+    (files/getDataDirectory details)
+    (grcs/getRCSConfig details)
+    (files/getDataStorageLevels details)
+    )
+  )
 
 (defn- generateConf
   "Generates a default configuration file"
-  	[]
-  	(let [defaultMap {
-                 :bolt-url "bolt://localhost:7687"
-                 :username "neo4j"
-                 :password "neo"
-                 :customFunctionPassword "password"
-                 :backup-directory "backups"
-                 :data-directory "src/gnowdb/media"
-                 :uuidEnabled true
-                 :data-storage-levels 3
-                 }
+  []
+  (let [defaultMap {
+                    :bolt-url "bolt://localhost:7687"
+                    :username "neo4j"
+                    :password "neo"
+                    :customFunctionPassword "password"
+                    :backup-directory "backups"
+                    :data-directory "src/gnowdb/media"
+                    :uuidEnabled true
+                    :data-storage-levels 3
+                    :rcs-directory "rcsrepo"
+                    :rcs-dir-levels 3
+                    }
         ]
-	  	(if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))
-	    	(spit "src/gnowdb/neo4j/gconf.clj"
-	          	defaultMap
-	        )
-	    	(let [existingMap 
-	    			(with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
-									(read (PushbackReader. r))
-					)
-				]
-				(spit "src/gnowdb/neo4j/gconf.clj"
-	          		(merge defaultMap existingMap)
-	        	)
-	    	)
-	    )
+    (if (not (.exists (clojure.java.io/file "src/gnowdb/neo4j/gconf.clj")))
+      (spit "src/gnowdb/neo4j/gconf.clj"
+            defaultMap
+            )
+      (let [existingMap 
+            (with-open [r (io/reader "src/gnowdb/neo4j/gconf.clj")]
+              (read (PushbackReader. r))
+              )
+            ]
+        (spit "src/gnowdb/neo4j/gconf.clj"
+              (merge defaultMap existingMap)
+              )
+        )
+      )
     )
- )
+  )
 
 (generateConf)
 (initiateReadback)
 
 (let [changes (changes-in ["src/gnowdb/neo4j"])]
-	(clojure.core.async/go 
-		(while true
-			(let [[op filename] (<! changes)]
-				;; op will be one of :create, :modify or :delete
-				(if (= filename "src/gnowdb/neo4j/gconf.clj")
-					(if (= op :delete)
-						(cancel-changes)
-						(initiateReadback)
-					)
-				)
-			)
-		)
-	)
-)
+  (clojure.core.async/go 
+    (while true
+      (let [[op filename] (<! changes)]
+        ;; op will be one of :create, :modify or :delete
+        (if (= filename "src/gnowdb/neo4j/gconf.clj")
+          (if (= op :delete)
+            (cancel-changes)
+            (initiateReadback)
+            )
+          )
+        )
+      )
+    )
+  )

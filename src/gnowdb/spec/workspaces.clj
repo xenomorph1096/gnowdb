@@ -166,7 +166,7 @@
     Eg:
       1: (instantiatePersonalWorkspace :displayName \"GN\") creates a user called GN who is a member of the group home. GN is marked as being created by admin.
       2: (instantiatePersonalWorkspace :displayName \"Lex\" :memberOfGroup \"Gnowledge\") creates a user Lex, who is a member of Gnowledge. Ray is marked as being created by admin.
-      3: (instantiateGroupWorkspace :displayName \"Anant\" :memberOfGroup \"Gnowledge\" :createdBy \"GN\") created user Anant, who is a member of Gnowledge. Anant is marked as being created by GN.
+      3: (instantiatePersonalWorkspace :displayName \"Anant\" :memberOfGroup \"Gnowledge\" :createdBy \"GN\") created user Anant, who is a member of Gnowledge. Anant is marked as being created by GN.
   "
   [& {:keys [:displayName :alternateName :createdBy :memberOfGroup :description :relationshipsOnly?] :or {:alternateName "[]" :createdBy "admin" :memberOfGroup "home" :description "" :relationshipsOnly? false}}]
   (if (false? relationshipsOnly?)

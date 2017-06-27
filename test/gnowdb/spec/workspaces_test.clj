@@ -1,4 +1,4 @@
-(ns gnowdb.neo4j.workspaces_test
+(ns gnowdb.spec.workspaces_test
   (:require [clojure.test :refer :all]
             [gnowdb.neo4j.gneo :refer :all]
             [gnowdb.neo4j.gdriver :refer :all]
@@ -8,49 +8,140 @@
 
 (deftest instantiateGroupWorkspace-test
 
-  (testing "Error in instantiating group workspace 1"
+  (testing "Error in instantiating editable non-moderated group workspace 1"
   	(instantiatePersonalWorkspace :displayName "user1" :description "GDB_Test")
   	(instantiateGroupWorkspace :displayName "group1" :createdBy "user1" :description "GDB_Test")
   	(is 
     	(= [1]
-      (gneo/getClassInstances :className "GDB_GroupWorkspace" 
+      (getClassInstances :className "GDB_GroupWorkspace" 
       												:parameters {"GDB_DisplayName" "group1" "GDB_Description" "GDB_Test"} 
       												:count? true)
 			)
   	)
 	)
 
-	(testing "Error in instantiating group workspace when it already exists."
+	(testing "Error in instantiating editable non-moderated group workspace when it already exists."
   	(instantiateGroupWorkspace :displayName "group1" :createdBy "user1" :description "GDB_Test")
   	(is 
     	(= [1]
-      (gneo/getClassInstances :className "GDB_GroupWorkspace" 
+      (getClassInstances :className "GDB_GroupWorkspace" 
       												:parameters {"GDB_DisplayName" "group1" "GDB_Description" "GDB_Test"} 
       												:count? true)
 			)
   	)
 	)
 
-	(testing "Error in instantiating group workspace when it already exists created by some other user"
+	(testing "Error in instantiating editable non-moderated group workspace when it already exists created by some other user"
   	(instantiatePersonalWorkspace :displayName "user2" :description "GDB_Test")
   	(instantiateGroupWorkspace :displayName "group1" :createdBy "user2" :description "GDB_Test")
   	(is 
     	(= [1]
-      (gneo/getClassInstances :className "GDB_GroupWorkspace" 
+      (getClassInstances :className "GDB_GroupWorkspace" 
       												:parameters {"GDB_DisplayName" "group1" "GDB_Description" "GDB_Test"} 
       												:count? true)
 			)
   	)
 	)
 
-	(testing "Error in instantiating group workspace when it already exists by some other user"
+	(testing "Error in instantiating editable non-moderated group workspace when it already exists by some other user"
   	(instantiatePersonalWorkspace :displayName "user2" :description "GDB_Test")
   	(instantiateGroupWorkspace :displayName "group1" :createdBy "user2" :description "GDB_Test")
   	(is 
     	(= [1]
-      (gneo/getClassInstances :className "GDB_GroupWorkspace" 
+      (getClassInstances :className "GDB_GroupWorkspace" 
       												:parameters {"GDB_DisplayName" "group1" "GDB_Description" "GDB_Test"} 
       												:count? true)
+			)
+  	)
+	)
+
+	(testing "Error in adding member to a group editable non-moderated by an admin."
+  	(addMemberToGroup :newMemberName "user2" :groupName "group1" :adminName "user1")
+  	(is 
+    	(= #{"user1" "user2"}
+      	(set 
+      		(getMemberList "group1")
+      	)
+			)
+  	)
+	)
+
+	(testing "Error in adding member to a editable non-moderated group by an non-admin."
+		(instantiatePersonalWorkspace :displayName "user3" :description "GDB_Test")
+  	(addMemberToGroup :newMemberName "user3" :groupName "group1" :adminName "user2")
+  	(is 
+    	(= #{"user1" "user2" "user3"}
+      	(set 
+      		(getMemberList "group1")
+      	)
+			)
+  	)
+	)
+
+	(testing "Error in adding member to a editable non-moderated group by an non-admin."
+  	(is 
+    	(= #{"user1"}
+      	(set 
+      		(getAdminList "group1")
+      	)
+			)
+  	)
+	)
+
+	(testing "Error in adding member to a group editable non-moderated by an admin."
+  	(is 
+    	(= 	
+    		{:results [], 
+    			:summary 
+    			{	:summaryMap {}, 
+    				:summaryString "The user could not be granted Administrator permissions as it is not authorized by valid admin."
+    			}
+    		}
+      	(addAdminToGroup :newAdminName "user3" :groupName "group1" :adminName "user2")
+			)
+  	)
+	)
+
+	(testing "Error in adding member to a group editable non-moderated by an admin."
+  	(addAdminToGroup :newAdminName "user2" :groupName "group1" :adminName "user1")
+  	(is 
+    	(= #{"user1" "user2"}
+      	(set 
+      		(getAdminList "group1")
+      	)
+			)
+  	)
+	)
+
+	(testing "Error in getting editing policy of a group workspace 1."
+  	(is 
+    	(= "Editable_Non-Moderated"
+      	(getEditingPolicy "group1")
+			)
+  	)
+	)
+
+	(testing "Error in getting group type of a group workspace 1."
+  	(is 
+    	(= "Public"
+      	(getGroupType "group1")
+			)
+  	)
+	)
+
+	(testing "Error in getting editing policy of a group workspace 1."
+  	(setEditingPolicy )
+  	(is 
+    	(= "Editable_Non-Moderated"
+      	(getEditingPolicy "group1")
+			)
+  	)
+	)
+
+	(testing "Error in getting group type of a group workspace 1."
+  	(is 
+    	(= "Public"
+      	(getGroupType "group1")
 			)
   	)
 	)

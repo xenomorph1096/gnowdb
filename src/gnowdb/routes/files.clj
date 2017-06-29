@@ -6,7 +6,9 @@
 
   (context "/api" [] 
 
-    (GET "/getDataDirectory" request (get-Data-Directory request))
+    (GET "/" request "<h1>WELCOME TO GNOWDB API<h1>")
+
+    (GET "/getDataDirectory" request (str request))
 
     (DELETE "/deleteFileFromGroupWorkspace" request (delete-File-From-Group-Workspace request))
 

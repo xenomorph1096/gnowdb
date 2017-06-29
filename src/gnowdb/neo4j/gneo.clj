@@ -597,7 +597,7 @@
            :parameters {}}
       }
    ]
-  (let [builtQuery {:query (str "MATCH (node:"(createLabelString :labels labels)" "
+  (let [builtQuery {:query (str "MATCH (node"(createLabelString :labels labels)" "
                                 (createParameterPropertyString parameters)
                                 " ) DELETE node")
                     :parameters parameters}
@@ -656,7 +656,7 @@
    ]
   (let [mPM (addStringToMapKeys parameters "M")
         tPME (addStringToMapKeys changeMap "E")
-        builtQuery {:query (str "MATCH (node1:"(createLabelString :labels labels)" "
+        builtQuery {:query (str "MATCH (node1"(createLabelString :labels labels)" "
                                 (createParameterPropertyString mPM "M")
                                 " ) "(createEditString :varName "node1"
                                                        :editPropertyList (keys tPME)
@@ -977,6 +977,8 @@
                                  (= %2 (rel "toUUID"))) (map (fn [rel]
                                                              (assoc rel "relation"(dissoc (rel "relation") :fromNode :toNode))) inRels)))) {} UUIDList)))
 
+(def nbhAtom (atom nil))
+
 (defn getNBH
   "GET NBH"
   [& {:keys [:labels
@@ -985,14 +987,15 @@
            :UUIDList []}}]
   {:pre [(coll? UUIDList)
          (every? string? UUIDList)]}
-  (let [nodesMatched (getNodesByUUID :UUIDList UUIDList)
-        nodeNBHs (getInRels :labels labels
-                             :UUIDList UUIDList)
-        ]
-    (reduce #(merge %1 {(%2 0) {:node (assoc (%2 1) :labels (into #{} ((%2 1) :labels)))
-                                :inRelations (nodeNBHs (%2 0))}})
-            {} nodesMatched))
-  )
+  (reset! nbhAtom
+          (let [nodesMatched (getNodesByUUID :UUIDList UUIDList)
+                nodeNBHs (getInRels :labels labels
+                                    :UUIDList UUIDList)
+                ]
+            (reduce #(merge %1 {(%2 0) {:node (assoc (%2 1) :labels (into #{} ((%2 1) :labels)))
+                                        :inRelations (nodeNBHs (%2 0))}})
+                    {} nodesMatched))))
+
 
 ;;Class building functions start here
 

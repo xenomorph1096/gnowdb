@@ -119,11 +119,55 @@
       :RCSUUIDList []}
      (finalResult :results)))
 
+(defn reduceRCSUUIDListMap
+  "Groups UUIDs based on labels.
+  if a UUIDList's labels are a superset of another UUIDList, it would be 'unioned' to the latter
+  :RCSUUIDListMap should be output of gdriver/getRCSUUIDListMap"
+  [& {:keys [:RCSUUIDListMap]
+      :or {:RCSUUIDListMap {:count 0
+                            :RCSUUIDList []}}}]
+  (let [RCSUUIDList (sort #(> (%1 :UUIDCount)
+                              (%2 :UUIDCount))
+                          (pmap (fn [UL]
+                                  (assoc UL
+                                         :UUIDList (into #{} (ddistinct (UL :UUIDList)))
+                                         :labels (into #{} (ddistinct (UL :labels)))
+                                         :UUIDCount (count (UL :UUIDList))))
+                                (RCSUUIDListMap :RCSUUIDList)))
+        reducedRCSUUIDList (reduce (fn
+                                     [RUL UL]
+                                     (let [candidateULs (reduce (fn [CULs cul]
+                                                                  (if (and (>= (cul :UUIDCount)
+                                                                              (UL :UUIDCount))
+                                                                           (clojure.set/subset? (cul :labels)
+                                                                                                (UL :labels)))
+                                                                    (conj CULs {:index (.indexOf RUL cul)
+                                                                                :UUIDCount (cul :UUIDCount)})
+                                                                    CULs))
+                                                                []
+                                                                RUL)
+                                           largestCUL (if (empty? candidateULs)
+                                                       (apply max-key [:UUIDCount nil])
+                                                       (apply max-key :UUIDCount candidateULs))]
+                                       (if (nil? largestCUL)
+                                         (conj RUL UL)
+                                         (let [ri (largestCUL :index)
+                                               lu (RUL ri)
+                                               union (clojure.set/union (UL :UUIDList)
+                                                                        (lu :UUIDList))]
+                                           (assoc RUL
+                                                  ri (assoc lu
+                                                            :UUIDList union
+                                                            :UUIDCount (count union)))))))
+                                   []
+                                   RCSUUIDList)]
+    (assoc RCSUUIDListMap :RCSUUIDList reducedRCSUUIDList)))
+
 (defn- doRCS
   [& {:keys [:finalResult
              :queriesList]}]
-  (let [RCSUUIDListMap (getRCSUUIDListMap :finalResult finalResult
-                                          :queriesList queriesList)]
+  (let [RCSUUIDListMap (reduceRCSUUIDListMap :RCSUUIDListMap (getRCSUUIDListMap :finalResult finalResult
+                                                                                :queriesList queriesList))]
     (try
       (doall (map (fn [umap]
                   (if (umap :doRCS?)

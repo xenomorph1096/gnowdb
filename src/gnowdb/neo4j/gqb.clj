@@ -4,6 +4,14 @@
             [clojure.string :as clojure.string]))
 ;; Query String building functions
 
+(defn ddistinct
+  [coll]
+  {:pre? [(coll? coll)]}
+  (if (or (set? coll)
+          (map? coll))
+    coll
+    (distinct coll)))
+
 (defn backtick
   [string]
   (let [strr (str string)
@@ -43,7 +51,7 @@
   (let [labelsx (reduce #(if (or (nil? %2)
                                  (= "" %2))
                            %1
-                           (conj %1 %2)) [] (distinct labels))]
+                           (conj %1 %2)) [] (ddistinct labels))]
     (if (empty? labelsx)
       ""
       (str ":"

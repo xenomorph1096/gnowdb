@@ -1,7 +1,6 @@
 (ns gnowdb.neo4j.grcs_locks
   (:gen-class)
-  (:require [gnowdb.neo4j.gneo :as gneo :only [getNBH]]
-            [gnowdb.neo4j.grcs :as grcs :only [doRCS]]))
+  (:require [gnowdb.neo4j.grcs :as grcs :only [doRCS]]))
 
 (def ^{:private true} var-prefix "VAR-")
 
@@ -14,11 +13,6 @@
   [& {:keys [:UUID]}]
   (ns-resolve 'gnowdb.neo4j.grcs_locks (symbol (concatVar :UUID UUID))))
 
-(defn- mlist?
-  [v]
-  (or (vector? v)
-      (list? v)))
-
 (defn- createVar
   [& {:keys [:UUID
              :value]}]
@@ -29,14 +23,14 @@
 (defn- initVars
   [& {:keys [:UUIDList]
       :or [:UUIDList []]}]
-  {:pre [(mlist? UUIDList)]}
+  {:pre [(coll? UUIDList)]}
   (reset! cvLock
-          (do (pmap #(let [vvar (getVar :UUID %)]
-                      (if (var? vvar)
-                        (swap! (var-get vvar) + 1)
-                        (createVar :UUID %
-                                   :value (atom 1))))
-                    UUIDList))))
+          (doall (pmap #(let [vvar (getVar :UUID %)]
+                          (if (var? vvar)
+                            (swap! (var-get vvar) + 1)
+                            (createVar :UUID %
+                                       :value (atom 1))))
+                       UUIDList))))
 
 (defn remVar
   [& {:keys [:UUID]}]
@@ -47,35 +41,36 @@
 (defn- finalizeVars
   [& {:keys [:UUIDList]
       :or [:UUIDList []]}]
-  {:pre [(mlist? UUIDList)]}
+  {:pre [(coll? UUIDList)]}
   (reset! fvLock
-          (do (pmap #(let [vvar (getVar :UUID %)]
-                       (if (var? vvar)
-                         (swap! (var-get vvar) (fn [cntr]
-                                                 (let [cv (dec cntr)]
-                                                   (if (= 0 cv)
-                                                     (remVar :UUID %)
-                                                     )
-                                                   cv)))))
-                    UUIDList))))
-
+          (doall (pmap #(let [vvar (getVar :UUID %)]
+                          (if (var? vvar)
+                            (swap! (var-get vvar) (fn [cntr]
+                                                    (let [cv (dec cntr)]
+                                                      (if (= 0 cv)
+                                                        (remVar :UUID %)
+                                                        )
+                                                      cv)))))
+                       UUIDList))))
 
 (defn queueUUIDs
   "Queues UUIDs for RCS"
   [& {:keys [:UUIDList
-             :labels]
+             :labels
+             :nbhs]
       :or {:UUIDList []
-           :labels []}}]
-  (initVars :UUIDList UUIDList)
-  (let [nbhs (gneo/getNBH :UUIDList UUIDList
-                          :labels labels)]
-    (do (pmap (fn [nbhm]
-                (let [uuid (nbhm 0)
-                      nbh (nbhm 1)]
-                  (swap! (var-get (getVar :UUID uuid))
-                         (fn [at]
-                           (grcs/doRCS :GDB_UUID uuid
-                                       :newContent nbh)
-                           (+ at (- 1 1))))))
-              nbhs))
-    (finalizeVars :UUIDList UUIDList)))
+           :labels []
+           :nbhs {}}}]
+  (let [init (initVars :UUIDList UUIDList)
+        dS (doall (pmap (fn [nbhm]
+                          (let [uuid (nbhm 0)
+                                nbh (nbhm 1)]
+                            (swap! (var-get (getVar :UUID uuid :init init))
+                                   (fn [at]
+                                     (grcs/doRCS :GDB_UUID uuid
+                                                 :newContent nbh)
+                                     (+ at (- 1 1))))))
+                        nbhs))
+        fv (finalizeVars :UUIDList UUIDList
+                         :dS dS)]
+    fv))

@@ -2,8 +2,7 @@
   (:gen-class)
   (:require [clojure.java.shell :as shell]
             [clojure.string :as clojure.string]
-            [clojure.java.io :as clojure.java.io]
-            [gnowdb.neo4j.gneo :as gneo]))
+            [clojure.java.io :as clojure.java.io]))
 
 ;;Based on https://github.com/keitax/wikirick2/
 

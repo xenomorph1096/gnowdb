@@ -9,6 +9,7 @@
             [gnowdb.neo4j.dumprestore :as dumprestore]
             [gnowdb.spec.files :as files]
             [gnowdb.spec.init :as init]
+            [gnowdb.neo4j.gqb :as gqb]
             [async-watch.core :refer [changes-in cancel-changes]]))
 
 (import '[java.io PushbackReader])

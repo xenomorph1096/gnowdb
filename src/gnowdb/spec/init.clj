@@ -4,8 +4,8 @@
             [gnowdb.spec.workspaces :as workspaces]
             [gnowdb.spec.files :as files]
             [progrock.core :as pr]
+            )
   )
-)
 
 (def progressBar (pr/progress-bar 100))
 
@@ -17,10 +17,10 @@
       (pr/print (pr/done progressBar))
       (def progressBar (pr/progress-bar 100))
       nil
-    )
+      )
     (pr/print progressBar)
+    )
   )
-)
 
 (defn- createAbstractNodeClass
   "Creates GDB_Node class, it is the only class that has no superclasses"
@@ -37,26 +37,26 @@
   (gneo/addClassAT :_atname "GDB_CreatedAt" :className "GDB_Node")
   (gneo/addClassAT :_atname "GDB_ModifiedAt" :className "GDB_Node")
   (gneo/addClassAT :_atname "GDB_Description" :className "GDB_Node")
-  ;(gneo/addClassAT :_atname "GDB_UHRID" :className "GDB_Node")
+                                        ;(gneo/addClassAT :_atname "GDB_UHRID" :className "GDB_Node")
   (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_DisplayName" :className "GDB_Node") 
   (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_CreatedAt" :className "GDB_Node") 
   (gneo/addClassNC :constraintType "EXISTANCE" :constraintTarget "NODE" :constraintValue "GDB_ModifiedAt" :className "GDB_Node")
   (gneo/addClassNC :constraintType "NODEKEY" :constraintTarget "NODE" :constraintValue ["GDB_DisplayName"] :className "GDB_Node")
-  ;(gneo/addClassNC :constraintType "NODEKEY" :constraintTarget "NODE" :constraintValue ["GDB_UHRID"] :className "GDB_Node")
-)
+                                        ;(gneo/addClassNC :constraintType "NODEKEY" :constraintTarget "NODE" :constraintValue ["GDB_UHRID"] :className "GDB_Node")
+  )
 
 (defn- addCustomFunctionality
   []
-  ;Enum Functionality, just need to pass the list of desired values as :constraintValue
+                                        ;Enum Functionality, just need to pass the list of desired values as :constraintValue
   (gneo/createCustomFunction  :fnName "GDB_Enum" 
                               :fnString (pr-str 
-                                          '(fn 
+                                         '(fn 
                                             [[enumVal], enumList]
                                             (not (nil? (some #{enumVal} (into [] enumList))))
-                                          )
-                                        )
+                                            )
+                                         )
+                              )
   )
-)
 
 (defn init
   []
@@ -71,4 +71,4 @@
   (tickProgressBar 40)
   (files/init)
   (tickProgressBar 30)
-)
+  )

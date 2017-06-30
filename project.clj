@@ -9,13 +9,14 @@
   :dependencies [
                  [org.clojure/clojure "1.8.0"]
                  [org.neo4j.driver/neo4j-java-driver "1.3.0"]
-		 [compojure "1.3.4"]
+		             [compojure "1.3.4"]
                  [ring-server "0.3.1"]
                  [ring/ring-defaults "0.3.0"]
                  [ring/ring-json "0.4.0"]
                  [liberator "0.13"]
+                 [com.cemerick/friend "0.2.3"] ;For Authentication
                  [cheshire "5.2.0"]
-		 [async-watch "0.1.1"]
+		             [async-watch "0.1.1"]
                  [digest "1.4.5"] ;;for hashing
                  [org.clojure/math.combinatorics "0.1.4"] ;;for nth permutation
                  [clj-fuzzy "0.4.0"] ;;for levenshtein distance

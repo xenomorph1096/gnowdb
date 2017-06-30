@@ -30,7 +30,7 @@
   :indexesAdded 0,
   :relationshipsDeleted 1},
  :summaryString "ContainsUpdates :true ;RelationshipsDeleted :1 ;"} 
- (deleteRelations :fromNodeLabel ["test"] :toNodeLabel ["test1"])
+ (deleteRelation :fromNodeLabels ["test"] :toNodeLabels ["test1"])
         )
     )
     )
@@ -50,7 +50,7 @@
   :indexesAdded 0,
   :relationshipsDeleted 1},
  :summaryString "ContainsUpdates :true ;RelationshipsDeleted :1 ;"} 
- (deleteRelations :fromNodeLabel ["test3"] :toNodeParameters {"name" "t-db"} :toNodeLabel ["test"])
+ (deleteRelation :fromNodeLabels ["test3"] :toNodeParameters {"name" "t-db"} :toNodeLabels ["test"])
           )
       )
 
@@ -64,7 +64,7 @@
     (is (= (select-keys {:labels ["test3"],
  :properties {"name" "t-db1"},
  :outNodes `({:labels "rel2", :properties {}, :toNode 22}),
- :inNodes `()} [:labels :properties]) (select-keys (getNeighborhood :label "test3" :parameters {"name" "t-db1"}) [:labels :properties])
+ :inNodes `()} [:labels :properties]) (select-keys (getNeighborhood :labels ["test3"] :parameters {"name" "t-db1"}) [:labels :properties])
       )
     )
 

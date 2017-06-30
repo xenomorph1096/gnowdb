@@ -318,7 +318,7 @@
   "
   [groupName]
   (((first (gneo/getNodes 
-            :labels "GDB_GroupWorkspace" 
+            :labels ["GDB_GroupWorkspace"] 
             :parameters  {
                           "GDB_DisplayName" groupName
                           }
@@ -332,7 +332,7 @@
   "
   [groupName]
   (((first (gneo/getNodes 
-            :labels "GDB_GroupWorkspace" 
+            :labels ["GDB_GroupWorkspace"] 
             :parameters  {
                           "GDB_DisplayName" groupName
                           }
@@ -346,7 +346,7 @@
   "
   [& {:keys [groupName adminName groupType]}]
   (if (.contains (getAdminList groupName) adminName)
-    (gneo/editNodeProperties :labels "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_GroupType" groupType})
+    (gneo/editNodeProperties :labels ["GDB_GroupWorkspace"] :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_GroupType" groupType})
     )
   nil
   )
@@ -358,7 +358,7 @@
   "
   [& {:keys [groupName adminName editingPolicy]}]
   (if (.contains (getAdminList groupName) adminName)
-    (gneo/editNodeProperties :labels "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_GroupType" editingPolicy})
+    (gneo/editNodeProperties :labels ["GDB_GroupWorkspace"] :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_GroupType" editingPolicy})
     )
   nil
   )

@@ -597,7 +597,7 @@
            :parameters {}}
       }
    ]
-  (let [builtQuery {:query (str "MATCH (node:"(createLabelString :labels labels)" "
+  (let [builtQuery {:query (str "MATCH (node"(createLabelString :labels labels)" "
                                 (createParameterPropertyString parameters)
                                 " ) DELETE node")
                     :parameters parameters}
@@ -656,7 +656,7 @@
    ]
   (let [mPM (addStringToMapKeys parameters "M")
         tPME (addStringToMapKeys changeMap "E")
-        builtQuery {:query (str "MATCH (node1:"(createLabelString :labels labels)" "
+        builtQuery {:query (str "MATCH (node1"(createLabelString :labels labels)" "
                                 (createParameterPropertyString mPM "M")
                                 " ) "(createEditString :varName "node1"
                                                        :editPropertyList (keys tPME)

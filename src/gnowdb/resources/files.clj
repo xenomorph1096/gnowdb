@@ -1,14 +1,18 @@
 (ns gnowdb.resources.files
-  (:require [liberator.core :refer [defresource resource request-method-in]]
+  (:require 
             [cheshire.core :refer :all] 
             [gnowdb.core :refer :all]
-            [gnowdb.spec.files :refer :all])) 
+            [gnowdb.spec.files :refer :all]
+            [cemerick.friend.credentials :as creds]
+            [gnowdb.authentication.middleware.auth :as auth]
+            [gnowdb.authentication.resources :as r :refer :all])) 
 
 (use 'clojure.walk)
 
 
 
 (defresource get-Data-Directory [request]
+	:base (r/role-auth #{:user})
     :service-available? true
     :allowed-methods [:get]    
     :handle-ok (fn [_] (let [params (get-in request[:params])] (getDataDirectory (stringify-keys (get-in params[:details])))))
@@ -70,4 +74,11 @@
     :allowed-methods [:delete]    
     :handle-ok (fn [_] (let [params (get-in request[:params])] (removeFileFromDB 	:GDB_MD5 (get-in params [:GDB_MD5]))))
     :available-media-types ["application/json"])
+
+
+
+
+
+
+
 

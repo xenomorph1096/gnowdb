@@ -20,6 +20,10 @@
     )
   )
 
+(defn getRCSEnabled
+  [details]
+  (def ^{:private true} rcsEnabled? (details :rcsEnabled)))
+
 (defn- createSummaryMap
   "Creates a summary map from StatementResult object.
 	This Object is returned by the run() method of session object
@@ -115,9 +119,9 @@
                 :count (inc count))
          RCSUUIDListMap
          )))
-     {:count 0
-      :RCSUUIDList []}
-     (finalResult :results)))
+   {:count 0
+    :RCSUUIDList []}
+   (finalResult :results)))
 
 (defn reduceRCSUUIDListMap
   "Groups UUIDs based on labels.
@@ -138,7 +142,7 @@
                                      [RUL UL]
                                      (let [candidateULs (reduce (fn [CULs cul]
                                                                   (if (and (>= (cul :UUIDCount)
-                                                                              (UL :UUIDCount))
+                                                                               (UL :UUIDCount))
                                                                            (clojure.set/subset? (cul :labels)
                                                                                                 (UL :labels)))
                                                                     (conj CULs {:index (.indexOf RUL cul)
@@ -147,8 +151,8 @@
                                                                 []
                                                                 RUL)
                                            largestCUL (if (empty? candidateULs)
-                                                       (apply max-key [:UUIDCount nil])
-                                                       (apply max-key :UUIDCount candidateULs))]
+                                                        (apply max-key [:UUIDCount nil])
+                                                        (apply max-key :UUIDCount candidateULs))]
                                        (if (nil? largestCUL)
                                          (conj RUL UL)
                                          (let [ri (largestCUL :index)
@@ -170,11 +174,11 @@
                                                                                 :queriesList queriesList))]
     (try
       (doall (map (fn [umap]
-                  (if (umap :doRCS?)
-                    (grcs_locks/queueUUIDs :UUIDList (umap :UUIDList)
-                                           :nbhs (getNBH :labels (umap :labels)
-                                                         :UUIDList (umap :UUIDList))
-                                           :labels (umap :labels))))
+                    (if (umap :doRCS?)
+                      (grcs_locks/queueUUIDs :UUIDList (umap :UUIDList)
+                                             :nbhs (getNBH :labels (umap :labels)
+                                                           :UUIDList (umap :UUIDList))
+                                             :labels (umap :labels))))
                   (RCSUUIDListMap :RCSUUIDList)))
       ;; (do (pmap #(apply grcs_locks/queueUUIDs %) (map (fn [ulm]
       ;;                                                   (assoc ulm :nbhs (apply getNBH ulm))) (RCSUUIDListMap :RCSUUIDList))))
@@ -182,58 +186,59 @@
         (.printStackTrace E)
         (println (str "RCS Exception :" (.getMessage E)))))))
 
-  (defn runQuery
-    "Takes a list of queries and executes them. Returns a map with all records and summary of operations iff all operations are successful otherwise fails.
+(defn runQuery
+  "Takes a list of queries and executes them. Returns a map with all records and summary of operations iff all operations are successful otherwise fails.
 	Input Format: {:query <query> :parameters <Map of parameters as string key-value pairs>} ...
 	Output Format: {:results [(result 1) (result 2) .....] :summary <Summary Map>}
 	In case of failure, {:results [] :summary <default full summary>}"
-    [& queriesList]
-    (let [
-          session (.session driver)
-          transaction (.beginTransaction session)
-          ]
-      (let [finalResult (try
-                          (let
-                              [finalResult (reduce
-                                            (fn [resultMap queryMap]
-                                              (let [statementResult (.run transaction (queryMap :query) (java.util.HashMap. (queryMap :parameters)))]
-                                                {:results (conj 
-                                                           (resultMap :results) 
-                                                           (map 
-                                                            (fn [record]
-                                                              (into {} 
-                                                                    (map 
-                                                                     (fn 
-                                                                       [attribute]
-                                                                       {(attribute 0) (parse (attribute 1))}
-                                                                       )
-                                                                     (into {} (.asMap record))
+  [& queriesList]
+  (let [
+        session (.session driver)
+        transaction (.beginTransaction session)
+        ]
+    (let [finalResult (try
+                        (let
+                            [finalResult (reduce
+                                          (fn [resultMap queryMap]
+                                            (let [statementResult (.run transaction (queryMap :query) (java.util.HashMap. (queryMap :parameters)))]
+                                              {:results (conj 
+                                                         (resultMap :results) 
+                                                         (map 
+                                                          (fn [record]
+                                                            (into {} 
+                                                                  (map 
+                                                                   (fn 
+                                                                     [attribute]
+                                                                     {(attribute 0) (parse (attribute 1))}
                                                                      )
-                                                                    )
-                                                              ) 
-                                                            (.list statementResult)
-                                                            )) 
-                                                 :summary (getCombinedFullSummary [(resultMap :summary) (getFullSummary statementResult)])
-                                                 }
-                                                )
+                                                                   (into {} (.asMap record))
+                                                                   )
+                                                                  )
+                                                            ) 
+                                                          (.list statementResult)
+                                                          )) 
+                                               :summary (getCombinedFullSummary [(resultMap :summary) (getFullSummary statementResult)])
+                                               }
                                               )
-                                            {:results [] :summary (getCombinedFullSummary [])}
-                                            queriesList
-                                            )]
-                            (.success transaction)
-                            ;; RCS will not affect execution of queries
-                            
-                            finalResult
-                            )
-                          (catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
-                          (finally (.close transaction) (.close session))
+                                            )
+                                          {:results [] :summary (getCombinedFullSummary [])}
+                                          queriesList
+                                          )]
+                          (.success transaction)
+                          ;; RCS will not affect execution of queries
+                          
+                          finalResult
                           )
-            ]
-        (if
-            (((finalResult :summary) :summaryMap) :containsUpdates)
-          (doRCS :finalResult finalResult
-                 :queriesList queriesList))
-        finalResult)
+                        (catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
+                        (finally (.close transaction) (.close session))
+                        )
+          ]
+      (if
+          (and (((finalResult :summary) :summaryMap) :containsUpdates)
+               rcsEnabled?)
+        (doRCS :finalResult finalResult
+               :queriesList queriesList))
+      finalResult)
     )
   )
 

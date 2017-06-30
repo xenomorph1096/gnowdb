@@ -40,6 +40,22 @@
       false
       true)))
 
+(defn createReturnString
+  "Creates a string for the following : ' RETURN var.prop as propalt,..'
+  Each triplet should be of the form ['var' 'prop' 'propalt'] or ['var' 'prop']"
+  [& triplets]
+  {:pre [(every? coll? triplets)
+         (every? #(every? string? %) triplets)]}
+  (if (empty? triplets)
+    ""
+    (str " RETURN "
+         (clojure.string/join ", "
+                              (map #(str (% 0)"."(% 1)
+                                         (if (> (count %) 2)
+                                           (str " as "
+                                                (% 2)))) triplets)))))
+
+
 (defn createLabelString
   "Create a label string from a collection of label strings.
   :labels should be a map of strings.

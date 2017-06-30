@@ -64,10 +64,11 @@
         mergedParams (if uuid? (merge parameters {"UUID" (generateUUID)}) parameters)
         builtQuery  	{:query (str queryType " (node"(createLabelString :labels labels)
                                      (createParameterPropertyString
-                                      mergedParams) " ) RETURN node.UUID as RCSUUID")
+                                      mergedParams) " )"
+                                     (createReturnString ["node" "UUID" "UUID"]))
                          :parameters mergedParams
                          :doRCS? true
-                         :rcs-vars ["RCSUUID"]
+                         :rcs-vars ["UUID"]
                          :labels labels}
         ]
     (if execute?
@@ -117,7 +118,10 @@
               ((combinedProperties :propertyStringMap) "R")
               " ]->(node2"toNodeLabel" "
               ((combinedProperties :propertyStringMap) "2")
-              " )  DELETE rel")
+              " )  DELETE rel"
+              (createReturnString ["node2" "UUID" "UUID"]))
+         :doRCS? true
+         :rcs-vars ["UUID"]
          :parameters (combinedProperties :combinedPropertyMap)}]
     (if execute?
       ((gdriver/runQuery builtQuery) :summary)
@@ -172,7 +176,10 @@
               " ) "(createEditString :varName "rel"
                                      :editPropertyList (keys (addStringToMapKeys newRelationshipParameters "RE"))
                                      :characteristicString "RE")
+              (createReturnString ["node2" "UUID" "UUID"])
               )
+         :doRCS? true
+         :rcs-vars ["UUID"]
          :parameters (combinedProperties :combinedPropertyMap)}]
     (if execute?
       (gdriver/runQuery builtQuery)
@@ -232,7 +239,9 @@
                                              :editType editType
                                              :editVal "ATT"
                                              :replaceVal "att")
-              )
+              (createReturnString ["node" "UUID" "UUID"]))         
+         :doRCS? true
+         :rcs-vars ["UUID"]
          :parameters (merge {"ATT" editVal
                              "att" replaceVal}
                             (combinedProperties :combinedPropertyMap)
@@ -291,32 +300,12 @@
               ((combinedProperties :propertyStringMap) "2")
               " ) CREATE " unique " (node1)-[" relationshipTypewb " "
               ((combinedProperties :propertyStringMap) "R")
-              " ]->(node2)")
+              " ]->(node2)"
+              (createReturnString ["node2" "UUID" "UUID"]))
+         :doRCS? true
+         :rcs-vars ["UUID"]
          :parameters (combinedProperties :combinedPropertyMap)}]
     (if execute?
-      (gdriver/runQuery builtQuery)
-      builtQuery
-      )
-    )
-  )
-
-(defn deleteDetachNodes
-  "Delete node(s) matched using property map and detach (remove relationships)"
-  [& {:keys [:labels
-             :parameters
-             :execute?]
-      :or {:labels []
-           :execute? true
-           :parameters {}}
-      }
-   ]
-  (let [builtQuery {:query (str "MATCH (node"(createLabelString :labels labels)" "
-                                (createParameterPropertyString parameters)
-                                " ) DETACH DELETE node")
-                    :parameters parameters}
-        ]
-    (if
-        execute?
       (gdriver/runQuery builtQuery)
       builtQuery
       )
@@ -346,6 +335,34 @@
     )
   )
 
+(defn deleteDetachNodes
+  "Delete node(s) matched using property map and detach (remove relationships)"
+  [& {:keys [:labels
+             :parameters
+             :execute?]
+      :or {:labels []
+           :execute? true
+           :parameters {}}
+      }
+   ]
+  (let [builtQueries [(deleteRelation :fromNodeLabels labels
+                                      :fromNodeParameters parameters
+                                      :execute? false)
+                      (deleteRelation :toNodeLabels labels
+                                      :toNodeParameters parameters
+                                      :execute? false)
+                      (deleteNodes :labels labels
+                                   :parameters parameters
+                                   :execute? false)]
+        ]
+    (if
+        execute?
+      (apply gdriver/runQuery builtQueries)
+      builtQueries
+      )
+    )
+  )
+
 (defn removeNodeProperties
   "Remove Properties of Node(s).
   :propList should be a list of properties to be deleted."
@@ -366,7 +383,9 @@
                                 (createParameterPropertyString parameters)
                                 " ) "(createRemString :varName "node"
                                                       :remPropertyList propList)
-                                )
+                                (createReturnString ["node" "UUID" "UUID"]))
+                    :doRCS? true
+                    :rcs-vars ["UUID"]
                     :parameters parameters
                     }
         ]
@@ -398,7 +417,9 @@
                                                        :editPropertyList (keys tPME)
                                                        :characteristicString "E"
                                                        )
-                                )
+                                (createReturnString ["node1" "UUID" "UUID"]))
+                    :doRCS? true
+                    :rcs-vars ["UUID"]
                     :parameters (merge mPM tPME)
                     }
         ]
@@ -426,7 +447,10 @@
         {:query (str "MATCH (node"(createLabelString :labels labels)" "
                      (createParameterPropertyString parameters) " ) "
                      (createRenameString :varName "node"
-                                         :renameMap renameMap))
+                                         :renameMap renameMap)
+                     (createReturnString ["node" "UUID" "UUID"]))
+         :doRCS? true
+         :rcs-vars ["UUID"]
          :parameters {}}
         ]
     (if
@@ -466,7 +490,9 @@
                                                               :editType editType
                                                               :editVal "ATT"
                                                               :replaceVal "att")
-                                )
+                                (createReturnString ["node" "UUID" "UUID"]))
+                    :doRCS? true
+                    :rcs-vars ["UUID"]
                     :parameters (merge {"ATT" editVal "att" replaceVal}
                                        (combinedPropertyMap :combinedPropertyMap)
                                        )
@@ -494,9 +520,10 @@
          (every? string? remLabelList)
          (not (empty? remLabelList))]}
   (let [builtQuery {:query (str "MATCH (obj"(createLabelString :labels labels)" "(createParameterPropertyString properties)") "
-                                (clojure.string/join " " (map #(str "REMOVE obj:"(backtick %)) remLabelList)
-                                                     )
-                                )
+                                (clojure.string/join " " (map #(str "REMOVE obj:"(backtick %)) remLabelList))
+                                (createReturnString ["obj" "UUID" "UUID"]))
+                    :doRCS? true
+                    :rcs-vars ["UUID"]
                     :parameters properties}]
     (if execute?
       (gdriver/runQuery builtQuery)
@@ -536,15 +563,17 @@
   (let [builtQuery {:query (case objectType
                              "NODE" (str "MATCH (obj"(createLabelString :labels labels)" "(createParameterPropertyString properties)") "
                                          (clojure.string/join " " (map #(str "REMOVE obj:"(% 0)" "
-                                                                             "SET obj:"(% 1)) replaceLabelMap)
-                                                              )
-                                         )
-                             "RELATION" (str "MATCH (n1)-[rel"(createLabelString :labels labels)"]->(n2)"
-                                             " MERGE (n1)-[rel2"(createLabelString :labels [(replaceLabelMap (first labels))])"]-(n2)"
+                                                                             "SET obj:"(% 1)) replaceLabelMap))
+                                         (createReturnString ["obj" "UUID" "UUID"]))
+                             "RELATION" (str "MATCH (n1)-[rel"(createLabelString :labels labels)"]->(obj)"
+                                             " MERGE (n1)-[rel2"(createLabelString :labels [(replaceLabelMap (first labels))])"]-(obj)"
                                              " SET rel2=rel"
                                              " WITH rel"
-                                             " DELETE rel")
+                                             " DELETE rel"
+                                             (createReturnString ["obj" "UUID" "UUID"]))
                              )
+                    :doRCS? true
+                    :rcs-vars ["UUID"]
                     :parameters properties}]
     (if execute?
       (gdriver/runQuery builtQuery)
@@ -1682,13 +1711,19 @@
                                                :editType "DELETE"
                                                :editVal "ATT"
                                                :withWhere? false)
-                  " DELETE rel1")
+                  " DELETE rel1"
+                  (createReturnString ["cl1" "UUID" "UUID"]))
+      :doRCS? true
+      :rcs-vars ["UUID"]
       :parameters propertyMap}
      {:query (str "MATCH"
                   " (neo2:`NeoConstraint`)-[rel2:`NeoConstraintAppliesTo`]->(cl2:`Class`)"
                   " WHERE neo2.constraintType IN [\"UNIQUE\",\"EXISTANCE\"]"
                   " AND {ATT} IN rel2.constraintValue"
-                  " DELETE rel2")
+                  " DELETE rel2"
+                  (createReturnString ["cl2" "UUID" "UUID"]))
+      :doRCS? true
+      :rcs-vars ["UUID"]
       :parameters propertyMap}])
   )
 
@@ -1713,7 +1748,9 @@
                                               :replaceVal "att"
                                               :withWhere? false)","
                  " rel2.constraintValue={att}"
-                 " RETURN rel1,rel2")
+                 (createReturnString ["cl1" "UUID" "UUID1"] ["cl2" "UUID" "UUID2"]))
+     :doRCS? true
+     :rcs-vars ["UUID1" "UUID2"]
      :parameters propertyMap})
   )
 
@@ -1924,7 +1961,9 @@
                                               :editVal "ATT"
                                               :replaceVal "att"
                                               :withWhere? false)
-                 )
+                 (createReturnString ["cl" "UUID" "UUID"]))
+     :doRCS? true
+     :rcs-vars ["UUID"]
      :parameters propertyMap})
   )
 
@@ -1945,7 +1984,9 @@
                                               :editVal "ATT"
                                               :replaceVal "att"
                                               :withWhere? false)
-                 )
+                 (createReturnString ["cl" "UUID" "UUID"]))
+     :doRCS? true
+     :rcs-vars ["UUID"]
      :parameters propertyMap})
   )
 
@@ -2157,7 +2198,11 @@
                                                                                          (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
                                                                                          " AND "(createRenameString :addWhere? false
                                                                                                                     :varName "node"
-                                                                                                                    :renameMap {_name (editChanges "_name")}))
+                                                                                                                    :renameMap {_name (editChanges "_name")})
+                                                                                         (createReturnString ["node" "UUID" "UUID"]))
+                                                                             
+                                                                             :doRCS? true
+                                                                             :rcs-vars ["UUID"]
                                                                              :parameters {}}])
                                         ]
                                     {:constraintDropQueries constraintDropQueries
@@ -2170,7 +2215,10 @@
               datatypeChangeQueries (if (contains? editChanges "_datatype")
                                       (let [dataEditQueries [{:query (str "MATCH (node) WHERE "
                                                                           (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
-                                                                          " SET node."(or (editChanges "_name") _name)" = {defVal}")
+                                                                          " SET node."(or (editChanges "_name") _name)" = {defVal}"
+                                                                          (createReturnString ["node" "UUID" "UUID"]))
+                                                              :doRCS? true
+                                                              :rcs-vars ["UUID"]
                                                               :parameters {"defVal" (defaultDatatypeValues (editChanges "_datatype"))}}]]
                                         {:constraintDropQueries []
                                          :constraintCreateQueries []
@@ -2204,15 +2252,15 @@
             :execute?]
      :or {:execute? false}}]
   {:pre [(string? _name)]}
-  (let [deleteQuery (deleteDetachNodes :labels ["AttributeType"]
-                                       :parameters {"_name" _name}
-                                       :execute? false)
+  (let [deleteQueries (deleteDetachNodes :labels ["AttributeType"]
+                                         :parameters {"_name" _name}
+                                         :execute? false)
         ATClasses (getATClasses :_name _name)
         ATClassNames (map #(((% "n") :properties) "className") ATClasses)]
     (if (empty? ATClasses)
       (if execute?
-        (gdriver/runQuery deleteQuery)
-        deleteQuery)
+        (apply gdriver/runQuery deleteQueries)
+        deleteQueries)
       (if
           (not forceMigrate?)
         (throw (Exception. (str "Class(es) "(seq
@@ -2237,14 +2285,17 @@
                                                                                                                          :editType "DELETE"
                                                                                                                          :editVal _name)
                                                                                         :constraintType (% "neo.constraintType"))) neoConstraintsWithAT))
-              dataEditQueries (reduceQueryColl [deleteQuery
-                                                (createDelATNC :atName _name)
-                                                (createDelATCC :atName _name)
-                                                {:query (str "MATCH (node) WHERE "
-                                                             (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
-                                                             " "(createRemString :varName "node"
-                                                                                 :remPropertyList [_name]))
-                                                 :parameters {}}])]
+              dataEditQueries (reduceQueryColl (conj deleteQueries
+                                                     [(createDelATNC :atName _name)
+                                                      (createDelATCC :atName _name)
+                                                      {:query (str "MATCH (node) WHERE "
+                                                                   (clojure.string/join " or " (map #(str "node:" %) ATClassNames))
+                                                                   " "(createRemString :varName "node"
+                                                                                       :remPropertyList [_name])
+                                                                   (createReturnString ["node" "UUID" "UUID"]))
+                                                       :doRCS? true
+                                                       :rcs-vars ["UUID"]
+                                                       :parameters {}}]))]
           (if
               execute?
             (gdriver/runTransactions constraintDropQueries dataEditQueries constraintCreateQueries)
@@ -2636,18 +2687,17 @@
                           )
                  ) forceMigrate?)
         (let [dataEditQueries (reduceQueryColl (concat [editClassQuery]
-                                                       [(if (and (contains? newProperties "isAbstract")
+                                                       (if (and (contains? newProperties "isAbstract")
                                                                  (= true (newProperties "isAbstract")))
                                                           (case classType
                                                             "NODE" (deleteDetachNodes :labels [className]
                                                                                       :parameters {}
                                                                                       :execute? false)
-                                                            "RELATION" (deleteRelation :relationshipType className
-                                                                                       :execute? false)
+                                                            "RELATION" [(deleteRelation :relationshipType className
+                                                                                       :execute? false)]
                                                             )
                                                           []
                                                           )
-                                                        ]
                                                        [(if (contains? newProperties "className")
                                                           (renameLabels :labels [className]
                                                                         :properties {}
@@ -2711,15 +2761,15 @@
   (let [classInstancesCount (first (getClassInstances :className className
                                                       :parameters {}
                                                       :count? true))
-        classDelQuery (deleteDetachNodes :labels ["Class"]
+        classDelQueries (deleteDetachNodes :labels ["Class"]
                                          :parameters {"className" className}
                                          :execute? false)
-        classInstDelQuery (deleteDetachNodes :labels [className]
+        classInstDelQueries (deleteDetachNodes :labels [className]
                                              :execute? false)
         constraintDropQueries (exemptClassNeoConstraints :className className
                                                          :execute? false)
         constraintCreateQueries []
-        dataEditQueries (reduceQueryColl [classInstDelQuery classDelQuery])]
+        dataEditQueries (reduceQueryColl [classInstDelQueries classDelQueries])]
     (if (or (= 0 classInstancesCount) forceMigrate?)
       (if execute?
         (gdriver/runTransactions constraintDropQueries

@@ -33,6 +33,7 @@
         ]
                                         ;Add readbackfunctions here with the desired data
     (gdriver/getNeo4jDBDetails details)
+    (gdriver/getRCSEnabled details)
     (gneo/getUUIDEnabled details)
     (gcust/getCustomPassword details)
     (dumprestore/getBackupDirectory details)
@@ -53,6 +54,7 @@
                     :backup-directory "backups"
                     :data-directory "src/gnowdb/media"
                     :uuidEnabled true
+                    :rcsEnabled true
                     :data-storage-levels 3
                     :rcs-directory "rcsrepo"
                     :rcs-dir-levels 3

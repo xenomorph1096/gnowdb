@@ -8,6 +8,7 @@ pom.xml.asc
 /src/gnowdb/neo4j/gconf.clj
 /neo4j/data/
 backups/
+/rcs-repo/
 .lein-deps-sum
 .lein-repl-history
 .lein-plugins/

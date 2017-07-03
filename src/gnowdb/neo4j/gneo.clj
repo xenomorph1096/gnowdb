@@ -2748,10 +2748,9 @@
   [& {:keys [:className
              :classType]
       :or {:classType nil}}]
-  {:pre [(string? classType)
-         (contains? #{nil "NODE" "RELATION"} classType)]}
+  {:pre [(contains? #{nil "NODE" "RELATION"} classType)]}
   (let [parameters (if (nil? classType)
-                     {}
+                     {"className" className}
                      {"className" className
                       "classType" classType})]
     (= 1 (first (getNodes :count? true

@@ -169,22 +169,35 @@
 
 (defn- doRCS
   [& {:keys [:finalResult
-             :queriesList]}]
+             :queriesList
+             :tx]}]
   (let [RCSUUIDListMap (reduceRCSUUIDListMap :RCSUUIDListMap (getRCSUUIDListMap :finalResult finalResult
                                                                                 :queriesList queriesList))]
-    (try
-      (doall (map (fn [umap]
-                    (if (umap :doRCS?)
-                      (grcs_locks/queueUUIDs :UUIDList (umap :UUIDList)
-                                             :nbhs (getNBH :labels (umap :labels)
-                                                           :UUIDList (umap :UUIDList))
-                                             :labels (umap :labels))))
-                  (RCSUUIDListMap :RCSUUIDList)))
-      ;; (do (pmap #(apply grcs_locks/queueUUIDs %) (map (fn [ulm]
-      ;;                                                   (assoc ulm :nbhs (apply getNBH ulm))) (RCSUUIDListMap :RCSUUIDList))))
-      (catch Throwable E
-        (.printStackTrace E)
-        (println (str "RCS Exception :" (.getMessage E)))))))
+    (doall (map (fn [umap]
+                  (if (umap :doRCS?)
+                    (grcs_locks/queueUUIDs :UUIDList (umap :UUIDList)
+                                           :nbhs (getNBH :labels (umap :labels)
+                                                         :UUIDList (umap :UUIDList)
+                                                         :tx tx)
+                                           :labels (umap :labels))))
+                (RCSUUIDListMap :RCSUUIDList)))))
+
+(defn pList
+  [stList]
+  (map 
+   (fn [record]
+     (into {} 
+           (map 
+            (fn 
+              [attribute]
+              {(attribute 0) (parse (attribute 1))}
+              )
+            (into {} (.asMap record))
+            )
+           )
+     ) 
+   stList
+   ))
 
 (defn runQuery
   "Takes a list of queries and executes them. Returns a map with all records and summary of operations iff all operations are successful otherwise fails.
@@ -196,49 +209,33 @@
         session (.session driver)
         transaction (.beginTransaction session)
         ]
-    (let [finalResult (try
-                        (let
-                            [finalResult (reduce
-                                          (fn [resultMap queryMap]
-                                            (let [statementResult (.run transaction (queryMap :query) (java.util.HashMap. (queryMap :parameters)))]
-                                              {:results (conj 
-                                                         (resultMap :results) 
-                                                         (map 
-                                                          (fn [record]
-                                                            (into {} 
-                                                                  (map 
-                                                                   (fn 
-                                                                     [attribute]
-                                                                     {(attribute 0) (parse (attribute 1))}
-                                                                     )
-                                                                   (into {} (.asMap record))
-                                                                   )
-                                                                  )
-                                                            ) 
-                                                          (.list statementResult)
-                                                          )) 
-                                               :summary (getCombinedFullSummary [(resultMap :summary) (getFullSummary statementResult)])
-                                               }
-                                              )
-                                            )
-                                          {:results [] :summary (getCombinedFullSummary [])}
-                                          queriesList
-                                          )]
-                          (.success transaction)
-                          ;; RCS will not affect execution of queries
-                          
-                          finalResult
+    (try
+      (let
+          [finalResult (reduce
+                        (fn [resultMap queryMap]
+                          (let [statementResult (.run transaction (queryMap :query) (java.util.HashMap. (queryMap :parameters)))]
+                            {:results (conj 
+                                       (resultMap :results) 
+                                       (pList (.list statementResult))) 
+                             :summary (getCombinedFullSummary [(resultMap :summary) (getFullSummary statementResult)])
+                             }
+                            )
                           )
-                        (catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
-                        (finally (.close transaction) (.close session))
-                        )
-          ]
-      (if
-          (and (((finalResult :summary) :summaryMap) :containsUpdates)
-               rcsEnabled?)
-        (doRCS :finalResult finalResult
-               :queriesList queriesList))
-      finalResult)
+                        {:results [] :summary (getCombinedFullSummary [])}
+                        queriesList
+                        )]
+        (if
+            (and (((finalResult :summary) :summaryMap) :containsUpdates)
+                 rcsEnabled?)
+          (doRCS :finalResult finalResult
+                 :queriesList queriesList
+                 :tx transaction))
+        (.success transaction)
+        finalResult
+        )
+      (catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
+      (finally (.close transaction) (.close session))
+      )
     )
   )
 
@@ -256,23 +253,29 @@
     )
   )
 
+(defn- sQ
+  [tx query params]
+  (pList (.list (.run tx query params))))
+
 (defn getNodesByUUID
   "Get Nodes by UUID"
   [& {:keys [:labels
-             :UUIDList]
+             :UUIDList
+             :tx]
       :or {:labels []}}]
   {:pre [(coll? labels)
          (coll? UUIDList)
          (every? string? UUIDList)]}
   (let [builtQuery {:query (str "MATCH (node"(createLabelString :labels labels)") WHERE node.UUID in {UUIDList} return node")
                     :parameters {"UUIDList" UUIDList}}]
-    (reduce #(merge %1 {((%2 :properties) "UUID") %2}) {} (map #(% "node") (first ((runQuery builtQuery) :results))))
+    (reduce #(merge %1 {((%2 :properties) "UUID") %2}) {} (map #(% "node") (sQ tx (builtQuery :query) (builtQuery :parameters))))
     )
   )
 
 (defn getInRels
   [& {:keys [:labels
-             :UUIDList]
+             :UUIDList
+             :tx]
       :or {:labels []
            :UUIDList []}}]
   {:pre [(every? string? UUIDList)]}
@@ -283,7 +286,7 @@
                                 " WHERE n.UUID IN {UUIDList}"
                                 " RETURN relation, node.UUID as fromUUID, n.UUID as toUUID")
                     :parameters {"UUIDList" UUIDList}}
-        inRels (first ((runQuery builtQuery) :results))]
+        inRels (sQ tx (builtQuery :query) (builtQuery :parameters))]
     (reduce #(assoc %1 %2
                     (into #{} (filter
                                (fn [rel]
@@ -295,15 +298,18 @@
 (defn getNBH
   "GET NBH"
   [& {:keys [:labels
-             :UUIDList]
+             :UUIDList
+             :tx]
       :or {:labels []
            :UUIDList []}}]
   {:pre [(coll? UUIDList)
          (every? string? UUIDList)]}
   (reset! nbhAtom
-          (let [nodesMatched (getNodesByUUID :UUIDList UUIDList)
+          (let [nodesMatched (getNodesByUUID :UUIDList UUIDList
+                                             :tx tx)
                 nodeNBHs (getInRels :labels labels
-                                    :UUIDList UUIDList)
+                                    :UUIDList UUIDList
+                                    :tx tx)
                 ]
             (reduce #(merge %1 {(%2 0) {:node (assoc (%2 1) :labels (into #{} ((%2 1) :labels)))
                                         :inRelations (nodeNBHs (%2 0))}})

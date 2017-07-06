@@ -358,7 +358,7 @@
   "
   [& {:keys [groupName adminName editingPolicy]}]
   (if (.contains (getAdminList groupName) adminName)
-    (gneo/editNodeProperties :label "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_GroupType" editingPolicy})
+    (gneo/editNodeProperties :label "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_EditingPolicy" editingPolicy})
   )
   nil
 )

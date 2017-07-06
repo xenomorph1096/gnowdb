@@ -117,19 +117,19 @@
   	)
 	)
 
-	(testing "Error in getting editing policy of a group workspace 1."
-  	(setEditingPolicy )
+	(testing "Error in setting editing policy of a group workspace."
+  	(setEditingPolicy :groupName "group1" :adminName "user1" :editingPolicy "Editable_Moderated")
   	(is 
-    	(= "Editable_Non-Moderated"
+    	(= "Editable_Moderated"
       	(getEditingPolicy "group1")
 			)
   	)
 	)
 
-	(testing "Error in getting group type of a group workspace 1."
+	(testing "Error in setting group type of a group workspace."
   	(is 
-    	(= "Public"
-      	(getGroupType "group1")
+    	(= "Private"
+      	(setGroupType :groupName "group1" :adminName "user1" :groupType "Private")
 			)
   	)
 	)
@@ -137,6 +137,8 @@
 	(deleteDetachNodes :label "GDB_GroupWorkspace" :parameters {"GDB_Description" "GDB_Test"})
 	(deleteDetachNodes :label "GDB_PersonalWorkspace" :parameters {"GDB_Description" "GDB_Test"})
 )
+
+
 
 (deftest instantiatePersonalWorkspace-test
     (instantiatePersonalWorkspace :displayName "user" :memberOfGroup "Gnowledge" :createdBy "user1" :description "GDB_Test")

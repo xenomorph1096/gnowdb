@@ -10,11 +10,11 @@
   (:use [gnowdb.neo4j.gqb]))
 
 (defn getUUIDEnabled
-	[details]
-	(def ^{:private true} uuidEnabled 
-		(details :uuidEnabled)
-	)
-)
+  [details]
+  (def ^{:private true} uuidEnabled 
+    (details :uuidEnabled)
+    )
+  )
 
 (defn generateUUID
   []
@@ -409,6 +409,8 @@
            :parameters {}}
       }
    ]
+  {:pre [(map? parameters)
+         (map? changeMap)]}
   (let [mPM (addStringToMapKeys parameters "M")
         tPME (addStringToMapKeys changeMap "E")
         builtQuery {:query (str "MATCH (node1"(createLabelString :labels labels)" "
@@ -1139,8 +1141,8 @@
               "count(att)"
               "att")) :properties) (((gdriver/runQuery
                                       {:query (str "MATCH (class:`Class` {className:{className}})-[rel:`HasAttributeType`]->(att:`AttributeType`) RETURN "(if count?
-                                                                                                                                                      "count(att)"
-                                                                                                                                                      "att"))
+                                                                                                                                                            "count(att)"
+                                                                                                                                                            "att"))
                                        :parameters {"className" className}
                                        }
                                       ) :results) 0))
@@ -1188,8 +1190,8 @@
   {:pre [(string? className)]}
   (gdriver/runQuery
    {:query (str "MATCH (class:`Class` {className:{className}})<-[ncat:`NeoConstraintAppliesTo`]-(neo:`NeoConstraint`) RETURN " (if count?
-                                                                                                                           "count(ncat)"
-                                                                                                                           "ncat,neo"))
+                                                                                                                                 "count(ncat)"
+                                                                                                                                 "ncat,neo"))
     :parameters {"className" className}
     }
    )
@@ -1203,8 +1205,8 @@
   {:pre [(string? className)]}
   (gdriver/runQuery
    {:query (str "MATCH (class:`Class` {className:{className}})<-[ccat:`CustomConstraintAppliesTo`]-(cf:`CustomFunction`) RETURN "(if count?
-                                                                                                                             "count(ccat)"
-                                                                                                                             "ccat,cf"))
+                                                                                                                                   "count(ccat)"
+                                                                                                                                   "ccat,cf"))
     :parameters {"className" className}
     }
    )
@@ -1218,8 +1220,8 @@
   {:pre [(string? atName)]}
   (gdriver/runQuery
    {:query (str "MATCH (at:`AttributeType` {_name:{atname}})<-[vr:`ValueRestrictionAppliesTo`]-(cf:`CustomFunction`) RETURN cf,vr"(if count?
-                                                                                                                              "count(vr)"
-                                                                                                                              "cf,vr"))
+                                                                                                                                    "count(vr)"
+                                                                                                                                    "cf,vr"))
     :parameters {"atname" atName}
     }
    )
@@ -2099,8 +2101,8 @@
       :or {:count? false}}]
   {:pre [(string? _name)]}
   (((gdriver/runQuery {:query (str "MATCH (att:`AttributeType` {_name:{_name}})<-[:`HasAttributeType`]-(n:`Class`) RETURN "(if count?
-                                                                                                                       "count(n)"
-                                                                                                                       "n"))
+                                                                                                                             "count(n)"
+                                                                                                                             "n"))
                        :parameters {"_name" _name}}) :results) 0)
   )
 
@@ -2250,7 +2252,7 @@
   [&{:keys [:_name
             :forceMigrate?
             :execute?]
-     :or {:execute? false}}]
+     :or {:execute? true}}]
   {:pre [(string? _name)]}
   (let [deleteQueries (deleteDetachNodes :labels ["AttributeType"]
                                          :parameters {"_name" _name}
@@ -2688,16 +2690,16 @@
                  ) forceMigrate?)
         (let [dataEditQueries (reduceQueryColl (concat [editClassQuery]
                                                        (if (and (contains? newProperties "isAbstract")
-                                                                 (= true (newProperties "isAbstract")))
-                                                          (case classType
-                                                            "NODE" (deleteDetachNodes :labels [className]
-                                                                                      :parameters {}
-                                                                                      :execute? false)
-                                                            "RELATION" [(deleteRelation :relationshipType className
+                                                                (= true (newProperties "isAbstract")))
+                                                         (case classType
+                                                           "NODE" (deleteDetachNodes :labels [className]
+                                                                                     :parameters {}
+                                                                                     :execute? false)
+                                                           "RELATION" [(deleteRelation :relationshipType className
                                                                                        :execute? false)]
-                                                            )
-                                                          []
-                                                          )
+                                                           )
+                                                         []
+                                                         )
                                                        [(if (contains? newProperties "className")
                                                           (renameLabels :labels [className]
                                                                         :properties {}
@@ -2741,6 +2743,20 @@
     )
   )
 
+(defn classExists?
+  "Determine if unique class exists."
+  [& {:keys [:className
+             :classType]
+      :or {:classType nil}}]
+  {:pre [(contains? #{nil "NODE" "RELATION"} classType)]}
+  (let [parameters (if (nil? classType)
+                     {"className" className}
+                     {"className" className
+                      "classType" classType})]
+    (= 1 (first (getNodes :count? true
+                          :labels ["Class"]
+                          :parameters parameters)))))
+
 (defn getClasses
   "Retrieve all classes"
   [& {:keys [:count?]
@@ -2762,10 +2778,10 @@
                                                       :parameters {}
                                                       :count? true))
         classDelQueries (deleteDetachNodes :labels ["Class"]
-                                         :parameters {"className" className}
-                                         :execute? false)
+                                           :parameters {"className" className}
+                                           :execute? false)
         classInstDelQueries (deleteDetachNodes :labels [className]
-                                             :execute? false)
+                                               :execute? false)
         constraintDropQueries (exemptClassNeoConstraints :className className
                                                          :execute? false)
         constraintCreateQueries []
@@ -2908,7 +2924,8 @@
   "Validate instances of a class"
   [& {:keys [:className
              :classType
-             :instList]}]
+             :instList]
+      :or {:instList []}}]
   {:pre [(string? className)
          (string? classType)
          (contains? #{"NODE"
@@ -2929,12 +2946,15 @@
       (throw (Exception. (str className " is Abstract")))
       )
     )
-  (let [propertyErrors (validatePropertyMaps :className className
-                                             :propertyMapList instList
-                                             )
-        ]
-    (if (not= 0 (count propertyErrors))
-      (throw (Exception. (str (seq propertyErrors))))
+  
+  (if (not (empty? instList))
+    (let [propertyErrors (validatePropertyMaps :className className
+                                               :propertyMapList instList
+                                               )
+          ]
+      (if (not= 0 (count propertyErrors))
+        (throw (Exception. (str (seq propertyErrors))))
+        )
       )
     )
   )
@@ -3049,3 +3069,97 @@
     (catch Exception E (.getMessage E))
     )
   )
+
+(defn editNodeClassInstances
+  "Edit Instances of a Node Class.
+  :parameters should be a map with properties to match class instances with.
+  :changeMap should be a map with parameters to be changed."
+  [& {:keys [:className
+             :parameters
+             :changeMap
+             :execute?]
+      :or {:parameters {}
+           :changeMap {}
+           :execute? true}}]
+  (try
+    (validateClassInstances :className className
+                            :classType "NODE"
+                            :instList [changeMap])
+    (editNodeProperties :labels [className]
+                        :parameters parameters
+                        :changeMap changeMap
+                        :execute? execute?)
+    (catch Exception E
+      (.getMessage E))))
+
+(defn editRelationClassInstances
+  "Edit Instances of a Relation Class.
+  :relationshipParameters should be a map to match relations by.
+  :newRelationshipParameters should be a map of new properties for the relation"
+  [& {:keys [:className
+             :relationshipParameters
+             :newRelationshipParameters
+             :fromNodeParameters
+             :toNodeParameters
+             :fromNodeLabels
+             :toNodeLabels
+             :execute?]
+      :or {:relationshipParameters {}
+           :newRelationshipParameters {}
+           :toNodeParameters {}
+           :fromNodeParameters {}
+           :toNodeLabels []
+           :fromNodeLabels []
+           :execute? true}
+      :as keyArgs}]
+  (try
+    (validateClassInstances :className className
+                            :classType "RELATION"
+                            :instList [newRelationshipParameters])
+    (apply editRelation (prepMapAsArg (dissoc (assoc keyArgs :relationshipType className) :className)))
+    (catch Exception E
+      (.getMessage E))))
+
+(defn deleteNodeClassInstances
+  "Delete Instances of a Node Class.
+  :parameters should be a map with properties to match class instances with.
+  You must use :detach? explicitly if the instances have relations"
+  [& {:keys [:className
+             :parameters
+             :detach?
+             :execute?]
+      :or {:parameters {}
+           :detach false
+           :execute? true}}]
+  {:pre [(string? className)
+         (classExists? :className className
+                       :classType "NODE")]}
+  (if detach?
+    (deleteDetachNodes :labels [className]
+                       :parameters parameters
+                       :execute? execute?)
+    
+    (deleteNodes :labels [className]
+                 :parameters parameters
+                 :execute? execute?)))
+
+(defn deleteRelationClassInstances
+  "Delete Instances(Relations) of a relation class"
+  [& {:keys [:className
+             :relationshipParameters
+             :fromNodeParameters
+             :toNodeParameters
+             :fromNodeLabels
+             :toNodeLabels
+             :execute?]
+      :or {:relationshipParameters {}
+           :toNodeParameters {}
+           :fromNodeParameters {}
+           :toNodeLabels []
+           :fromNodeLabels []
+           :execute? true}
+      :as keyArgs}]
+  {:pre [(string? className)
+         (classExists? :className className
+                       :classType "RELATION")]}
+  (apply deleteRelation (prepMapAsArg (dissoc (assoc keyArgs :relationshipType className) :className))))

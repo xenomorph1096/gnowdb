@@ -106,7 +106,9 @@
   "Display version x.y of a file
   co -px.y filename"
   [& {:keys [:GDB_UUID
-             :rev]}]
+             :rev]
+      :or {:rev {:x 0
+                 :y 0}}}]
   {:pre [(string? GDB_UUID)
          (map? rev)
          (and (contains? rev :x)
@@ -114,13 +116,19 @@
               )
          ]
    }
-  (let [result (shell/sh "co"
-                         (format "-r%s.%s"
-                                 (rev :x)
-                                 (rev :y)
-                                 )
-                         "-p" GDB_UUID
-                         :dir (derivePath :GDB_UUID GDB_UUID))]
+  
+  (let [args-r ["co"
+                (format "-r%s.%s"
+                        (rev :x)
+                        (rev :y)
+                        )
+                "-p" GDB_UUID
+                :dir (derivePath :GDB_UUID GDB_UUID)]
+        result (apply shell/sh (if (or (= 0 (rev :x))
+                                       (= 0 (rev :y)))
+                                 (concat (subvec args-r 0 1) (subvec args-r 2))
+                                 args-r))
+        ]
     (if (= (:exit result) 0)
       (:out result)
       (throw (Exception. (:err result))
@@ -128,6 +136,11 @@
       )
     )
   )
+
+(defn getLatest
+  "Get Latest Revision of a Node's NBH map"
+  [& {:keys [:GDB_UUID]}]
+  (co-p :GDB_UUID GDB_UUID))
 
 (defn rlog
   "Get rlog for a UUID"
@@ -149,11 +162,11 @@
     (let [filePath (deriveFilePath :GDB_UUID GDB_UUID)]
       (if (.exists (clojure.java.io/as-file (str filePath ",v")))
         (do
-          (co-l :GDB_UUID GDB_UUID)
-          (let [currContent (slurpFile :GDB_UUID GDB_UUID)]
+          (let [currContent (getLatest :GDB_UUID GDB_UUID)]
             (if (= newContent (read-string currContent))
-              (ci :GDB_UUID GDB_UUID)
+              nil
               (do
+                (co-l :GDB_UUID GDB_UUID)
                 (spitFile :GDB_UUID GDB_UUID
                           :content (pr-str newContent)
                           )
@@ -173,18 +186,3 @@
     nil
     )
   )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

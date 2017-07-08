@@ -233,7 +233,7 @@
         (.success transaction)
         finalResult
         )
-      (catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
+      (catch Throwable e (.failure transaction) (.printStackTrace e) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
       (finally (.close transaction) (.close session))
       )
     )
@@ -262,13 +262,19 @@
   [& {:keys [:labels
              :UUIDList
              :tx]
-      :or {:labels []}}]
+      :or {:labels []
+           :tx nil}}]
   {:pre [(coll? labels)
          (coll? UUIDList)
          (every? string? UUIDList)]}
   (let [builtQuery {:query (str "MATCH (node"(createLabelString :labels labels)") WHERE node.UUID in {UUIDList} return node")
                     :parameters {"UUIDList" UUIDList}}]
-    (reduce #(merge %1 {((%2 :properties) "UUID") %2}) {} (map #(% "node") (sQ tx (builtQuery :query) (builtQuery :parameters))))
+    (reduce #(merge %1
+                    {((%2 :properties) "UUID") %2})
+            {} (map #(% "node")
+                    (if (nil? tx)
+                      (first ((runQuery builtQuery) :results))
+                      (sQ tx (builtQuery :query) (builtQuery :parameters)))))
     )
   )
 
@@ -277,7 +283,8 @@
              :UUIDList
              :tx]
       :or {:labels []
-           :UUIDList []}}]
+           :UUIDList []
+           :tx nil}}]
   {:pre [(every? string? UUIDList)]}
   (let [labelString (createLabelString :labels labels)
         builtQuery {:query (str "MATCH (n"
@@ -286,7 +293,9 @@
                                 " WHERE n.UUID IN {UUIDList}"
                                 " RETURN relation, node.UUID as fromUUID, n.UUID as toUUID")
                     :parameters {"UUIDList" UUIDList}}
-        inRels (sQ tx (builtQuery :query) (builtQuery :parameters))]
+        inRels (if (nil? tx)
+                 (first ((runQuery builtQuery) :results))
+                 (sQ tx (builtQuery :query) (builtQuery :parameters)))]
     (reduce #(assoc %1 %2
                     (into #{} (filter
                                (fn [rel]
@@ -301,7 +310,8 @@
              :UUIDList
              :tx]
       :or {:labels []
-           :UUIDList []}}]
+           :UUIDList []
+           :tx nil}}]
   {:pre [(coll? UUIDList)
          (every? string? UUIDList)]}
   (reset! nbhAtom

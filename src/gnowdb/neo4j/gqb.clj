@@ -174,17 +174,20 @@
   [& {:keys [:varName
              :editPropertyList
              :characteristicString]
-      :or {:characteristicString ""}}]
+      :or {:characteristicString ""
+           :editPropertyList []}}]
   {:pre [(string? varName)
          (coll? editPropertyList)
          (every? string? editPropertyList)]}
-  (str " SET "
+  (if (not (empty? editPropertyList))
+    (str " SET "
        (clojure.string/join " ,"
                             (map #(str varName "." %1 " = {" %2 "}")
                                  (removeVectorStringSuffixes editPropertyList characteristicString)
                                  editPropertyList)
                             )
        )
+    "")
   )
 
 (defn createRemString
@@ -196,7 +199,9 @@
   {:pre [(string? varName)
          (coll? remPropertyList)
          (every? string? remPropertyList)]}
-  (str "REMOVE "
+  (if (empty? remPropertyList)
+    " "
+    (str "REMOVE "
        (clojure.string/join ", "
                             (vec (map #(str varName"."%1) 
                                       remPropertyList
@@ -204,7 +209,7 @@
                                  )
                             )
        )
-  )
+  ))
 
 (defn createRenameString
   "Creates a property rename string.

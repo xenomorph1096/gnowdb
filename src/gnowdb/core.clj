@@ -6,6 +6,7 @@
             [gnowdb.neo4j.gcust :as gcust]
             [gnowdb.neo4j.grcs :as grcs]
             [gnowdb.neo4j.grcs_locks :as grcs_locks]
+            [gnowdb.neo4j.grcs_revert :as grcs_revert]
             [gnowdb.neo4j.dumprestore :as dumprestore]
             [gnowdb.spec.files :as files]
             [gnowdb.spec.init :as init]

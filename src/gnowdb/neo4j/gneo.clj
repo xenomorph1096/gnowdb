@@ -9,6 +9,12 @@
             )
   (:use [gnowdb.neo4j.gqb]))
 
+(defn keys
+  [map]
+  (if (empty? map)
+    []
+    (clojure.core/keys map)))
+
 (defn getUUIDEnabled
   [details]
   (def ^{:private true} uuidEnabled 
@@ -80,6 +86,10 @@
       )
     )
   )  
+
+(defn createNodes
+  "Create Multiple Nodes in One Query"
+  [])
 
 (defn deleteRelation
   "Delete a relation between two nodes matched with their properties (input as clojure map) with it's own properties"
@@ -305,6 +315,55 @@
          :doRCS? true
          :rcs-vars ["UUID"]
          :parameters (combinedProperties :combinedPropertyMap)}]
+    (if execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery
+      )
+    )
+  )
+
+(defn mergeRelation
+  "Create, if not exists, a relation betrween two nodes matched with their properties (input as clojure map) with it's own properties"
+  [& {:keys [:fromNodeLabels
+             :fromNodeParameters
+             :relationshipType
+             :relationshipParameters
+             :toNodeLabels
+             :toNodeParameters
+             :execute?]
+      :or {:execute? true
+           :toNodeLabels []
+           :fromNodeLabels []
+           :relationshipType ""
+           :toNodeParameters {}
+           :fromNodeParameters {}
+           :relationshipParameters {}}
+      }
+   ]
+  {:pre [(every? coll? [fromNodeLabels toNodeLabels])
+         (every? map? [fromNodeParameters relationshipParameters toNodeParameters])]}
+  (let [toNodeLabel (createLabelString :labels toNodeLabels)
+        fromNodeLabel (createLabelString :labels fromNodeLabels)
+        relationshipTypewb (createLabelString :labels [relationshipType])
+        combinedProperties
+        (combinePropertyMap
+         {"1" fromNodeParameters
+          "2" toNodeParameters
+          "R" relationshipParameters
+          }
+         )
+        builtQuery {:query
+                    (str "MATCH (node1" fromNodeLabel " "
+                         ((combinedProperties :propertyStringMap) "1")
+                         " ) , (node2" toNodeLabel " "
+                         ((combinedProperties :propertyStringMap) "2")
+                         " ) MERGE  (node1)-[" relationshipTypewb " "
+                         ((combinedProperties :propertyStringMap) "R")
+                         " ]->(node2)"
+                         (createReturnString ["node2" "UUID" "UUID"]))
+                    :doRCS? true
+                    :rcs-vars ["UUID"]
+                    :parameters (combinedProperties :combinedPropertyMap)}]
     (if execute?
       (gdriver/runQuery builtQuery)
       builtQuery
@@ -581,6 +640,111 @@
       (gdriver/runQuery builtQuery)
       builtQuery)
     ))
+
+(defn revertNode
+  "Revert Properties/Labels of a node to an older version."
+  [& {:keys [:matchLabels
+             :newLabels
+             :matchProperties
+             :newProperties
+             :execute?]
+      :or {:matchLabels []
+           :newLabels []
+           :matchProperties {}
+           :newProperties {}
+           :execute? true}}]
+  {:pre [(coll? matchLabels)
+         (coll? newLabels)
+         (map? matchProperties)
+         (map? newProperties)]}
+  (let [remLabels (clojure.set/difference (into #{} matchLabels)
+                                          (into #{} newLabels))
+        addLabels (clojure.set/difference (into #{} newLabels)
+                                          (into #{} matchLabels))
+        remProperties (clojure.set/difference (into #{} (keys matchProperties))
+                                              (into #{} (keys newProperties)))
+        combinedPropertyMap (combinePropertyMap {"M" matchProperties
+                                                 "E" newProperties})
+        builtQuery {:query (str "MATCH (n"(createLabelString :labels matchLabels)
+                                " "((combinedPropertyMap :propertyStringMap) "M")")"
+                                " "(createRemString :varName "n"
+                                                    :remPropertyList remProperties)
+                                (if (empty? remLabels)
+                                  " "
+                                  (if (empty? remProperties)
+                                    (str " REMOVE n"(createLabelString :labels remLabels))
+                                    (str " ,n"(createLabelString :labels remLabels))))
+                                " "(if (empty? newProperties)
+                                     ""
+                                     (createEditString :varName "n"
+                                                       :editPropertyList (keys (addStringToMapKeys newProperties "E"))
+                                                       :characteristicString "E"))
+                                (if (empty? addLabels)
+                                  " "
+                                  (if (empty? newProperties)
+                                    (str " SET n"(createLabelString :labels addLabels))
+                                    (str " ,n"(createLabelString :labels addLabels))))
+                                " "(createReturnString ["n" "UUID" "UUID"]))
+                    :parameters (combinedPropertyMap :combinedPropertyMap)
+                    :doRCS? true
+                    :rcs-vars ["UUID"]
+                    :labels newLabels}]
+    (if execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery)))
+
+(defn revertRelation
+  "Revert properties/type of a relation"
+  [& {:keys [:fromNodeLabels
+             :fromNodeParameters
+             :toNodeLabels
+             :toNodeParameters
+             :relationshipType
+             :matchRelationshipParameters
+             :newRelationshipParameters
+             :execute?]
+      :or {:fromNodeLabels []
+           :fromNodeParameters {}
+           :toNodeLabels []
+           :toNodeParameters {}
+           :matchRelationshipParameters {}
+           :newRelationshipParameters {}
+           :execute? false}}]
+  {:pre [(string? relationshipType)
+         (coll? fromNodeLabels)
+         (coll? toNodeLabels)
+         (map? fromNodeParameters)
+         (map? toNodeParameters)
+         (map? matchRelationshipParameters)
+         (map? newRelationshipParameters)]}
+  (let [remProperties (clojure.set/difference (into #{} (keys matchRelationshipParameters))
+                                              (into #{} (keys newRelationshipParameters)))
+        combinedPropertyMap (combinePropertyMap {"N1" toNodeParameters
+                                                 "N2" fromNodeParameters
+                                                 "RM" matchRelationshipParameters
+                                                 "RE" newRelationshipParameters})
+        builtQuery {:query (str "MATCH (n1"(createLabelString :labels toNodeLabels)
+                                " "((combinedPropertyMap :propertyStringMap) "N1")")"
+                                "<-[rel"(createLabelString :labels [relationshipType])
+                                " "((combinedPropertyMap :propertyStringMap) "RM")"]"
+                                "-(n2"(createLabelString :labels fromNodeLabels)
+                                " "((combinedPropertyMap :propertyStringMap) "N2")")"
+                                " "(if (empty? remProperties)
+                                     ""
+                                     (createRemString :varName "rel"
+                                                      :remPropertyList remProperties))
+                                " "(createEditString :varName "rel"
+                                                     :editPropertyList (keys (addStringToMapKeys newRelationshipParameters
+                                                                                                 "RE"))
+                                                     :characteristicString "RE")
+                                " "(createReturnString ["n1" "UUID" "UUID"]))
+                    :parameters (combinedPropertyMap :combinedPropertyMap)
+                    :doRCS? true
+                    :rcs-vars ["UUID"]
+                    :labels toNodeLabels}]
+    (if execute?
+      (gdriver/runQuery builtQuery)
+      builtQuery)))
 
 (defn getNodes
   "Get Node(s) matched by label and propertyMap"
@@ -1219,9 +1383,9 @@
       :or {:count? false}}]
   {:pre [(string? atName)]}
   (gdriver/runQuery
-   {:query (str "MATCH (at:`AttributeType` {_name:{atname}})<-[vr:`ValueRestrictionAppliesTo`]-(cf:`CustomFunction`) RETURN cf,vr"(if count?
-                                                                                                                                    "count(vr)"
-                                                                                                                                    "cf,vr"))
+   {:query (str "MATCH (at:`AttributeType` {_name:{atname}})<-[vr:`ValueRestrictionAppliesTo`]-(cf:`CustomFunction`) RETURN "(if count?
+                                                                                                                               "count(vr)"
+                                                                                                                               "cf,vr"))
     :parameters {"atname" atName}
     }
    )

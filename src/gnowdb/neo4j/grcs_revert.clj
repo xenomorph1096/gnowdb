@@ -30,6 +30,7 @@
   {:pre [(or getLatest?
              getNBH?
              latestRevision)
+         (grcs/rcsExists? :GDB_UUID UUID)
          ;; TODO : uncomment this line after a proper regex pattern for rcs revision numbers is established
          (contains? (grcs/revList :GDB_UUID UUID) rev)
          ]}
@@ -99,3 +100,8 @@
         (if execute?
           (apply gdriver/runQuery queriesList)
           queriesList)))))
+
+(defn restoreNode
+  "Restore a node that is deleted from neo4j"
+  [& {:keys [:UUID
+             :rev]}])

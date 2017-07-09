@@ -3,6 +3,7 @@
   (:require [clojure.set :as clojure.set]
             [clojure.java.io :as io]
             [clojure.string :as clojure.string]
+            [gnowdb.neo4j.grcs :as grcs :only [backupNode]]
             [gnowdb.neo4j.grcs_locks :as grcs_locks :only [queueUUIDs]])
   (:use [gnowdb.neo4j.gqb]))
 
@@ -105,22 +106,27 @@
            qL ((vec queriesList) count)
            rcs-vars (qL :rcs-vars)
            labels (qL :labels)
-           doRCS? (qL :doRCS?)]
-       (if doRCS?
-         (assoc RCSUUIDListMap
-                :RCSUUIDList (conj RCSUUIDList
-                                   (reduce (fn [UUIDListMap r]
-                                             (assoc UUIDListMap
-                                                    :UUIDList (pmap #(r %) ;; pmap is needed here, as if 1000 nodes are changed, pmap will be faster. pmap might slow things down if there are a low number of nodes affected. TODO : get optimized threshold to make the decision between pmap and map
-                                                                    rcs-vars)))
-                                           {:UUIDList []
-                                            :labels labels
-                                            :doRCS? doRCS?} res))
-                :count (inc count))
-         RCSUUIDListMap
-         )))
+           doRCS? (qL :doRCS?)
+           rcs-bkp? (qL :rcs-bkp?)]
+       (update (update (if doRCS?
+                         (assoc RCSUUIDListMap
+                                :RCSUUIDList (conj RCSUUIDList
+                                                   (reduce (fn [UUIDListMap r]
+                                                             (assoc UUIDListMap
+                                                                    :UUIDList (map #(r %) ;; pmap is needed here, as if 1000 nodes are changed, pmap will be faster. pmap might slow things down if there are a low number of nodes affected. TODO : get optimized threshold to make the decision between pmap and map
+                                                                                   rcs-vars)))
+                                                           {:UUIDList []
+                                                            :labels labels
+                                                            :doRCS? doRCS?} res)))
+                         (if rcs-bkp?
+                           (update RCSUUIDListMap
+                                   :RCSBkpList concat (pmap #(map (fn [rv] (% rv)) rcs-vars) res))
+                           RCSUUIDListMap)
+                         ) :count inc)
+               :RCSBkpList #(flatten %))))
    {:count 0
-    :RCSUUIDList []}
+    :RCSUUIDList []
+    :RCSBkpList []}
    (finalResult :results)))
 
 (defn reduceRCSUUIDListMap
@@ -171,8 +177,9 @@
   [& {:keys [:finalResult
              :queriesList
              :tx]}]
-  (let [RCSUUIDListMap (reduceRCSUUIDListMap :RCSUUIDListMap (getRCSUUIDListMap :finalResult finalResult
-                                                                                :queriesList queriesList))]
+  (let [ruuidlistm (getRCSUUIDListMap :finalResult finalResult
+                                      :queriesList queriesList)
+        RCSUUIDListMap (reduceRCSUUIDListMap :RCSUUIDListMap ruuidlistm)]
     (doall (map (fn [umap]
                   (if (umap :doRCS?)
                     (grcs_locks/queueUUIDs :UUIDList (umap :UUIDList)
@@ -180,7 +187,8 @@
                                                          :UUIDList (umap :UUIDList)
                                                          :tx tx)
                                            :labels (umap :labels))))
-                (RCSUUIDListMap :RCSUUIDList)))))
+                (RCSUUIDListMap :RCSUUIDList)))
+    (doall (pmap #(grcs/backupNode :GDB_UUID %) (ruuidlistm :RCSBkpList)))))
 
 (defn pList
   [stList]

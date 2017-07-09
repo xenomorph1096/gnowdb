@@ -10,6 +10,7 @@
   [details]
   (def ^{:private true} rcsConfig {:rcs-directory (details :rcs-directory)
                                    :rcs-dir-levels (details :rcs-dir-levels)
+                                   :rcs-bkp-dir (details :rcs-bkp-dir)
                                    }
     )
   )
@@ -20,9 +21,13 @@
 
 (defn- derivePath
   "Derives the folder path(e.g.1/2/3) where the node nbh file is to be stored inside the rcs directory"
-  [& {:keys [:GDB_UUID]}]
+  [& {:keys [:GDB_UUID
+             :bkp?]
+      :or {:bkp? false}}]
   {:pre [(string? GDB_UUID)]}
-  (str (rcsConfig :rcs-directory)
+  (str (if bkp?
+         (rcsConfig :rcs-bkp-dir)
+         (rcsConfig :rcs-directory))
        "/"
        (clojure.string/join "/" (reverse (take-last (rcsConfig :rcs-dir-levels)
                                                     (clojure.string/split GDB_UUID #"")
@@ -35,8 +40,11 @@
 
 (defn- deriveFilePath
   "Derives full path with file"
-  [& {:keys [:GDB_UUID]}]
-  (str (derivePath :GDB_UUID GDB_UUID)
+  [& {:keys [:GDB_UUID
+             :bkp?]
+      :or {:bkp? false}}]
+  (str (derivePath :GDB_UUID GDB_UUID
+                   :bkp? bkp?)
        GDB_UUID)
   )
 
@@ -133,8 +141,11 @@
 
 (defn rcsExists?
   "Returns whether rcs file exists for UUID"
-  [& {:keys [:GDB_UUID]}]
-  (.exists (clojure.java.io/as-file (str (deriveFilePath :GDB_UUID GDB_UUID) ",v"))))
+  [& {:keys [:GDB_UUID
+             :bkp?]
+      :or {:bkp? false}}]
+  (.exists (clojure.java.io/as-file (str (deriveFilePath :GDB_UUID GDB_UUID
+                                                         :bkp? bkp?) ",v"))))
 
 (defn getLatest
   "Get Latest Revision of a Node's NBH map"
@@ -155,6 +166,33 @@
                              (re-seq #"revision [1-9]+\.[1-9]+"
                                      ((rlog :GDB_UUID GDB_UUID) :out)))
                         '()))))
+
+(defn backupNode
+  "Move deleted node from :rcs-directory to :rcs-bkp-dir."
+  [& {:keys [:GDB_UUID]}]
+  (if (rcsExists? :GDB_UUID GDB_UUID)
+    (do
+      (shell/sh "mkdir" "-p" (derivePath :GDB_UUID GDB_UUID
+                                         :bkp? true))
+      (shell/sh "mv"
+                (str (deriveFilePath :GDB_UUID GDB_UUID
+                                          :bkp? false) ",v")
+                (derivePath :GDB_UUID GDB_UUID :bkp? true)))
+    nil))
+
+(defn restoreNode
+  "Move deleted node from :rcs-bkp-dir to :rcs-directory."
+  [& {:keys [:GDB_UUID]}]
+  (if (rcsExists? :GDB_UUID GDB_UUID
+                  :bkp? true)
+    (do
+      (shell/sh "mkdir" "-p" (derivePath :GDB_UUID GDB_UUID
+                                         :bkp? false))
+      (shell/sh "mv"
+                (str (deriveFilePath :GDB_UUID GDB_UUID
+                                     :bkp? true) ",v")
+                (derivePath :GDB_UUID GDB_UUID :bkp? false)))
+    nil))
 
 (defn doRCS
   "Perform RCS on a file using UUID

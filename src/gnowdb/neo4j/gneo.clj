@@ -383,8 +383,11 @@
    ]
   (let [builtQuery {:query (str "MATCH (node"(createLabelString :labels labels)" "
                                 (createParameterPropertyString parameters)
-                                " ) DELETE node")
-                    :parameters parameters}
+                                " ) WITH node, node.UUID AS UUID DELETE node"
+                                " RETURN UUID")
+                    :parameters parameters
+                    :rcs-vars ["UUID"]
+                    :rcs-bkp? true}
         ]
     (if
         execute?

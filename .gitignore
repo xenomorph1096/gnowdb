@@ -9,6 +9,7 @@ pom.xml.asc
 /neo4j/data/
 backups/
 /rcs-repo/
+/rcs-bkp/
 .lein-deps-sum
 .lein-repl-history
 .lein-plugins/

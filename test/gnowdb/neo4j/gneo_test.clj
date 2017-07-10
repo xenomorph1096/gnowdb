@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [gnowdb.neo4j.gneo :refer :all]
             [gnowdb.neo4j.gdriver :refer :all]
-
+            [gnowdb.neo4j.gqb :refer :all]
             
             )
   )
@@ -87,72 +87,51 @@
 (deftest createClass-test
   (testing " Error in Creating Class"
     (is 
-     (= {:results [()],
-         :summary
-         {:summaryMap
-          {:relationshipsCreated 0,
-           :containsUpdates true,
-           :nodesCreated 1,
-           :nodesDeleted 0,
-           :indexesRemoved 0,
-           :labelsRemoved 0,
-           :constraintsAdded 0,
-           :propertiesSet 5,
-           :labelsAdded 1,
-           :constraintsRemoved 0,
-           :indexesAdded 0,
-           :relationshipsDeleted 0},
-          :summaryString
-          "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
-        (createClass :className "t-db22" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"tag" "test"} :execute? true)
+     (= {:summaryMap
+         {:relationshipsCreated 0,
+          :containsUpdates true,
+          :nodesCreated 1,
+          :nodesDeleted 0,
+          :indexesRemoved 0,
+          :labelsRemoved 0,
+          :constraintsAdded 0,
+          :propertiesSet 5,
+          :labelsAdded 1,
+          :constraintsRemoved 0,
+          :indexesAdded 0,
+          :relationshipsDeleted 0},
+         :summaryString
+         "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}
+        ((createClass :className "t-db22" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"tag" "test"} :execute? true) :summary)
         )
      )
     )
 
   (testing "Error in Creating a sub-class"
     (is 
-     (= {:results
-         `({:results [() ()],
-            :summary
-            {:summaryMap
-             {:relationshipsCreated 1,
-              :containsUpdates true,
-              :nodesCreated 1,
-              :nodesDeleted 0,
-              :indexesRemoved 0,
-              :labelsRemoved 0,
-              :constraintsAdded 0,
-              :propertiesSet 5,
-              :labelsAdded 1,
-              :constraintsRemoved 0,
-              :indexesAdded 0,
-              :relationshipsDeleted 0},
-             :summaryString
-             "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}),
-         :summary
-         {:summaryMap
-          {:relationshipsCreated 1,
-           :containsUpdates true,
-           :nodesCreated 1,
-           :nodesDeleted 0,
-           :indexesRemoved 0,
-           :labelsRemoved 0,
-           :constraintsAdded 0,
-           :propertiesSet 5,
-           :labelsAdded 1,
-           :constraintsRemoved 0,
-           :indexesAdded 0,
-           :relationshipsDeleted 0},
-          :summaryString
-          "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
-        (createClass :className "t-db23" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true)
+     (= {:summaryMap
+         {:relationshipsCreated 1,
+          :containsUpdates true,
+          :nodesCreated 1,
+          :nodesDeleted 0,
+          :indexesRemoved 0,
+          :labelsRemoved 0,
+          :constraintsAdded 0,
+          :propertiesSet 5,
+          :labelsAdded 1,
+          :constraintsRemoved 0,
+          :indexesAdded 0,
+          :relationshipsDeleted 0},
+         :summaryString
+         "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}
+        ((createClass :className "t-db23" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true) :summary)
         )
      )
     )
 
   (testing "Error in Returning a query (execute? false)"
     (is 
-     (= (select-keys {:query "MERGE (node:`Class` { className:{className}, classType:{classType}, isAbstract:{isAbstract}, UUID:{UUID} } )", :parameters {"className" "t-db24", "classType" "NODE", "isAbstract" true, "UUID" "d1c346b0-17ed-46f1-b022-6273402048b4"}} [:query]) 
+     (= (select-keys {:query "MERGE (node:`Class` { className:{className}, classType:{classType}, isAbstract:{isAbstract}, UUID:{UUID} } ) RETURN node.UUID as UUID", :parameters {"className" "t-db24", "classType" "NODE", "isAbstract" true, "UUID" "2f023ae6-c0fb-42b8-95ac-7f7368f6fc75"}, :doRCS? true, :rcs-vars ["UUID"], :labels ["Class"]} [:query]) 
         (select-keys (createClass :className "t-db24" :classType "NODE" :isAbstract? true :subClassOf [] :properties {} :execute? false) [:query])
         )
      )
@@ -160,89 +139,66 @@
 
   (testing "Error in creating nodes with two properties"
     (is 
-     (= {:results [()],
-         :summary
-         {:summaryMap
-          {:relationshipsCreated 0,
-           :containsUpdates true,
-           :nodesCreated 1,
-           :nodesDeleted 0,
-           :indexesRemoved 0,
-           :labelsRemoved 0,
-           :constraintsAdded 0,
-           :propertiesSet 7,
-           :labelsAdded 1,
-           :constraintsRemoved 0,
-           :indexesAdded 0,
-           :relationshipsDeleted 0},
-          :summaryString
-          "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}} 
-        (createClass :className "t-db24" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"pr1" "val1" "pr2" "val2" "tag" "test"} :execute? true)
+     (= {:summaryMap
+         {:relationshipsCreated 0,
+          :containsUpdates true,
+          :nodesCreated 1,
+          :nodesDeleted 0,
+          :indexesRemoved 0,
+          :labelsRemoved 0,
+          :constraintsAdded 0,
+          :propertiesSet 7,
+          :labelsAdded 1,
+          :constraintsRemoved 0,
+          :indexesAdded 0,
+          :relationshipsDeleted 0},
+         :summaryString
+         "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"} 
+        ((createClass :className "t-db24" :classType "NODE" :isAbstract? true :subClassOf [] :properties {"pr1" "val1" "pr2" "val2" "tag" "test"} :execute? true) :summary)
         )
      )
     )
 
   (testing "Error in creating a sub-class when super-class doesn`t exist"
     (is 
-     (= {:results [],
-         :summary
-         {:summaryMap
-          {:relationshipsCreated 0,
-           :containsUpdates false,
-           :nodesCreated 0,
-           :nodesDeleted 0,
-           :indexesRemoved 0,
-           :labelsRemoved 0,
-           :constraintsAdded 0,
-           :propertiesSet 0,
-           :labelsAdded 0,
-           :constraintsRemoved 0,
-           :indexesAdded 0,
-           :relationshipsDeleted 0},
-          :summaryString 
-          "ContainsUpdates :false ;"}} 
-        (createClass :className "t-db23" :classType "NODE" :isAbstract? false :subClassOf ["t-db25"] :properties {"pr1" "val1" "pr2" "val2"} :execute? true) 
+     (= {:summaryMap
+         {:relationshipsCreated 0,
+          :containsUpdates false,
+          :nodesCreated 0,
+          :nodesDeleted 0,
+          :indexesRemoved 0,
+          :labelsRemoved 0,
+          :constraintsAdded 0,
+          :propertiesSet 0,
+          :labelsAdded 0,
+          :constraintsRemoved 0,
+          :indexesAdded 0,
+          :relationshipsDeleted 0},
+         :summaryString 
+         "ContainsUpdates :false ;"} 
+        ((createClass :className "t-db23" :classType "NODE" :isAbstract? false :subClassOf ["t-db25"] :properties {"pr1" "val1" "pr2" "val2"} :execute? true) :summary) 
         )
      )
     )
 
   (testing "Creating a sub class of a class which alredy has other sub-classes"
     (is 
-     (= {:results
-         `({:results [() ()],
-            :summary
-            {:summaryMap
-             {:relationshipsCreated 1,
-              :containsUpdates true,
-              :nodesCreated 1,
-              :nodesDeleted 0,
-              :indexesRemoved 0,
-              :labelsRemoved 0,
-              :constraintsAdded 0,
-              :propertiesSet 5,
-              :labelsAdded 1,
-              :constraintsRemoved 0,
-              :indexesAdded 0,
-              :relationshipsDeleted 0},
-             :summaryString
-             "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}),
-         :summary
-         {:summaryMap
-          {:relationshipsCreated 1,
-           :containsUpdates true,
-           :nodesCreated 1,
-           :nodesDeleted 0,
-           :indexesRemoved 0,
-           :labelsRemoved 0,
-           :constraintsAdded 0,
-           :propertiesSet 5,
-           :labelsAdded 1,
-           :constraintsRemoved 0,
-           :indexesAdded 0,
-           :relationshipsDeleted 0},
-          :summaryString
-          "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
-        (createClass :className "t-db26" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true)
+     (= {:summaryMap
+         {:relationshipsCreated 1,
+          :containsUpdates true,
+          :nodesCreated 1,
+          :nodesDeleted 0,
+          :indexesRemoved 0,
+          :labelsRemoved 0,
+          :constraintsAdded 0,
+          :propertiesSet 5,
+          :labelsAdded 1,
+          :constraintsRemoved 0,
+          :indexesAdded 0,
+          :relationshipsDeleted 0},
+         :summaryString
+         "RelationshipsCreated :1 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}
+        ((createClass :className "t-db26" :classType "NODE" :isAbstract? true :subClassOf ["t-db22"] :properties {"tag" "test"} :execute? true) :summary)
         )
      )
     )
@@ -253,85 +209,47 @@
   
   (testing " Error in creating subclass of a class with an attribute."
     (is 
-     (= {:results
-         '({:results [() () ()],
-            :summary
-            {:summaryMap
-             {:relationshipsCreated 2,
-              :containsUpdates true,
-              :nodesCreated 1,
-              :nodesDeleted 0,
-              :indexesRemoved 0,
-              :labelsRemoved 0,
-              :constraintsAdded 0,
-              :propertiesSet 5,
-              :labelsAdded 1,
-              :constraintsRemoved 0,
-              :indexesAdded 0,
-              :relationshipsDeleted 0},
-             :summaryString
-             "RelationshipsCreated :2 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}),
-         :summary
-         {:summaryMap
-          {:relationshipsCreated 2,
-           :containsUpdates true,
-           :nodesCreated 1,
-           :nodesDeleted 0,
-           :indexesRemoved 0,
-           :labelsRemoved 0,
-           :constraintsAdded 0,
-           :propertiesSet 5,
-           :labelsAdded 1,
-           :constraintsRemoved 0,
-           :indexesAdded 0,
-           :relationshipsDeleted 0},
-          :summaryString
-          "RelationshipsCreated :2 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}}
-        (createClass :className "rdb21" :classType "NODE" :isAbstract? true :subClassOf ["tdb23"] :properties {"tag" "test"}  :execute? true)
-        )
+     (= {:summaryMap
+         {:relationshipsCreated 2,
+          :containsUpdates true,
+          :nodesCreated 1,
+          :nodesDeleted 0,
+          :indexesRemoved 0,
+          :labelsRemoved 0,
+          :constraintsAdded 0,
+          :propertiesSet 5,
+          :labelsAdded 1,
+          :constraintsRemoved 0,
+          :indexesAdded 0,
+          :relationshipsDeleted 0},
+         :summaryString
+         "RelationshipsCreated :2 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :5 ;LabelsAdded :1 ;"}
+     ((createClass :className "rdb21" :classType "NODE" :isAbstract? true :subClassOf ["tdb23"] :properties {"tag" "test"}  :execute? true) :summary)
      )
     )
+  )
   
   (createCustomFunction :fnName "func" :fnString "(fn [value1 value2] (println value1))")
   (addClassCC :fnName "func" :atList ["small"] :constraintValue "none" :className "tdb23")
   
   (testing " Error in creating subclass of a class with a custom constraint."
     (is 
-     (= {:results
-         '({:results [() () () ()],
-            :summary
-            {:summaryMap
-             {:relationshipsCreated 3,
-              :containsUpdates true,
-              :nodesCreated 1,
-              :nodesDeleted 0,
-              :indexesRemoved 0,
-              :labelsRemoved 0,
-              :constraintsAdded 0,
-              :propertiesSet 7,
-              :labelsAdded 1,
-              :constraintsRemoved 0,
-              :indexesAdded 0,
-              :relationshipsDeleted 0},
-             :summaryString
-             "RelationshipsCreated :3 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}}),
-         :summary
-         {:summaryMap
-          {:relationshipsCreated 3,
-           :containsUpdates true,
-           :nodesCreated 1,
-           :nodesDeleted 0,
-           :indexesRemoved 0,
-           :labelsRemoved 0,
-           :constraintsAdded 0,
-           :propertiesSet 7,
-           :labelsAdded 1,
-           :constraintsRemoved 0,
-           :indexesAdded 0,
-           :relationshipsDeleted 0},
-          :summaryString
-          "RelationshipsCreated :3 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}}
-        (createClass :className "rdb23" :classType "NODE" :isAbstract? true :subClassOf ["tdb23"] :properties {"tag" "test"}  :execute? true)
+     (= {:summaryMap
+         {:relationshipsCreated 3,
+          :containsUpdates true,
+          :nodesCreated 1,
+          :nodesDeleted 0,
+          :indexesRemoved 0,
+          :labelsRemoved 0,
+          :constraintsAdded 0,
+          :propertiesSet 7,
+          :labelsAdded 1,
+          :constraintsRemoved 0,
+          :indexesAdded 0,
+          :relationshipsDeleted 0},
+         :summaryString
+         "RelationshipsCreated :3 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}
+        ((createClass :className "rdb23" :classType "NODE" :isAbstract? true :subClassOf ["tdb23"] :properties {"tag" "test"}  :execute? true) :summary)
         )
      )
     )
@@ -343,26 +261,7 @@
 
   (testing " Error in creating subclass of a class with a applicable relation types."
     (is 
-     (= {:results
-         '({:results [() () () () () ()],
-            :summary
-            {:summaryMap
-             {:relationshipsCreated 5,
-              :containsUpdates true,
-              :nodesCreated 1,
-              :nodesDeleted 0,
-              :indexesRemoved 0,
-              :labelsRemoved 0,
-              :constraintsAdded 0,
-              :propertiesSet 7,
-              :labelsAdded 1,
-              :constraintsRemoved 0,
-              :indexesAdded 0,
-              :relationshipsDeleted 0},
-             :summaryString
-             "RelationshipsCreated :5 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}}),
-         :summary
-         {:summaryMap
+     (= {:summaryMap
           {:relationshipsCreated 5,
            :containsUpdates true,
            :nodesCreated 1,
@@ -376,8 +275,8 @@
            :indexesAdded 0,
            :relationshipsDeleted 0},
           :summaryString
-          "RelationshipsCreated :5 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}}
-        (createClass :className "rdb24" :classType "NODE" :isAbstract? true :subClassOf ["tdb23"] :properties {"tag" "test"}  :execute? true)
+          "RelationshipsCreated :5 ;ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :7 ;LabelsAdded :1 ;"}
+        ((createClass :className "rdb24" :classType "NODE" :isAbstract? true :subClassOf ["tdb23"] :properties {"tag" "test"}  :execute? true) :summary)
         )
      )
     )

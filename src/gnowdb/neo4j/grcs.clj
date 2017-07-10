@@ -176,7 +176,7 @@
                                          :bkp? true))
       (shell/sh "mv"
                 (str (deriveFilePath :GDB_UUID GDB_UUID
-                                          :bkp? false) ",v")
+                                     :bkp? false) ",v")
                 (derivePath :GDB_UUID GDB_UUID :bkp? true)))
     nil))
 

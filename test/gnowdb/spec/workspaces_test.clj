@@ -48,6 +48,7 @@
     (is 
      (= #{"user1" "user2"}
       	(set 
+
          (getMemberList "group1")
          )
         )
@@ -57,6 +58,7 @@
   (testing "Error in adding member to a editable non-moderated group by an non-admin."
     (instantiatePersonalWorkspace :displayName "user3" :description "GDB_Test")
     (addMemberToGroup :newMemberName "user3" :groupName "group1" :adminName "user2")
+    (addMemberToGroup :newMemberName "user4" :groupName "group1" :adminName "user2")
     (is 
      (= #{"user1" "user2" "user3"}
       	(set 
@@ -66,9 +68,9 @@
      )
     )
 
-  (testing "Error in adding member to a editable non-moderated group by an non-admin."
+  (testing "Error in adding member to an editable non-moderated group by a non-admin."
     (is 
-     (= #{"user1"}
+     (= #{"user1" "user2"}
       	(set 
          (getAdminList "group1")
          )
@@ -85,7 +87,7 @@
         :summaryString "The user could not be granted Administrator permissions as it is not authorized by valid admin."
         }
        }
-      (addAdminToGroup :newAdminName "user3" :groupName "group1" :adminName "user2")
+      (addAdminToGroup :newAdminName "user3" :groupName "group1" :adminName "user4")
       )
      )
     )
@@ -126,10 +128,12 @@
      )
     )
 
+
   (testing "Error in setting group type of a group workspace."
+    (setGroupType :groupName "group1" :adminName "user1" :groupType "Private")
     (is 
      (= "Private"
-      	(setGroupType :groupName "group1" :adminName "user1" :groupType "Private")
+        (getGroupType "group1")
         )
      )
     )

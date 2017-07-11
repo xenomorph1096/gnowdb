@@ -634,6 +634,7 @@
     (if (.contains admins adminName)
       (gneo/deleteDetachNodes   :labels [resourceClass] 
                                 :parameters resourceIDMap
+                                :execute? true
                                 )
       (println "Given user is not an admin of the TRASH workspace.")  
       )

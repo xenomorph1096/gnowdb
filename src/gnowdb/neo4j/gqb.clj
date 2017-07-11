@@ -55,7 +55,6 @@
                                            (str " as "
                                                 (% 2)))) triplets)))))
 
-
 (defn createLabelString
   "Create a label string from a collection of label strings.
   :labels should be a map of strings.
@@ -181,12 +180,12 @@
          (every? string? editPropertyList)]}
   (if (not (empty? editPropertyList))
     (str " SET "
-       (clojure.string/join " ,"
-                            (map #(str varName "." %1 " = {" %2 "}")
-                                 (removeVectorStringSuffixes editPropertyList characteristicString)
-                                 editPropertyList)
-                            )
-       )
+         (clojure.string/join " ,"
+                              (map #(str varName "." %1 " = {" %2 "}")
+                                   (removeVectorStringSuffixes editPropertyList characteristicString)
+                                   editPropertyList)
+                              )
+         )
     "")
   )
 
@@ -202,14 +201,14 @@
   (if (empty? remPropertyList)
     " "
     (str "REMOVE "
-       (clojure.string/join ", "
-                            (vec (map #(str varName"."%1) 
-                                      remPropertyList
-                                      )	
-                                 )
-                            )
-       )
-  ))
+         (clojure.string/join ", "
+                              (vec (map #(str varName"."%1) 
+                                        remPropertyList
+                                        )	
+                                   )
+                              )
+         )
+    ))
 
 (defn createRenameString
   "Creates a property rename string.

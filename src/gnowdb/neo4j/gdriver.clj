@@ -241,7 +241,7 @@
         (.success transaction)
         finalResult
         )
-      (catch Throwable e (.failure transaction) (.printStackTrace e) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
+      (catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
       (finally (.close transaction) (.close session))
       )
     )

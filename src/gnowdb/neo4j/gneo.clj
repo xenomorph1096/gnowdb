@@ -9,7 +9,7 @@
             )
   (:use [gnowdb.neo4j.gqb]))
 
-(defn keys
+(defn keyss
   [map]
   (if (empty? map)
     []
@@ -17,7 +17,7 @@
 
 (defn getUUIDEnabled
   [details]
-  (def ^{:private true} uuidEnabled 
+  (def ^{:private true} uuidEnabled
     (details :uuidEnabled)
     )
   )

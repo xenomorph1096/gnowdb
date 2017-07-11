@@ -4,6 +4,8 @@
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.file-info :refer [wrap-file-info]]
             [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+            [ring.middleware.nested-params :refer [wrap-nested-params]]
             [ring.middleware.json :refer [wrap-json-params]]
             [ring.util.response :refer [response]]
             [ring.middleware.json :refer [wrap-json-response]]
@@ -31,18 +33,28 @@
 
 (def users
   "dummy in-memory user database."
-  {"root" {:username "root"
-           :password (creds/hash-bcrypt "admin_password")
-           :roles #{:admin}}
-   "jane" {:username "jane"
-           :password (creds/hash-bcrypt "user_password")
-           :roles #{:user}}})
+  
+  {
+    "a" {   :username "a"
+            :password (creds/hash-bcrypt "abc")
+            :roles #{:admin}
+        }
+   
+    "d" {   :username "d"
+            :password (creds/hash-bcrypt "def")
+            :roles #{:user}
+        }
+  }
+)
 
 
 (def app
   (-> (routes gneo-routes workspaces-routes files-routes app-routes)
       (handler/site)
       (wrap-json-params)
+      (wrap-params)
+      (wrap-keyword-params)
+      (wrap-nested-params)
       (auth/friend-middleware users)
    ))
 

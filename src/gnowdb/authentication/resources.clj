@@ -1,6 +1,8 @@
 (ns gnowdb.authentication.resources
+  
   "Helpful extensions to liberator."
-  (:require [cemerick.friend :as friend]
+  (:require [clojure.string :as s]
+            [cemerick.friend :as friend]
             [clojure.data.json :as json]
             [compojure.route :as route]
             [liberator.conneg :as conneg]
@@ -166,7 +168,6 @@
     (assoc m :default response)
     m))
 
-;; ## The Good Stuff
 
 (def base-resource
   "Base for all resources.
@@ -190,7 +191,8 @@
           (with-default "text/plain")
           (media-typed base))}))
 
-;; ## Friend Integration
+
+;; ## Friend Integration With Liberator
 
 (defn roles
   "Returns an authorization function that checks if the authenticated

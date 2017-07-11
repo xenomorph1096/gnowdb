@@ -2369,7 +2369,6 @@
                                                                                                                     :varName "node"
                                                                                                                     :renameMap {_name (editChanges "_name")})
                                                                                          (createReturnString ["node" "UUID" "UUID"]))
-                                                                             
                                                                              :doRCS? true
                                                                              :rcs-vars ["UUID"]
                                                                              :parameters {}}])
@@ -3113,7 +3112,6 @@
       (throw (Exception. (str className " is Abstract")))
       )
     )
-  
   (if (not (empty? instList))
     (let [propertyErrors (validatePropertyMaps :className className
                                                :propertyMapList instList

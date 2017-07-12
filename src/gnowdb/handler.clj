@@ -17,6 +17,7 @@
             [gnowdb.routes.gneo :refer [gneo-routes]]
             [gnowdb.routes.workspaces :refer [workspaces-routes]]
             [gnowdb.routes.files :refer [files-routes]]
+            [gnowdb.routes.login :refer [login-routes]]
 
             [gnowdb.users :as users :refer (users)]
             
@@ -41,7 +42,7 @@
 
 
 (def app
-  (-> (routes gneo-routes workspaces-routes files-routes app-routes)  
+  (-> (routes gneo-routes workspaces-routes files-routes login-routes app-routes)  
       
       (friend/authenticate {:credential-fn (partial creds/bcrypt-credential-fn @users)
                             :workflows [(workflows/interactive-form)]

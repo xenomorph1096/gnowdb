@@ -99,35 +99,29 @@
            :queriesList []}}]
   {:pre [(= (count (finalResult :results))
             (count queriesList))]}
-  (reduce
-   (fn [RCSUUIDListMap res]
-     (let [count (RCSUUIDListMap :count)
-           RCSUUIDList (RCSUUIDListMap :RCSUUIDList)
-           qL ((vec queriesList) count)
-           rcs-vars (qL :rcs-vars)
-           labels (qL :labels)
-           doRCS? (qL :doRCS?)
-           rcs-bkp? (qL :rcs-bkp?)]
-       (update (update (if doRCS?
-                         (assoc RCSUUIDListMap
-                                :RCSUUIDList (conj RCSUUIDList
-                                                   (reduce (fn [UUIDListMap r]
-                                                             (assoc UUIDListMap
-                                                                    :UUIDList (map #(r %) ;; pmap is needed here, as if 1000 nodes are changed, pmap will be faster. pmap might slow things down if there are a low number of nodes affected. TODO : get optimized threshold to make the decision between pmap and map
-                                                                                   rcs-vars)))
-                                                           {:UUIDList []
-                                                            :labels labels
-                                                            :doRCS? doRCS?} res)))
-                         (if rcs-bkp?
-                           (update RCSUUIDListMap
-                                   :RCSBkpList concat (pmap #(map (fn [rv] (% rv)) rcs-vars) res))
-                           RCSUUIDListMap)
-                         ) :count inc)
-               :RCSBkpList #(flatten %))))
-   {:count 0
-    :RCSUUIDList []
-    :RCSBkpList []}
-   (finalResult :results)))
+  {:RCSUUIDList (filter identity
+                        (map (fn [query
+                                  result]
+                               (if (= true
+                                      (query :doRCS?))
+                                 {:UUIDList (reduce concat (pmap #(map (fn [rvar]
+                                                                         (% rvar))
+                                                                       (query :rcs-vars))
+                                                                 result))
+                                  :labels (query :labels)
+                                  :doRCS? true}))
+                             queriesList
+                             (finalResult :results)))
+   :RCSBkpList (filter identity
+                       (flatten (map (fn [query
+                                          result]
+                                       (if (query :rcs-bkp?)
+                                         (pmap #(map (fn [rvar]
+                                                       (% rvar))
+                                                     (query :rcs-vars))
+                                               result)))
+                                     queriesList
+                                     (finalResult :results))))})
 
 (defn reduceRCSUUIDListMap
   "Groups UUIDs based on labels.

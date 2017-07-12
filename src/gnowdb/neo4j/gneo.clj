@@ -485,6 +485,7 @@
                     :doRCS? true
                     :rcs-vars ["UUID"]
                     :parameters (merge mPM tPME)
+                    :labels labels
                     }
         ]
     (if

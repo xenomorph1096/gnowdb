@@ -135,6 +135,16 @@
 			)
   	)
 	)
+  (testing "instantiating group workspace with a pre-existing name"
+    (is (= "WorkspaceNameException:Workspace with name user already exists."
+          (try 
+            (instantiateGroupWorkspace :displayName "user1" :description "GDB_Test")
+            (catch Exception e (.getMessage e))
+          )
+        )
+    )
+
+  )
 
 	(deleteDetachNodes :label "GDB_GroupWorkspace" :parameters {"GDB_Description" "GDB_Test"})
 	(deleteDetachNodes :label "GDB_PersonalWorkspace" :parameters {"GDB_Description" "GDB_Test"})
@@ -166,6 +176,16 @@
 			)
 		)
 	)
+  (testing "instantiating personal workspace with a pre-existing name"
+    (is (= "WorkspaceNameException:Workspace with name user already exists."
+          (try 
+            (instantiatePersonalWorkspace :displayName "user" :memberOfGroup "Gnowledge" :createdBy "user2" :description "GDB_Test")
+            (catch Exception e (.getMessage e))
+          )
+        )
+    )
+
+  )
 		
 	(deleteDetachNodes :label "GDB_PersonalWorkspace" :parameters {"GDB_Description" "GDB_Test"})		
 )

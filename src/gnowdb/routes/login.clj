@@ -24,6 +24,8 @@
 
 (defroutes login-routes
 
+  (GET "/api" req "WELCOME TO GNOWDB API")
+
    (GET "/login" req
     (h/html5 misc/pretty-head (misc/pretty-body login-form)))
 

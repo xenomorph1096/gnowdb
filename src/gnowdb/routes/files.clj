@@ -13,8 +13,6 @@
 
    (context "/api" [] 
 
-    (GET "/" request "<h1>WELCOME TO GNOWDB API<h1>")
-
     (GET "/getDataDirectory" request (friend/authorize #{::users/user} 
                                       (get-Data-Directory request)))
 

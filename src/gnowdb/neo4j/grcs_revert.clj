@@ -3,7 +3,8 @@
   (:require [gnowdb.neo4j.grcs :as grcs :only [rcsExists?
                                                getLatest
                                                co-p
-                                               revList]]
+                                               revList
+                                               restoreNode]]
             [gnowdb.neo4j.gneo :as gneo :only [revertNode
                                                revertRelation
                                                deleteRelation
@@ -13,6 +14,7 @@
 
 (defn revertNode
   "Revert a node to an older revision.
+  Node should exist in the DB. 
   :UUID should be UUID of the node
   :rev should be a string, rcs revision number
   :latestRevision should be the NBH of the node in question, as returned by gdriver/getNBH, or optionally fetched using grcs/getLatest.
@@ -30,6 +32,7 @@
   {:pre [(or getLatest?
              getNBH?
              latestRevision)
+         (grcs/rcsExists? :GDB_UUID UUID)
          ;; TODO : uncomment this line after a proper regex pattern for rcs revision numbers is established
          (contains? (grcs/revList :GDB_UUID UUID) rev)
          ]}
@@ -99,3 +102,29 @@
         (if execute?
           (apply gdriver/runQuery queriesList)
           queriesList)))))
+
+(defn restoreNode
+  "Restore a node that was deleted from neo4j.
+  RCS file should be already moved to :rcs-directory before this is done, using grcs/restoreNode"
+  [& {:keys [:UUID
+             :rev
+             :execute?]
+      :or {:execute? false}}]
+  (let [targetRevision (read-string (grcs/co-p :GDB_UUID UUID
+                                               :rev rev))
+        queriesList (concat [(gneo/createNewNode :uuid? false
+                                                 :labels ((targetRevision :node) :labels)
+                                                 :parameters ((targetRevision :node) :properties)
+                                                 :unique? true
+                                                 :execute? false)]
+                            (map #(gneo/mergeRelation :fromNodeLabels []
+                                                      :toNodeLabels []
+                                                      :fromNodeParameters {"UUID" (% "fromUUID")}
+                                                      :toNodeParameters {"UUID" (% "toUUID")}
+                                                      :relationshipType ((% "relation") :labels)
+                                                      :relationshipParameters ((% "relation") :properties)
+                                                      :execute? false)
+                                 (targetRevision :inRelations)))]
+    (if execute?
+      (apply gdriver/runQuery queriesList)
+      queriesList)))

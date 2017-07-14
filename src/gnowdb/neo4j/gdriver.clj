@@ -3,6 +3,7 @@
   (:require [clojure.set :as clojure.set]
             [clojure.java.io :as io]
             [clojure.string :as clojure.string]
+            [gnowdb.neo4j.grcs :as grcs :only [backupNode]]
             [gnowdb.neo4j.grcs_locks :as grcs_locks :only [queueUUIDs]])
   (:use [gnowdb.neo4j.gqb]))
 
@@ -98,30 +99,29 @@
            :queriesList []}}]
   {:pre [(= (count (finalResult :results))
             (count queriesList))]}
-  (reduce
-   (fn [RCSUUIDListMap res]
-     (let [count (RCSUUIDListMap :count)
-           RCSUUIDList (RCSUUIDListMap :RCSUUIDList)
-           qL ((vec queriesList) count)
-           rcs-vars (qL :rcs-vars)
-           labels (qL :labels)
-           doRCS? (qL :doRCS?)]
-       (if doRCS?
-         (assoc RCSUUIDListMap
-                :RCSUUIDList (conj RCSUUIDList
-                                   (reduce (fn [UUIDListMap r]
-                                             (assoc UUIDListMap
-                                                    :UUIDList (pmap #(r %) ;; pmap is needed here, as if 1000 nodes are changed, pmap will be faster. pmap might slow things down if there are a low number of nodes affected. TODO : get optimized threshold to make the decision between pmap and map
-                                                                    rcs-vars)))
-                                           {:UUIDList []
-                                            :labels labels
-                                            :doRCS? doRCS?} res))
-                :count (inc count))
-         RCSUUIDListMap
-         )))
-   {:count 0
-    :RCSUUIDList []}
-   (finalResult :results)))
+  {:RCSUUIDList (filter identity
+                        (map (fn [query
+                                  result]
+                               (if (= true
+                                      (query :doRCS?))
+                                 {:UUIDList (reduce concat (pmap #(map (fn [rvar]
+                                                                         (% rvar))
+                                                                       (query :rcs-vars))
+                                                                 result))
+                                  :labels (query :labels)
+                                  :doRCS? true}))
+                             queriesList
+                             (finalResult :results)))
+   :RCSBkpList (filter identity
+                       (flatten (map (fn [query
+                                          result]
+                                       (if (query :rcs-bkp?)
+                                         (pmap #(map (fn [rvar]
+                                                       (% rvar))
+                                                     (query :rcs-vars))
+                                               result)))
+                                     queriesList
+                                     (finalResult :results))))})
 
 (defn reduceRCSUUIDListMap
   "Groups UUIDs based on labels.
@@ -171,8 +171,9 @@
   [& {:keys [:finalResult
              :queriesList
              :tx]}]
-  (let [RCSUUIDListMap (reduceRCSUUIDListMap :RCSUUIDListMap (getRCSUUIDListMap :finalResult finalResult
-                                                                                :queriesList queriesList))]
+  (let [ruuidlistm (getRCSUUIDListMap :finalResult finalResult
+                                      :queriesList queriesList)
+        RCSUUIDListMap (reduceRCSUUIDListMap :RCSUUIDListMap ruuidlistm)]
     (doall (map (fn [umap]
                   (if (umap :doRCS?)
                     (grcs_locks/queueUUIDs :UUIDList (umap :UUIDList)
@@ -180,7 +181,8 @@
                                                          :UUIDList (umap :UUIDList)
                                                          :tx tx)
                                            :labels (umap :labels))))
-                (RCSUUIDListMap :RCSUUIDList)))))
+                (RCSUUIDListMap :RCSUUIDList)))
+    (doall (pmap #(grcs/backupNode :GDB_UUID %) (ruuidlistm :RCSBkpList)))))
 
 (defn pList
   [stList]
@@ -233,7 +235,7 @@
         (.success transaction)
         finalResult
         )
-      (catch Throwable e (.failure transaction) (.printStackTrace e) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
+      (catch Throwable e (.failure transaction) {:results [] :summary {:summaryMap {} :summaryString (.toString e)}})
       (finally (.close transaction) (.close session))
       )
     )

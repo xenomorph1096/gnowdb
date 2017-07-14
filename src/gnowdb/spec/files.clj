@@ -175,6 +175,7 @@
   (
    gneo/deleteDetachNodes 	:labels ["GDB_File"] 
    :parameters {"GDB_MD5" GDB_MD5}
+   :execute? true
    )
   )
 

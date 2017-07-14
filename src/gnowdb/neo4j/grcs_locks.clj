@@ -4,7 +4,7 @@
 
 (def ^{:private true} var-prefix "VAR-")
 
-(defn- concatVar
+(defn concatVar
   [& {:keys [:UUID]}]
   {:pre [(string? UUID)]}
   (str var-prefix UUID))
@@ -13,14 +13,14 @@
   [& {:keys [:UUID]}]
   (ns-resolve 'gnowdb.neo4j.grcs_locks (symbol (concatVar :UUID UUID))))
 
-(defn- createVar
+(defn createVar
   [& {:keys [:UUID
              :value]}]
   (intern 'gnowdb.neo4j.grcs_locks (symbol (concatVar :UUID UUID)) value))
 
 (def cvLock (atom nil))
 
-(defn- initVars
+(defn initVars
   [& {:keys [:UUIDList]
       :or [:UUIDList []]}]
   {:pre [(coll? UUIDList)]}
@@ -38,7 +38,7 @@
 
 (def fvLock (atom nil))
 
-(defn- finalizeVars
+(defn finalizeVars
   [& {:keys [:UUIDList]
       :or [:UUIDList []]}]
   {:pre [(coll? UUIDList)]}

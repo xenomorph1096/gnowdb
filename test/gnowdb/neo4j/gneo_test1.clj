@@ -1,11 +1,10 @@
 (ns gnowdb.neo4j.gneo_test1
   (:require [clojure.test :refer :all]
-              [gnowdb.neo4j.gneo :refer :all]
+            [gnowdb.neo4j.gneo :refer :all]
             [gnowdb.neo4j.gdriver :refer :all]
-
-  
+            [gnowdb.neo4j.gqb :refer :all]
             )
-)
+  )
 
 (deftest deleteRelations-test
 
@@ -103,53 +102,48 @@
   
             )
 )
-(deftest createAttributeType-test
-    (testing "Creating a node  without qualifiers"
-        (is (= {:results [()],
- :summary
- {:summaryMap
-  {:relationshipsCreated 0,
-   :containsUpdates true,
-   :nodesCreated 1,
-   :nodesDeleted 0,
-   :indexesRemoved 0,
-   :labelsRemoved 0,
-   :constraintsAdded 0,
-   :propertiesSet 6,
-   :labelsAdded 1,
-   :constraintsRemoved 0,
-   :indexesAdded 0,
-   :relationshipsDeleted 0},
-  :summaryString
-  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :6 ;LabelsAdded :1 ;"}}
- (createAttributeType :_name "t_db1" :_datatype "java.lang.Boolean")
-            )
-        )
 
+(deftest createAttributeType-test
+  (testing "Creating a node  without qualifiers"
+    (is (= {:summaryMap
+            {:relationshipsCreated 0,
+             :containsUpdates true,
+             :nodesCreated 1,
+             :nodesDeleted 0,
+             :indexesRemoved 0,
+             :labelsRemoved 0,
+             :constraintsAdded 0,
+             :propertiesSet 6,
+             :labelsAdded 1,
+             :constraintsRemoved 0,
+             :indexesAdded 0,
+             :relationshipsDeleted 0},
+            :summaryString
+            "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :6 ;LabelsAdded :1 ;"}
+           ((createAttributeType :_name "t_db1" :_datatype "java.lang.Boolean") :summary)
+           )
+        )
     )
 
-    (testing "Creating a node with qualifiers"
-        (is (= {:results [()],
- :summary
- {:summaryMap
-  {:relationshipsCreated 0,
-   :containsUpdates true,
-   :nodesCreated 1,
-   :nodesDeleted 0,
-   :indexesRemoved 0,
-   :labelsRemoved 0,
-   :constraintsAdded 0,
-   :propertiesSet 6,
-   :labelsAdded 1,
-   :constraintsRemoved 0,
-   :indexesAdded 0,
-   :relationshipsDeleted 0},
-  :summaryString
-  "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :6 ;LabelsAdded :1 ;"}} 
-  (createAttributeType :_name "t_db2" :_datatype "java.lang.Boolean" :subjectQualifier `("t_db2" "t_db3") :attributeQualifier `("t_db4" "t_db5") :valueQualifier `("t_db6" "t_db7") :execute? true)
-            )
+  (testing "Creating a node with qualifiers"
+    (is (= {:summaryMap
+            {:relationshipsCreated 0,
+             :containsUpdates true,
+             :nodesCreated 1,
+             :nodesDeleted 0,
+             :indexesRemoved 0,
+             :labelsRemoved 0,
+             :constraintsAdded 0,
+             :propertiesSet 6,
+             :labelsAdded 1,
+             :constraintsRemoved 0,
+             :indexesAdded 0,
+             :relationshipsDeleted 0},
+            :summaryString
+            "ContainsUpdates :true ;NodesCreated :1 ;PropertiesSet :6 ;LabelsAdded :1 ;"}
+           ((createAttributeType :_name "t_db2" :_datatype "java.lang.Boolean" :subjectQualifier `("t_db2" "t_db3") :attributeQualifier `("t_db4" "t_db5") :valueQualifier `("t_db6" "t_db7") :execute? true) :summary)
+           )
         )
-
     )
 
 

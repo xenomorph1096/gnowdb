@@ -9,7 +9,7 @@
             )
   (:use [gnowdb.neo4j.gqb]))
 
-(defn keys
+(defn keyss
   [map]
   (if (empty? map)
     []
@@ -17,7 +17,7 @@
 
 (defn getUUIDEnabled
   [details]
-  (def ^{:private true} uuidEnabled 
+  (def ^{:private true} uuidEnabled
     (details :uuidEnabled)
     )
   )
@@ -377,14 +377,17 @@
              :parameters
              :execute?]
       :or {:labels []
-           :execute? true
+           :execute? false
            :parameters {}}
       }
    ]
   (let [builtQuery {:query (str "MATCH (node"(createLabelString :labels labels)" "
                                 (createParameterPropertyString parameters)
-                                " ) DELETE node")
-                    :parameters parameters}
+                                " ) WITH node, node.UUID AS UUID DELETE node"
+                                " RETURN UUID")
+                    :parameters parameters
+                    :rcs-vars ["UUID"]
+                    :rcs-bkp? true}
         ]
     (if
         execute?
@@ -400,7 +403,7 @@
              :parameters
              :execute?]
       :or {:labels []
-           :execute? true
+           :execute? false
            :parameters {}}
       }
    ]
@@ -482,6 +485,7 @@
                     :doRCS? true
                     :rcs-vars ["UUID"]
                     :parameters (merge mPM tPME)
+                    :labels labels
                     }
         ]
     (if
@@ -2366,7 +2370,6 @@
                                                                                                                     :varName "node"
                                                                                                                     :renameMap {_name (editChanges "_name")})
                                                                                          (createReturnString ["node" "UUID" "UUID"]))
-                                                                             
                                                                              :doRCS? true
                                                                              :rcs-vars ["UUID"]
                                                                              :parameters {}}])
@@ -3110,7 +3113,6 @@
       (throw (Exception. (str className " is Abstract")))
       )
     )
-  
   (if (not (empty? instList))
     (let [propertyErrors (validatePropertyMaps :className className
                                                :propertyMapList instList

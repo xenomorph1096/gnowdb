@@ -358,8 +358,8 @@
   "
   [& {:keys [groupName adminName editingPolicy]}]
   (if (.contains (getAdminList groupName) adminName)
-    (gneo/editNodeProperties :labels ["GDB_GroupWorkspace"] :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_GroupType" editingPolicy})
-    )
+    (gneo/editNodeProperties :label "GDB_GroupWorkspace" :parameters {"GDB_DisplayName" groupName} :changeMap {"GDB_EditingPolicy" editingPolicy})
+  )
   nil
   )
 
@@ -634,6 +634,7 @@
     (if (.contains admins adminName)
       (gneo/deleteDetachNodes   :labels [resourceClass] 
                                 :parameters resourceIDMap
+                                :execute? true
                                 )
       (println "Given user is not an admin of the TRASH workspace.")  
       )

@@ -958,6 +958,10 @@
                             {:query
                              (str CD " CONSTRAINT ON " (queryBuilder %))
                              :parameters {}
+                             :schema-changed? true
+                             :override-nochange (if (= "NODEKEY" constraintType)
+                                                  true;; As neo4j returns containsUpdates false for nodekey constraints
+                                                  false)
                              }
                             ) propertyVec)
         ]

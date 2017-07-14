@@ -3,13 +3,15 @@
   (:require [clojure.set :as clojure.set]
             [clojure.java.io :as io]
             [clojure.string :as clojure.string]
-            [gnowdb.neo4j.grcs :as grcs :only [backupNode]]
+            [gnowdb.neo4j.grcs :as grcs :only [backupNode
+                                               revisionSchema]]
             [gnowdb.neo4j.grcs_locks :as grcs_locks :only [queueUUIDs]])
   (:use [gnowdb.neo4j.gqb]))
 
 (import '[org.neo4j.driver.v1 Driver AuthTokens GraphDatabase Record Session StatementResult Transaction Values])
 
-(declare getNBH)
+(declare getNBH
+         getSchema)
 
 (defn getNeo4jDBDetails
   [details]
@@ -207,8 +209,7 @@
 	Output Format: {:results [(result 1) (result 2) .....] :summary <Summary Map>}
 	In case of failure, {:results [] :summary <default full summary>}"
   [& queriesList]
-  (let [
-        session (.session driver)
+  (let [session (.session driver)
         transaction (.beginTransaction session)
         ]
     (try
@@ -225,13 +226,22 @@
                           )
                         {:results [] :summary (getCombinedFullSummary [])}
                         queriesList
-                        )]
+                        )
+           schemaQueries (filter #(= true (% :schema-changed?)) queriesList)]
         (if
             (and (((finalResult :summary) :summaryMap) :containsUpdates)
                  rcsEnabled?)
           (doRCS :finalResult finalResult
                  :queriesList queriesList
-                 :tx transaction))
+                 :tx transaction)
+          (if (and rcsEnabled?
+                   (not (empty? schemaQueries))
+                   (or (((finalResult :summary) :summaryMap) :containsUpdates)
+                       (not (empty? (filter #(= true (% :override-nochange))
+                                            schemaQueries)))))
+            (grcs/revisionSchema (getSchema))
+            )
+          )
         (.success transaction)
         finalResult
         )
@@ -326,3 +336,30 @@
             (reduce #(merge %1 {(%2 0) {:node (assoc (%2 1) :labels (into #{} ((%2 1) :labels)))
                                         :inRelations (nodeNBHs (%2 0))}})
                     {} nodesMatched))))
+
+(defn fixConstraintQueries
+  [constraints]
+  (map #(let [splitS (clojure.string/split (% "description") #" ")
+              str (first (take-last 4 splitS))]
+          (if (and (= ["IS" "NODE" "KEY"]
+                      (take-last 3 splitS))
+                   (not (clojure.string/includes? str ")")))
+            (assoc % "description"
+                   (clojure.string/join " "
+                                        (concat (take (- (count splitS) 4)
+                                                      splitS)
+                                                ["(" str ")"]
+                                                (take-last 3 splitS))))
+            %))
+       constraints))
+
+(defn getSchema
+  "Get constraints and indexes in neo4j."
+  []
+  (let [constraints (first ((runQuery {:query "CALL db.constraints()"
+                                       :parameters {}}) :results))
+        indexes (first ((runQuery {:query "CALL db.indexes()"
+                                   :parameters {}}) :results))]
+    (println "GETSCHEMA")
+    {:constraints (fixConstraintQueries constraints)
+     :indexes indexes}))

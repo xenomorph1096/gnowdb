@@ -233,15 +233,13 @@
                  rcsEnabled?)
           (doRCS :finalResult finalResult
                  :queriesList queriesList
-                 :tx transaction)
-          (if (and rcsEnabled?
-                   (not (empty? schemaQueries))
-                   (or (((finalResult :summary) :summaryMap) :containsUpdates)
-                       (not (empty? (filter #(= true (% :override-nochange))
-                                            schemaQueries)))))
-            (grcs/revisionSchema (getSchema))
-            )
-          )
+                 :tx transaction))
+        (if (and rcsEnabled?
+                 (not (empty? schemaQueries))
+                 (or (((finalResult :summary) :summaryMap) :containsUpdates)
+                     (not (empty? (filter #(= true (% :override-nochange))
+                                          schemaQueries)))))
+          (grcs/revisionSchema (getSchema :tx transaction)))
         (.success transaction)
         finalResult
         )
@@ -355,11 +353,19 @@
 
 (defn getSchema
   "Get constraints and indexes in neo4j."
-  []
-  (let [constraints (first ((runQuery {:query "CALL db.constraints()"
-                                       :parameters {}}) :results))
-        indexes (first ((runQuery {:query "CALL db.indexes()"
-                                   :parameters {}}) :results))]
-    (println "GETSCHEMA")
-    {:constraints (fixConstraintQueries constraints)
-     :indexes indexes}))
+  [& {:keys [:tx]
+      :or {:tx nil}}]
+  (let [constraintQ {:query "CALL db.constraints()"
+                     :parameters {}}
+        indexQ {:query "CALL db.indexes()"
+                :parameters {}}]
+    {:constraints (into #{} (fixConstraintQueries (if (nil? tx)
+                                                    (first ((runQuery constraintQ) :results))
+                                                    (sQ tx
+                                                        (constraintQ :query)
+                                                        (constraintQ :parameters)))))
+     :indexes (into #{} (if (nil? tx)
+                          (first ((runQuery indexQ) :results))
+                          (sQ tx
+                              (indexQ :query)
+                              (indexQ :parameters))))}))

@@ -1,15 +1,21 @@
 (ns gnowdb.neo4j.grcs_revert
   (:gen-class)
   (:require [gnowdb.neo4j.grcs :as grcs :only [rcsExists?
+                                               rcs-sc-Exists?
                                                getLatest
+                                               getLatest-sc
                                                co-p
+                                               co-p-sc
                                                revList
-                                               restoreNode]]
+                                               revList-sc
+                                               restoreNode
+                                               ]]
             [gnowdb.neo4j.gneo :as gneo :only [revertNode
                                                revertRelation
                                                deleteRelation
                                                mergeRelation]]
-            [gnowdb.neo4j.gdriver :as gdriver :only [getNBH]]
+            [gnowdb.neo4j.gdriver :as gdriver :only [getNBH
+                                                     getSchema]]
             [gnowdb.neo4j.gqb :as gqb]))
 
 (defn revertNode
@@ -128,3 +134,43 @@
     (if execute?
       (apply gdriver/runQuery queriesList)
       queriesList)))
+
+(defn createConstraintQueries
+  ""
+  [CD constraints]
+  (pmap #(-> {:query (str CD" "(% "description"))
+              :parameters {}
+              :schema-changed? true
+              :override-nochange true})
+        constraints))
+
+(defn revertSchema
+  "Revert neo4j schema to older revision"
+  [& {:keys [:rev
+             :getLatest?
+             :getSchema?
+             :execute?]
+      :or {:getLatest? false
+           :getSchema? false
+           :execute? false}}]
+  {:pre [(or getLatest?
+             getSchema?)
+         (grcs/rcs-sc-Exists?)
+         (contains? (grcs/revList-sc) rev)]}
+  (let [oldRevision (read-string (grcs/co-p-sc :rev rev))
+        latestRevision (if getLatest?
+                         (read-string (grcs/getLatest-sc))
+                         (gdriver/getSchema))
+        oldConstraints (oldRevision :constraints)
+        latestConstraints (latestRevision :constraints)
+        remConstraints (createConstraintQueries "DROP"
+                                                (clojure.set/difference latestConstraints
+                                                                        oldConstraints))
+        addConstraints (createConstraintQueries "CREATE"
+                                                (clojure.set/difference oldConstraints
+                                                                        latestConstraints))
+        constraintQueries (concat remConstraints
+                                  addConstraints)]
+    (if execute?
+      (apply gdriver/runQuery constraintQueries)
+      constraintQueries)))

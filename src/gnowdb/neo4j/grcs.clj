@@ -173,6 +173,13 @@
             (derivePath :GDB_UUID GDB_UUID)
             rev))
 
+(defn co-p-sc
+  [& {:keys [:rev]
+      :or {:rev ""}}]
+  (rcs-co-p neo4j-schema-filename
+            (rcsConfig :rcs-directory)
+            rev))
+
 (defn rcsExists?
   "Returns whether rcs file exists for UUID"
   [& {:keys [:GDB_UUID
@@ -211,15 +218,14 @@
 (defn rlog-sc
   []
   (rcs-rlog neo4j-schema-filename
-            :dir (rcsConfig :rcs-directory)))
+            (rcsConfig :rcs-directory)))
 
 (defn revList-rcs
   [rlg]
   (into #{} (distinct 
              (map #((clojure.string/split % #"revision ") 1)
                   (re-seq #"revision [1-9]+\.[1-9]+"
-                          (rlg :out)))
-             '())))
+                          (rlg :out))))))
 
 (defn revList
   "Get revision List for a UUID"
@@ -300,7 +306,6 @@
 (defn revisionSchema
   [newSchema]
   {:pre [(map? newSchema)]}
-  (println newSchema)
   (let [newContent (with-out-str (clojure.pprint/pprint newSchema))]
     (if (rcs-sc-Exists?)
       (do 

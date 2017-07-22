@@ -141,23 +141,28 @@
           (rcsConfig :rcs-directory)
           edit-comment))
 
-(defn- rcs-co-p
-  "Display version x.y of a file
-  co -px.y filename"
-  [filename
-   dir
-   rev]
+(defn rcs-co-p
+  "Display version x.y of a file, or latest revision on or before :date
+  Refer man page of co for info about date and revision number
+  co -px.y filename
+  co -p -dDATE filename"
+  [& {:keys [:filename
+             :dir
+             :rev
+             :date]
+      :or {:rev ""
+           :date ""}}]
   {:pre [(every? string? [filename
                           dir])
          (or (= "" rev)
              (isRevision? rev))]}
   (let [args-r ["co"
-                (str "-r"rev)
+                (if (= "" date)
+                  (str "-r"rev)
+                  (str "-d"date))
                 "-p" filename
                 :dir dir]
-        result (apply shell/sh (if (= "" rev)
-                                 (concat (subvec args-r 0 1) (subvec args-r 2))
-                                 args-r))
+        result (apply shell/sh args-r)
         ]
     (if (= (:exit result) 0)
       (:out result)
@@ -165,20 +170,26 @@
 
 (defn co-p
   [& {:keys [:GDB_UUID
-             :rev]
-      :or {:rev ""}}]
+             :rev
+             :date]
+      :or {:rev ""
+           :date ""}}]
   {:pre [(string? GDB_UUID)]
    }
-  (rcs-co-p GDB_UUID
-            (derivePath :GDB_UUID GDB_UUID)
-            rev))
+  (rcs-co-p :filename GDB_UUID
+            :dir (derivePath :GDB_UUID GDB_UUID)
+            :rev rev
+            :date date))
 
 (defn co-p-sc
-  [& {:keys [:rev]
-      :or {:rev ""}}]
-  (rcs-co-p neo4j-schema-filename
-            (rcsConfig :rcs-directory)
-            rev))
+  [& {:keys [:rev
+             :date]
+      :or {:rev ""
+           :date ""}}]
+  (rcs-co-p :filename neo4j-schema-filename
+            :dir (rcsConfig :rcs-directory)
+            :rev rev
+            :date date))
 
 (defn rcsExists?
   "Returns whether rcs file exists for UUID"
@@ -199,9 +210,8 @@
 
 (defn getLatest-sc
   []
-  (rcs-co-p neo4j-schema-filename
-            (rcsConfig :rcs-directory)
-            ""))
+  (rcs-co-p :filename neo4j-schema-filename
+            :dir (rcsConfig :rcs-directory)))
 
 (defn rcs-rlog
   [filename

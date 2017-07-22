@@ -1,0 +1,114 @@
+The GnowDB features are exposed via REST API
+
+To set up the server on your system and use the GnowDB features, follow the steps:
+
+Clone the directory gnowdb on your system
+
+Go to the directory 'gnowdb'
+
+Type 'lein ring server' on the command line to start the server.
+
+The server will start on 'localhost:xxxx' where xxxx is the port number
+
+Go to 'localhost:xxxx/login' to login either as a user or an admin. There are certain features which only need to identify the username and password  supplied in the POST request, whereas certain features require authorization as a 'user' or an 'admin'.
+
+To use the api through command line, we make use of curl. Here is a sample curl command to login:
+
+curl -H "Content-Type: application/json" -X POST -d '{"username":"a","password":"abc"}' --cookie-jar ./cookies.txt localhost:3000/login -i
+
+This will return:
+
+HTTP/1.1 303 See Other
+Date: Wed, 12 Jul 2017 17:51:16 GMT
+Location: /api
+Set-Cookie: ring-session=ba99d3f6-b0e5-4b68-96a2-0a77e8eea404;Path=/;HttpOnly
+Content-Length: 0
+Server: Jetty(7.6.8.v20121106)
+
+The login form expects POSTing a map with keys :username and :password as shown. --cookie-jar will help in storing the session as a cookie in cookies.txt. 
+
+'Location: /api' in the response means it's redirecting you to the welcome page of gnowdb api.
+
+You can check by typing:
+
+curl -X GET localhost:3000/api  -i
+
+Response:
+
+HTTP/1.1 200 OK
+Date: Wed, 12 Jul 2017 17:54:03 GMT
+Content-Type: text/html;charset=UTF-8
+Content-Length: 21
+Server: Jetty(7.6.8.v20121106)
+
+WELCOME TO GNOWDB API
+
+
+Now, you can test whether you are a user or an admin using the sample uri's provided as below:
+
+curl -X GET --cookie ./cookies.txt localhost:3000/role-user  -i
+
+Response:
+
+HTTP/1.1 200 OK
+Date: Wed, 12 Jul 2017 17:55:46 GMT
+Content-Type: text/html;charset=UTF-8
+Content-Length: 14
+Server: Jetty(7.6.8.v20121106)
+
+You're a user!
+
+curl -X GET --cookie ./cookies.txt localhost:3000/role-admin  -i
+
+Response:
+
+HTTP/1.1 403 Forbidden
+Date: Wed, 12 Jul 2017 17:56:38 GMT
+Content-Length: 47
+Server: Jetty(7.6.8.v20121106)
+
+Sorry, you do not have access to this resource.
+
+The below url is to check if you are authenticated or not, and doesn't put restriction on your role. 
+
+curl -X GET --cookie ./cookies.txt localhost:3000/requires-authentication  -i
+
+Response:
+
+HTTP/1.1 200 OK
+Date: Wed, 12 Jul 2017 17:57:26 GMT
+Content-Type: text/html;charset=UTF-8
+Content-Length: 26
+Server: Jetty(7.6.8.v20121106)
+
+Thanks for authenticating!
+
+Now, you can access the GnowDB functions as per the access given to you as a user or an admin.
+
+You can logout as:
+
+HTTP/1.1 302 Found
+Date: Wed, 12 Jul 2017 18:00:00 GMT
+Location: /api
+Content-Length: 0
+Server: Jetty(7.6.8.v20121106)
+
+This is redirectiong the user to the welcome page for the api : localhost:3000/api
+
+Now if you try to authenticate or authorize it will redirect you to the login page until you start a new ring login session
+
+curl -X GET --cookie ./cookies.txt localhost:3000/requires-authentication  -i
+
+Response:
+
+HTTP/1.1 302 Found
+Date: Wed, 12 Jul 2017 18:01:32 GMT
+Location: http://localhost:3000/login
+Content-Length: 0
+Server: Jetty(7.6.8.v20121106)
+
+
+
+
+
+

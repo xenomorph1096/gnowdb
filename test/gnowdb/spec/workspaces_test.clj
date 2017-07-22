@@ -128,7 +128,6 @@
      )
     )
 
-
   (testing "Error in setting group type of a group workspace."
     (setGroupType :groupName "group1" :adminName "user1" :groupType "Private")
     (is 
@@ -138,36 +137,50 @@
      )
     )
 
+  (testing "instantiating group workspace with a pre-existing name"
+    (is (= "WorkspaceNameException:Workspace with name user already exists."
+           (try 
+             (instantiateGroupWorkspace :displayName "user1" :description "GDB_Test")
+             (catch Exception e (.getMessage e))
+             )
+           )
+        )
+    )
+
   (deleteDetachNodes :labels ["GDB_GroupWorkspace"] :parameters {"GDB_Description" "GDB_Test"})
   (deleteDetachNodes :labels ["GDB_PersonalWorkspace"] :parameters {"GDB_Description" "GDB_Test"})
   )
 
-
-
 (deftest instantiatePersonalWorkspace-test
   (instantiatePersonalWorkspace :displayName "user" :memberOfGroup "Gnowledge" :createdBy "user1" :description "GDB_Test")
   (testing "Error in instantiating a personal workspace"
-    (is (= 1
-           (first (getClassInstances :className "GDB_PersonalWorkspace" :parameters {"GDB_DisplayName" "user"} :count? true))
+    (is (= [1] 
+           (getClassInstances :className "GDB_PersonalWorkspace" :parameters {"GDB_DisplayName" "user"} :count? true)
            )
-
         )
     )
   (testing "Error in instantiating a personal workspace  when it already exists"
     (instantiatePersonalWorkspace :displayName "user" :memberOfGroup "Gnowledge" :createdBy "user1" :description "GDB_Test")
-    (is (= 1
-           (first (getClassInstances :className "GDB_PersonalWorkspace" :parameters {"GDB_DisplayName" "user"} :count? true))
+    (is (= [1] 
+           (getClassInstances :className "GDB_PersonalWorkspace" :parameters {"GDB_DisplayName" "user"} :count? true)
            )
         )
-
     )
   (testing "Error in instantiating a personal workspace which already exists but was created by a different user"
     (instantiatePersonalWorkspace :displayName "user" :memberOfGroup "Gnowledge" :createdBy "user2" :description "GDB_Test")
-    (is (= 1 
-           (first (getClassInstances :className "GDB_PersonalWorkspace" :parameters {"GDB_DisplayName" "user"} :count? true))
+    (is (= [1] 
+           (getClassInstances :className "GDB_PersonalWorkspace" :parameters {"GDB_DisplayName" "user"} :count? true)
            )
         )
     )
-  
+  (testing "instantiating personal workspace with a pre-existing name"
+    (is (= "WorkspaceNameException:Workspace with name user already exists."
+           (try 
+             (instantiatePersonalWorkspace :displayName "user" :memberOfGroup "Gnowledge" :createdBy "user2" :description "GDB_Test")
+             (catch Exception e (.getMessage e))
+             )
+           )
+        )
+    )
   (deleteDetachNodes :labels ["GDB_PersonalWorkspace"] :parameters {"GDB_Description" "GDB_Test"})		
   )

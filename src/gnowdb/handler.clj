@@ -9,14 +9,24 @@
             [ring.middleware.json :refer [wrap-json-params]]
             [ring.util.response :refer [response]]
             [ring.middleware.json :refer [wrap-json-response]]
+            [ring.middleware.session :refer [wrap-session]]
+
             [compojure.handler :as handler]
             [compojure.route :as route]
+            
             [gnowdb.routes.gneo :refer [gneo-routes]]
             [gnowdb.routes.workspaces :refer [workspaces-routes]]
             [gnowdb.routes.files :refer [files-routes]]
-            [cemerick.friend.credentials :as creds]
-            [gnowdb.authentication.middleware.auth :as auth]
-            [gnowdb.authentication.resources :as r :refer :all]))
+            [gnowdb.routes.login :refer [login-routes]]
+
+            [gnowdb.users :as users :refer (users)]
+            
+            [cemerick.friend :as friend]
+            (cemerick.friend [workflows :as workflows]
+                             [credentials :as creds])
+
+
+            ))
 
 (defn init []
   (println "liberator-service is starting"))
@@ -31,33 +41,21 @@
 
 
 
-(def users
-  "dummy in-memory user database."
-  
-  {
-    "a" {   :username "a"
-            :password (creds/hash-bcrypt "abc")
-            :roles #{:admin}
-        }
-   
-    "d" {   :username "d"
-            :password (creds/hash-bcrypt "def")
-            :roles #{:user}
-        }
-  }
-)
-
-
 (def app
-  (-> (routes gneo-routes workspaces-routes files-routes app-routes)
-      (handler/site)
-      (wrap-json-params)
-      (wrap-params)
+  (-> (routes gneo-routes workspaces-routes files-routes login-routes app-routes)  
+      
+      (friend/authenticate {:credential-fn (partial creds/bcrypt-credential-fn @users)
+                            :workflows [(workflows/interactive-form)]
+                            :allow-anon? true
+                            :login-uri "/login"
+                            :default-landing-uri "/api"})  
       (wrap-keyword-params)
-      (wrap-nested-params)
-      (auth/friend-middleware users)
+      (wrap-params)      
+      (wrap-nested-params) 
+      (wrap-json-params) 
+      (wrap-session)    
+      (handler/site)
    ))
-
 
 
 

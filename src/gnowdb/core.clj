@@ -58,7 +58,6 @@
                     :rcsEnabled true
                     :data-storage-levels 3
                     :rcs-directory "rcs-repo"
-                    :rcs-bkp-dir "rcs-bkp"
                     :rcs-dir-levels 3
                     }
         ]

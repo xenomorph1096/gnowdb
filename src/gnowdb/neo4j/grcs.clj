@@ -223,7 +223,7 @@
   "Get rlog for a UUID"
   [& {:keys [:GDB_UUID]}]
   (rcs-rlog GDB_UUID
-            :dir (derivePath :GDB_UUID GDB_UUID)))
+            (derivePath :GDB_UUID GDB_UUID)))
 
 (defn rlog-sc
   []
@@ -248,33 +248,6 @@
   []
   (if (rcs-sc-Exists?)
     (revList-rcs (rlog-sc))))
-
-(defn backupNode
-  "Move deleted node from :rcs-directory to :rcs-bkp-dir."
-  [& {:keys [:GDB_UUID]}]
-  (if (rcsExists? :GDB_UUID GDB_UUID)
-    (do
-      (shell/sh "mkdir" "-p" (derivePath :GDB_UUID GDB_UUID
-                                         :bkp? true))
-      (shell/sh "mv"
-                (str (deriveFilePath :GDB_UUID GDB_UUID
-                                     :bkp? false) ",v")
-                (derivePath :GDB_UUID GDB_UUID :bkp? true)))
-    nil))
-
-(defn restoreNode
-  "Move deleted node from :rcs-bkp-dir to :rcs-directory."
-  [& {:keys [:GDB_UUID]}]
-  (if (rcsExists? :GDB_UUID GDB_UUID
-                  :bkp? true)
-    (do
-      (shell/sh "mkdir" "-p" (derivePath :GDB_UUID GDB_UUID
-                                         :bkp? false))
-      (shell/sh "mv"
-                (str (deriveFilePath :GDB_UUID GDB_UUID
-                                     :bkp? true) ",v")
-                (derivePath :GDB_UUID GDB_UUID :bkp? false)))
-    nil))
 
 (defn doRCS
   "Perform RCS on a file using UUID
@@ -312,6 +285,17 @@
     nil
     )
   )
+
+(defn markNodeAsDeleted
+  "Set content of rcs file to nil"
+  [& {:keys [:GDB_UUID]}]
+  (if (rcsExists? :GDB_UUID GDB_UUID)
+    (do (doRCS :GDB_UUID GDB_UUID
+               :newContent {:node {:labels []
+                                   :properties {}}
+                            :inRelations #{}
+                            :deleted? true}))
+    nil))
 
 (defn revisionSchema
   [newSchema]

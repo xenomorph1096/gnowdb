@@ -3,7 +3,7 @@
   (:require [clojure.set :as clojure.set]
             [clojure.java.io :as io]
             [clojure.string :as clojure.string]
-            [gnowdb.neo4j.grcs :as grcs :only [backupNode
+            [gnowdb.neo4j.grcs :as grcs :only [markNodeAsDeleted
                                                revisionSchema]]
             [gnowdb.neo4j.grcs_locks :as grcs_locks :only [queueUUIDs]])
   (:use [gnowdb.neo4j.gqb]))
@@ -184,7 +184,7 @@
                                                          :tx tx)
                                            :labels (umap :labels))))
                 (RCSUUIDListMap :RCSUUIDList)))
-    (doall (pmap #(grcs/backupNode :GDB_UUID %) (ruuidlistm :RCSBkpList)))))
+    (doall (pmap #(grcs/markNodeAsDeleted :GDB_UUID %) (ruuidlistm :RCSBkpList)))))
 
 (defn pList
   [stList]

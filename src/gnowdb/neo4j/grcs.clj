@@ -17,10 +17,6 @@
   (def ^{:private true} neo4j-schema-filepath (str (details :rcs-directory) "/" neo4j-schema-filename))
   )
 
-(defn eg
-  []
-  neo4j-schema-filepath)
-
 (defn isRevision?
   [str]
   (not (empty? (re-find #"^[1-9]+\.[1-9]+$" str))))
@@ -140,6 +136,20 @@
   (rcs-ci neo4j-schema-filename
           (rcsConfig :rcs-directory)
           edit-comment))
+
+(defn getRevisionedNodes
+  "Get UUIDs of nodes in :rcs-directory.
+  ie, get nodes under revision control.
+  WARNING: blindly looks at all files ending in ',v' except schema file"
+  []
+  (pmap #((clojure.string/split % #",v") 0) (filter #(not (= % (str
+                      neo4j-schema-filename
+                      ",v")))
+          (re-seq #".*,v"
+                  ((shell/sh "ls"
+                             "-R"
+                             :dir (rcsConfig :rcs-directory))
+                   :out)))))
 
 (defn rcs-co-p
   "Display version x.y of a file, or latest revision on or before :date

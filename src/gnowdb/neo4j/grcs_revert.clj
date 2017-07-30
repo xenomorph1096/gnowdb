@@ -13,7 +13,9 @@
             [gnowdb.neo4j.gneo :as gneo :only [revertNode
                                                revertRelation
                                                deleteRelation
-                                               mergeRelation]]
+                                               mergeRelation
+                                               reduceQueryColl
+                                               createNewNode]]
             [gnowdb.neo4j.gdriver :as gdriver :only [getNBH
                                                      getSchema]]
             [gnowdb.neo4j.gqb :as gqb]))
@@ -27,22 +29,27 @@
   :getLatest? to be used if latestRevision is to be fetched using latest rcs revision of node"
   [& {:keys [:UUID
              :rev
+             :date
              :latestRevision
              :getLatest?
              :getNBH?
              :execute?]
       :or {:execute? false
            :getLatest? false
+           :rev ""
+           :date ""
            :getNBH? false}}]
   {:pre [(or getLatest?
              getNBH?
              latestRevision)
          (grcs/rcsExists? :GDB_UUID UUID)
          ;; TODO : uncomment this line after a proper regex pattern for rcs revision numbers is established
-         (contains? (grcs/revList :GDB_UUID UUID) rev)
+         (or (contains? (grcs/revList :GDB_UUID UUID) rev)
+             (not (nil? date)))
          ]}
   (let [oldRevision (read-string (grcs/co-p :GDB_UUID UUID
-                                            :rev rev))
+                                            :rev rev
+                                            :date date))
         fr (if getNBH?
              ((gdriver/getNBH :UUIDList [UUID]) UUID)
              (if getLatest?
@@ -148,17 +155,22 @@
 (defn revertSchema
   "Revert neo4j schema to older revision"
   [& {:keys [:rev
+             :date
              :getLatest?
              :getSchema?
              :execute?]
       :or {:getLatest? false
            :getSchema? false
-           :execute? false}}]
+           :execute? false
+           :rev ""
+           :date ""}}]
   {:pre [(or getLatest?
              getSchema?)
          (grcs/rcs-sc-Exists?)
-         (contains? (grcs/revList-sc) rev)]}
-  (let [oldRevision (read-string (grcs/co-p-sc :rev rev))
+         (or (contains? (grcs/revList-sc) rev)
+             (not (= "" date)))]}
+  (let [oldRevision (read-string (grcs/co-p-sc :rev rev
+                                               :date date))
         latestRevision (if getLatest?
                          (read-string (grcs/getLatest-sc))
                          (gdriver/getSchema))
@@ -174,4 +186,66 @@
                                   addConstraints)]
     (if execute?
       (apply gdriver/runQuery constraintQueries)
-      constraintQueries)))
+      {:remConstraints remConstraints
+       :addConstraints addConstraints})))
+
+(defn revertSubGraph
+  [& {:keys [:UUIDList
+             :date
+             :getLatest?
+             :getNBH?
+             :execute?
+             :revertSchema?]
+      :or {:UUIDList []
+           :date ""
+           :getLatest? true
+           :getNBH? false
+           :revertSchema? false
+           :execute? false}}]
+  {:pre [(coll? UUIDList)
+         (not (empty? UUIDList))
+         (not (= "" date))
+         (every? string? UUIDList)
+         (or getNBH?
+             getLatest?)]}
+  (let [missingNodes (into #{} (filter (fn
+                                         [UUID]
+                                         (let [fr (if getNBH?
+                                                    ((gdriver/getNBH :UUIDList [UUID]) UUID)
+                                                    (read-string (grcs/getLatest :GDB_UUID UUID)))
+                                               or (read-string (grcs/co-p :GDB_UUID UUID
+                                                                          :date date))]
+                                           (and (if (nil? fr)
+                                                  true
+                                                  fr)
+                                                (not (or :deleted?)))))
+                                       UUIDList))
+        revertNodes (clojure.set/difference (into #{} UUIDList)
+                                            missingNodes)
+        constraintQueries (if revertSchema?
+                            (revertSchema :date date
+                                          :getLatest? getLatest?
+                                          :getSchema? getNBH?
+                                          :execute? false)
+                            {})
+        rvLR (if getLatest?
+               nil
+               (gdriver/getNBH :UUIDList revertNodes))
+        revertQueries (concat (gneo/reduceQueryColl (pmap #(revertNode :UUID %
+                                                                       :date date
+                                                                       :getLatest? getLatest?
+                                                                       :getNBH? getNBH?
+                                                                       :exeute? false)
+                                                          missingNodes))
+                              (gneo/reduceQueryColl (pmap #(revertNode :UUID %
+                                                                       :date date
+                                                                       :getLatest? getLatest?
+                                                                       :getNBH? getNBH?
+                                                                       :execute? false)
+                                                          revertNodes)))
+        transactions (filter identity [(constraintQueries :remConstraints)
+                                       revertQueries
+                                       (constraintQueries :addConstraints)])]
+    (if execute?
+      (apply gdriver/runTransactions transactions)
+      transactions)))

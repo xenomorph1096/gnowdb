@@ -14,7 +14,7 @@
                                    :rcs-bkp-dir (details :rcs-bkp-dir)
                                    }
     )
-  (def ^{:private true} neo4j-schema-filepath (str (details :rcs-directory) "/" neo4j-schema-filename))
+  (def ^{:private true} neo4j-schema-filepath (str (details :rcs-directory) "/" neo4j-schema-filename)) 
   )
 
 (defn isRevision?
@@ -174,9 +174,15 @@
                 :dir dir]
         result (apply shell/sh args-r)
         ]
-    (if (= (:exit result) 0)
-      (:out result)
-      (throw (Exception. (:err result))))))
+    (if (= (result :exit) 0)
+      (result :out)
+      (if (.contains (result :err) "No revision on branch 1 has a date before")
+        (with-out-str (clojure.pprint/pprint {:node {:labels []
+                                                     :properties {}}
+                                              :inRelations #{}
+                                              :deleted? true
+                                              :rcsExists? false}))
+        (throw (Exception. (result :err)))))))
 
 (defn co-p
   [& {:keys [:GDB_UUID

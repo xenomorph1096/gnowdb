@@ -175,6 +175,8 @@
              :characteristicString]
       :or {:characteristicString ""
            :editPropertyList []}}]
+  (if (not (coll? editPropertyList))
+    (println editPropertyList))
   {:pre [(string? varName)
          (coll? editPropertyList)
          (every? string? editPropertyList)]}

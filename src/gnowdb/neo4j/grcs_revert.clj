@@ -61,13 +61,17 @@
                           :inRelations #{}
                           :deleted? true}
                          fr)]
-    (if (= latestRevision oldRevision)
+    (if (or (= latestRevision oldRevision)
+            (and (latestRevision :deleted?)
+                 (oldRevision :deleted?)))
       nil
-      (if (oldRevision :deleted?)
+      (if (and (oldRevision :deleted?)
+               (not (latestRevision :deleted?)))
         (gneo/deleteDetachNodes :labels ((latestRevision :node) :labels)
                                 :parameters ((latestRevision :node) :properties)
                                 :execute? execute?)
-        (if (latestRevision :deleted?)
+        (if (and (latestRevision :deleted?)
+                 (not (oldRevision :deleted?)))
           (let [nodeCreateQuery (gneo/createNewNode :uuid? false
                                                     :labels ((oldRevision :node) :labels)
                                                     :parameters ((oldRevision :node) :properties)
@@ -208,44 +212,43 @@
          (every? string? UUIDList)
          (or getNBH?
              getLatest?)]}
-  (let [missingNodes (into #{} (filter (fn
-                                         [UUID]
-                                         (let [fr (if getNBH?
-                                                    ((gdriver/getNBH :UUIDList [UUID]) UUID)
-                                                    (read-string (grcs/getLatest :GDB_UUID UUID)))
-                                               or (read-string (grcs/co-p :GDB_UUID UUID
-                                                                          :date date))]
-                                           (and (if (nil? fr)
-                                                  true
-                                                  fr)
-                                                (not (or :deleted?)))))
-                                       UUIDList))
-        revertNodes (clojure.set/difference (into #{} UUIDList)
-                                            missingNodes)
-        constraintQueries (if revertSchema?
-                            (revertSchema :date date
-                                          :getLatest? getLatest?
-                                          :getSchema? getNBH?
-                                          :execute? false)
-                            {})
-        rvLR (if getLatest?
-               nil
-               (gdriver/getNBH :UUIDList revertNodes))
-        revertQueries (concat (gneo/reduceQueryColl (pmap #(revertNode :UUID %
-                                                                       :date date
-                                                                       :getLatest? getLatest?
-                                                                       :getNBH? getNBH?
-                                                                       :exeute? false)
-                                                          missingNodes))
-                              (gneo/reduceQueryColl (pmap #(revertNode :UUID %
-                                                                       :date date
-                                                                       :getLatest? getLatest?
-                                                                       :getNBH? getNBH?
-                                                                       :execute? false)
-                                                          revertNodes)))
-        transactions (filter identity [(constraintQueries :remConstraints)
-                                       revertQueries
-                                       (constraintQueries :addConstraints)])]
+  (let [UUIDMap (apply merge (pmap #(-> {% 1}) UUIDList))
+        uuidlset (into #{} UUIDList)
+        UUIDPriorityMap (reduce (fn [umap
+                                     uuid]
+                                  (let [nbh (read-string (grcs/co-p :GDB_UUID uuid
+                                                                    :date date))
+                                        dependentUUIDs (filter #(contains? uuidlset %)
+                                                               (map #(% "fromUUID")
+                                                                    (nbh :inRelations)))]
+                                    (reduce #(update %1
+                                                     %2
+                                                     (fn [a b]
+                                                       (if (nil? a)
+                                                         b
+                                                         (+ a b)))
+                                                     1)
+                                            umap
+                                            dependentUUIDs)))
+                                UUIDMap
+                                UUIDList)
+        sortedUUIDList (sort #(> (UUIDPriorityMap %1)
+                                 (UUIDPriorityMap %2)) UUIDList)
+        dataQueries (gneo/reduceQueryColl (pmap #(revertNode :UUID %
+                                                             :date date
+                                                             :getLatest? getLatest?
+                                                             :getNBH? getNBH?
+                                                             :execute? false) sortedUUIDList))
+        schemaQueries (if revertSchema?
+                        (revertSchema :getLatest? getLatest?
+                                      :getSchema? getNBH?
+                                      :date date
+                                      :execute? false)
+                        {:remConstraints []
+                         :addConstraints []})
+        transactions [(schemaQueries :remConstraints)
+                      dataQueries
+                      (schemaQueries :addConstraints)]]
     (if execute?
       (apply gdriver/runTransactions transactions)
       transactions)))

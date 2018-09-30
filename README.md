@@ -1,3 +1,6 @@
+#Moved to gitlab
+https://gitlab.com/Ev3ryDay1sL3gDay/gnowdb
+
 # gnowdb
 
 A Clojure library / gnowdb is an implementation of gnowsys
